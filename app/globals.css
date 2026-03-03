@@ -93,19 +93,48 @@ h3 {
   border-radius: 0.75rem;
   padding: 1.25rem;
   cursor: grab;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
   position: relative;
   overflow: hidden;
+  animation: slideUp 0.5s ease-out backwards;
 }
 
 .card:hover {
-  transform: translateY(-4px) scale(1.02);
+  transform: translateY(-6px) scale(1.01);
   border-color: var(--primary);
-  box-shadow: 0 0 20px rgba(99, 102, 241, 0.2);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.4), 0 0 15px rgba(99, 102, 241, 0.2);
 }
 
-.card:active {
-  cursor: grabbing;
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.kanban-container {
+  display: flex;
+  gap: 2rem;
+  padding: 2rem;
+  overflow-x: auto;
+  min-height: calc(100vh - 120px);
+  width: 100%;
+  animation: fadeIn 0.8s ease-out;
 }
 
 .card-tag {
