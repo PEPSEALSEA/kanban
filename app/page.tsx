@@ -222,6 +222,15 @@ export default function StudyFlow() {
     if (ok) await fetchData();
   };
 
+  const extractDriveId = (url: string) => {
+    if (!url || !url.includes('http')) return null;
+    // Handles lh3.googleusercontent.com/u/d/ID or drive.google.com/file/d/ID/view
+    const parts = url.split('/');
+    const dIdx = parts.indexOf('d');
+    if (dIdx !== -1 && parts[dIdx + 1]) return parts[dIdx + 1];
+    return null;
+  };
+
   const columns = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -510,8 +519,18 @@ export default function StudyFlow() {
                                     {user?.email === student.email && (
                                       <button
                                         onClick={async () => {
-                                          if (!confirm("Remove this attachment?")) return;
-                                          setLoadingAction("Removing attachment...");
+                                          if (!confirm("Remove this attachment? This will also delete it from Drive.")) return;
+                                          setLoadingAction("Deleting from Drive & Syncing...");
+
+                                          // 1. Physically delete from Drive
+                                          const driveId = extractDriveId(item);
+                                          if (driveId) {
+                                            try {
+                                              await fetch(`${UPLOAD_WEB_APP_URL}?action=deleteFiles&driveIds=${driveId}`, { method: 'POST', mode: 'no-cors' });
+                                            } catch (e) { console.error("Drive delete failed", e); }
+                                          }
+
+                                          // 2. Remove from Spreadsheet
                                           const remaining = student.proof?.split(',').filter(u => u !== item).join(',') || "";
                                           try {
                                             await fetch(GAS_WEB_APP_URL, {
@@ -521,7 +540,7 @@ export default function StudyFlow() {
                                                 email: user.email,
                                                 homework_id: String(activeHomework.id),
                                                 status: 'done',
-                                                image_url: remaining || ' ' // send space to clear if empty
+                                                image_url: remaining || ' '
                                               })
                                             });
                                             fetchData();
