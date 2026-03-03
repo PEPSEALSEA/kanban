@@ -36,7 +36,13 @@ type Homework = {
 };
 
 export default function StudyFlow() {
-  const [user, setUser] = useState<UserInfo | null>(null);
+  const [user, setUser] = useState<UserInfo | null>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('homework_user');
+      return saved ? JSON.parse(saved) : null;
+    }
+    return null;
+  });
   const [allHomework, setAllHomework] = useState<Homework[]>([]);
   const [allUsers, setAllUsers] = useState<UserInfo[]>([]);
   const [allProgress, setAllProgress] = useState<ProgressItem[]>([]);
@@ -47,21 +53,12 @@ export default function StudyFlow() {
   const [activeHomework, setActiveHomework] = useState<Homework | null>(null);
   const [shareText, setShareText] = useState("");
 
-  // Load user from localStorage
-  useEffect(() => {
-    const savedUser = localStorage.getItem('homework_user');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
-  }, []);
-
-  const fetchData = useCallback(async (email?: string) => {
+  const fetchData = useCallback(async () => {
     setIsLoading(true);
     setLoadingAction("Synchronizing with Cloud...");
     try {
-      const action = email ? 'listWithProgress' : 'list';
       const [hwRes, usersRes, progressRes] = await Promise.all([
-        fetch(`${GAS_WEB_APP_URL}?action=${action}${email ? `&email=${encodeURIComponent(email)}` : ''}`).then(r => r.json()),
+        fetch(`${GAS_WEB_APP_URL}?action=list`).then(r => r.json()),
         fetch(`${GAS_WEB_APP_URL}?action=users`).then(r => r.json()),
         fetch(`${GAS_WEB_APP_URL}?action=allProgress`).then(r => r.json())
       ]);
@@ -78,8 +75,23 @@ export default function StudyFlow() {
   }, []);
 
   useEffect(() => {
-    fetchData(user?.email);
-  }, [user, fetchData]);
+    fetchData();
+  }, [fetchData]);
+
+  // Derived state: Homework with computed status based on current user's progress
+  const homeworkWithStatus = useMemo(() => {
+    return allHomework.map(hw => {
+      const userProgress = allProgress.find(p =>
+        String(p.email).toLowerCase() === String(user?.email).toLowerCase() &&
+        String(p.homework_id) === String(hw.id)
+      );
+      return {
+        ...hw,
+        my_status: (userProgress?.status || 'pending') as 'pending' | 'in_progress' | 'done',
+        // If progress entry has an image URL but the main hw doesn't, we can link it here if needed
+      };
+    });
+  }, [allHomework, allProgress, user]);
 
   const handleLoginSuccess = async (credentialResponse: any) => {
     const decoded: any = jwtDecode(credentialResponse.credential);
@@ -101,7 +113,7 @@ export default function StudyFlow() {
           photo_url: newUser.picture
         })
       });
-      fetchData(newUser.email);
+      fetchData();
     } catch (e) { console.error(e); }
   };
 
@@ -176,7 +188,7 @@ export default function StudyFlow() {
         })
       });
       // Refresh data to get latest from server
-      fetchData(user.email);
+      await fetchData();
     } catch (e) {
       console.error(e);
     } finally {
@@ -207,7 +219,7 @@ export default function StudyFlow() {
     if (!file) return;
 
     const ok = await handleFileUpload(file, hwId, currentStatus);
-    if (ok) fetchData(user.email);
+    if (ok) await fetchData();
   };
 
   const columns = useMemo(() => {
@@ -215,7 +227,7 @@ export default function StudyFlow() {
     today.setHours(0, 0, 0, 0);
 
     const categorized = { soon: [] as Homework[], week: [] as Homework[], backlog: [] as Homework[] };
-    allHomework.forEach(hw => {
+    homeworkWithStatus.forEach(hw => {
       const deadline = new Date(hw.deadline);
       const diffTime = deadline.getTime() - today.getTime();
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -235,7 +247,7 @@ export default function StudyFlow() {
       week: categorized.week.sort(sortFn),
       backlog: categorized.backlog.sort(sortFn)
     };
-  }, [allHomework]);
+  }, [homeworkWithStatus]);
 
   const getFinishedUsers = (hwId: string) => {
     const finishedWithProgress = allProgress
@@ -403,7 +415,7 @@ export default function StudyFlow() {
                           if (file && user) {
                             setIsUploading(true);
                             await handleFileUpload(file, activeHomework.id, 'done');
-                            fetchData(user.email);
+                            fetchData();
                           }
                         }} />
                       </label>
@@ -424,7 +436,7 @@ export default function StudyFlow() {
                               })
                             });
                             setShareText("");
-                            fetchData(user.email);
+                            fetchData();
                           } catch (e) {
                             console.error(e);
                           } finally {
@@ -446,7 +458,10 @@ export default function StudyFlow() {
                           <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Finished</span>
                         </div>
                         {student.proof && student.proof.startsWith('http') ? (
-                          <img src={student.proof} style={{ width: '100%', borderRadius: '0.5rem', marginTop: '0.5rem', maxHeight: '300px', objectFit: 'contain' }} alt="Proof" />
+                          <div style={{ position: 'relative', marginTop: '0.5rem' }}>
+                            <img src={student.proof} style={{ width: '100%', borderRadius: '0.5rem', maxHeight: '300px', objectFit: 'contain' }} alt="Proof" />
+                            <a href={student.proof} target="_blank" rel="noreferrer" style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(0,0,0,0.6)', padding: '5px 10px', borderRadius: '5px', fontSize: '0.7rem', color: '#fff' }}>Open Original ↗</a>
+                          </div>
                         ) : (
                           <p style={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.7)', marginTop: '0.5rem' }}>{student.proof}</p>
                         )}
@@ -460,7 +475,13 @@ export default function StudyFlow() {
                 <h3 style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>Status</h3>
                 {user && (
                   <button
-                    onClick={(e) => toggleComplete(e, activeHomework.id, activeHomework.my_status)}
+                    onClick={async (e) => {
+                      await toggleComplete(e, activeHomework.id, activeHomework.my_status);
+                      // Update the local modal state too
+                      const currentStatus = activeHomework.my_status;
+                      const nextStatus = currentStatus === 'done' ? 'pending' : 'done';
+                      setActiveHomework(prev => prev ? { ...prev, my_status: nextStatus as any } : null);
+                    }}
                     style={{
                       padding: '1rem', borderRadius: '1rem', background: activeHomework.my_status === 'done' ? '#10b981' : 'rgba(255,255,255,0.05)',
                       border: 'none', color: '#fff', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
