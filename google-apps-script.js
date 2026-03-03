@@ -37,6 +37,10 @@ function doOptions() {
 
 function doPost(e) {
     try {
+        if (!e.postData || !e.postData.contents) {
+            throw new Error("No data received in request body");
+        }
+
         const body = JSON.parse(e.postData.contents);
         const action = body.action;
         let result;
@@ -62,9 +66,6 @@ function doPost(e) {
 function _json(obj) {
     const output = ContentService.createTextOutput(JSON.stringify(obj));
     output.setMimeType(ContentService.MimeType.JSON);
-    output.setHeader("Access-Control-Allow-Origin", "*");
-    output.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-    output.setHeader("Access-Control-Allow-Headers", "Content-Type");
     return output;
 }
 

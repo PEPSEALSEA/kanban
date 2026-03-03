@@ -89,7 +89,6 @@ export default function StudyFlow() {
     try {
       await fetch(GAS_WEB_APP_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'addUser',
           email: newUser.email,
@@ -127,10 +126,10 @@ export default function StudyFlow() {
       await fetch(
         `${UPLOAD_WEB_APP_URL}?action=uploadProof&email=${encodeURIComponent(user?.email || '')}&homework_id=${encodeURIComponent(String(homeworkId))}&status=${encodeURIComponent(status)}&filename=${encodeURIComponent(file.name)}&contentType=${encodeURIComponent(file.type)}`,
         {
-        method: 'POST',
-        mode: 'no-cors',
-        body: base64Data
-      }
+          method: 'POST',
+          mode: 'no-cors',
+          body: base64Data
+        }
       );
       return true;
     } catch (error) {
@@ -187,7 +186,6 @@ export default function StudyFlow() {
     try {
       await fetch(GAS_WEB_APP_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'updateProgress',
           email: user.email,

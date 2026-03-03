@@ -403,12 +403,8 @@ function createResponse(success, message, data) {
             result[key] = dataObj[key];
         }
     }
-    var output = ContentService.createTextOutput(JSON.stringify(result))
+    return ContentService.createTextOutput(JSON.stringify(result))
         .setMimeType(ContentService.MimeType.JSON);
-    output.setHeader("Access-Control-Allow-Origin", "*");
-    output.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-    output.setHeader("Access-Control-Allow-Headers", "Content-Type");
-    return output;
 }
 
 
