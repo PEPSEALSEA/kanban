@@ -7,6 +7,7 @@ import { jwtDecode } from 'jwt-decode';
 
 // --- CONFIGURATION ---
 const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwcxlw11xxkbmWFiVZUX4jRgA0Xugbwl7lnSdMi9gO0BhXY4TAgfIjqqTX_xyvwwbfwsA/exec";
+const UPLOAD_WEB_APP_URL = "https://script.google.com/macros/s/AKfycby7FOqHLZN24sWCwl7XP4maUSi_iCxEFcg6REG-F8qp2C33aJL0US1Ye8XTZ7qUBDC8fw/exec";
 const ADMIN_EMAILS = ['pepsealsea@gmail.com', 'iampep2009@gmail.com'];
 
 type UserInfo = {
@@ -19,6 +20,7 @@ type ProgressItem = {
   email: string;
   homework_id: string;
   status: string;
+  image_url?: string;
 };
 
 type Homework = {
@@ -40,6 +42,7 @@ export default function StudyFlow() {
   const [allProgress, setAllProgress] = useState<ProgressItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   // Load user from localStorage
   useEffect(() => {
@@ -86,7 +89,6 @@ export default function StudyFlow() {
     try {
       await fetch(GAS_WEB_APP_URL, {
         method: 'POST',
-        mode: 'no-cors',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'addUser',
@@ -107,10 +109,68 @@ export default function StudyFlow() {
     fetchData();
   };
 
+  const handleFileUpload = async (file: File, homeworkId: string, status: string): Promise<boolean> => {
+    setIsUploading(true);
+    try {
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve) => {
+        reader.onload = () => {
+          const base64 = (reader.result as string).split(',')[1];
+          resolve(base64);
+        };
+        reader.readAsDataURL(file);
+      });
+
+      const base64Data = await base64Promise;
+
+      // Text-only base64 body + simple request (avoid preflight). We don't need to read response.
+      await fetch(
+        `${UPLOAD_WEB_APP_URL}?action=uploadProof&email=${encodeURIComponent(user?.email || '')}&homework_id=${encodeURIComponent(String(homeworkId))}&status=${encodeURIComponent(status)}&filename=${encodeURIComponent(file.name)}&contentType=${encodeURIComponent(file.type)}`,
+        {
+        method: 'POST',
+        mode: 'no-cors',
+        body: base64Data
+      }
+      );
+      return true;
+    } catch (error) {
+      console.error("Upload failed:", error);
+      return false;
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const toggleComplete = async (e: React.MouseEvent, hwId: string, currentStatus?: string) => {
     e.stopPropagation();
     if (!user) return;
     const newStatus = currentStatus === 'done' ? 'pending' : 'done';
+
+    let imageUrl: string | undefined = undefined;
+
+    if (newStatus === 'done') {
+      // Create a hidden input to trigger file selection
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+
+      const filePromise = new Promise<File | null>((resolve) => {
+        input.onchange = (event: any) => {
+          const file = event.target.files?.[0];
+          resolve(file || null);
+        };
+        // If user cancels, we might not get an event, but that's okay, status remains 'pending'
+      });
+
+      const userConfirm = window.confirm("Do you want to upload a proof picture for this work?");
+      if (userConfirm) {
+        input.click();
+        const file = await filePromise;
+        if (file) {
+          await handleFileUpload(file, hwId, newStatus);
+        }
+      }
+    }
 
     setAllHomework(prev => prev.map(hw =>
       String(hw.id) === String(hwId) ? { ...hw, my_status: newStatus as any } : hw
@@ -119,7 +179,7 @@ export default function StudyFlow() {
     setAllProgress(prev => {
       const filtered = prev.filter(p => !(p.email === user.email && String(p.homework_id) === String(hwId)));
       if (newStatus === 'done') {
-        return [...filtered, { email: user.email, homework_id: String(hwId), status: 'done' }];
+        return [...filtered, { email: user.email, homework_id: String(hwId), status: 'done', image_url: imageUrl }];
       }
       return filtered;
     });
@@ -127,16 +187,44 @@ export default function StudyFlow() {
     try {
       await fetch(GAS_WEB_APP_URL, {
         method: 'POST',
-        mode: 'no-cors',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'updateProgress',
           email: user.email,
           homework_id: String(hwId),
-          status: newStatus
+          status: newStatus,
+          image_url: imageUrl
         })
       });
+      // Refresh data to get latest from server
+      fetchData(user.email);
     } catch (e) { console.error(e); }
+  };
+
+  const uploadOrReplaceProof = async (e: React.MouseEvent, hwId: string) => {
+    e.stopPropagation();
+    if (!user) return;
+
+    const current = allProgress.find(p => p.email === user.email && String(p.homework_id) === String(hwId));
+    const currentStatus = current?.status || 'pending';
+
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+
+    const filePromise = new Promise<File | null>((resolve) => {
+      input.onchange = (event: any) => {
+        const file = event.target.files?.[0];
+        resolve(file || null);
+      };
+    });
+
+    input.click();
+    const file = await filePromise;
+    if (!file) return;
+
+    const ok = await handleFileUpload(file, hwId, currentStatus);
+    if (ok) fetchData(user.email);
   };
 
   const columns = useMemo(() => {
@@ -167,11 +255,13 @@ export default function StudyFlow() {
   }, [allHomework]);
 
   const getFinishedUsers = (hwId: string) => {
-    const finishedEmails = allProgress
-      .filter(p => String(p.homework_id) === String(hwId) && p.status === 'done')
-      .map(p => p.email);
+    const finishedWithProgress = allProgress
+      .filter(p => String(p.homework_id) === String(hwId) && p.status === 'done');
 
-    return allUsers.filter(u => finishedEmails.includes(u.email));
+    return finishedWithProgress.map(p => {
+      const u = allUsers.find(user => user.email === p.email);
+      return u ? { ...u, proof: p.image_url } : null;
+    }).filter(u => u !== null) as (UserInfo & { proof?: string })[];
   };
 
   const isAdmin = user && ADMIN_EMAILS.includes(user.email.toLowerCase());
@@ -307,6 +397,37 @@ export default function StudyFlow() {
                             🔗 Open Assignment Link
                           </a>
                         )}
+
+                        {user && (
+                          <button
+                            onClick={(e) => uploadOrReplaceProof(e, hw.id)}
+                            disabled={isUploading}
+                            style={{
+                              width: '100%',
+                              marginTop: '0.75rem',
+                              padding: '0.85rem',
+                              borderRadius: '0.75rem',
+                              border: '1px solid rgba(255,255,255,0.12)',
+                              background: isUploading ? 'rgba(255,255,255,0.06)' : 'rgba(16, 185, 129, 0.12)',
+                              color: '#fff',
+                              fontWeight: 800,
+                              cursor: isUploading ? 'wait' : 'pointer'
+                            }}
+                          >
+                            {isUploading ? 'Uploading proof...' : '📷 Upload / Replace proof picture'}
+                          </button>
+                        )}
+
+                        {user && allProgress.find(p => p.email === user.email && String(p.homework_id) === String(hw.id))?.image_url && (
+                          <div style={{ marginTop: '1rem', textAlign: 'center' }}>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '8px' }}>Your submitted proof:</div>
+                            <img
+                              src={allProgress.find(p => p.email === user.email && String(p.homework_id) === String(hw.id))?.image_url}
+                              style={{ maxWidth: '100%', borderRadius: '0.75rem', border: '2px solid rgba(16, 185, 129, 0.3)', maxHeight: '200px', objectFit: 'contain' }}
+                              alt="Your proof"
+                            />
+                          </div>
+                        )}
                       </div>
                     )}
 
@@ -321,19 +442,34 @@ export default function StudyFlow() {
                         <div style={{ display: 'flex', alignItems: 'center' }}>
                           {completedBy.slice(0, 4).map((u, i) => (
                             <div key={u.email} style={{ position: 'relative' }} className="avatar-group">
-                              <img
-                                src={u.picture}
-                                style={{ width: '26px', height: '26px', borderRadius: '50%', border: '2px solid #1e293b', marginLeft: i === 0 ? 0 : '-10px', boxShadow: '0 4px 6px rgba(0,0,0,0.3)', cursor: 'help', transition: '0.2s z-index: 10' }}
+                              <div
+                                style={{ position: 'relative' }}
                                 onMouseEnter={(e) => {
-                                  e.currentTarget.style.transform = 'translateY(-6px) scale(1.1)';
-                                  e.currentTarget.style.zIndex = '100';
+                                  const target = e.currentTarget.querySelector('.proof-preview') as HTMLElement;
+                                  if (target) target.style.opacity = '1';
                                 }}
                                 onMouseLeave={(e) => {
-                                  e.currentTarget.style.transform = 'translateY(0) scale(1)';
-                                  e.currentTarget.style.zIndex = 'auto';
+                                  const target = e.currentTarget.querySelector('.proof-preview') as HTMLElement;
+                                  if (target) target.style.opacity = '0';
                                 }}
-                                title={u.name}
-                              />
+                              >
+                                <img
+                                  src={u.picture}
+                                  style={{ width: '26px', height: '26px', borderRadius: '50%', border: '2px solid #1e293b', marginLeft: i === 0 ? 0 : '-10px', boxShadow: '0 4px 6px rgba(0,0,0,0.3)', cursor: 'help', transition: '0.2s' }}
+                                  title={u.name}
+                                />
+                                {u.proof && (
+                                  <div className="proof-preview" style={{
+                                    position: 'absolute', bottom: '35px', left: '50%', transform: 'translateX(-50%)',
+                                    width: '120px', height: '120px', background: '#1e293b', border: '2px solid var(--primary)',
+                                    borderRadius: '8px', overflow: 'hidden', opacity: 0, pointerEvents: 'none', transition: '0.3s', zIndex: 1000,
+                                    boxShadow: '0 10px 20px rgba(0,0,0,0.5)'
+                                  }}>
+                                    <img src={u.proof} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Proof" />
+                                    <div style={{ position: 'absolute', bottom: 0, width: '100%', background: 'rgba(0,0,0,0.7)', color: '#fff', fontSize: '0.5rem', padding: '2px', textAlign: 'center' }}>Proof of completion</div>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           ))}
                           {completedBy.length > 4 && (

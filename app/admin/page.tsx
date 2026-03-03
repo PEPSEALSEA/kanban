@@ -9,6 +9,7 @@ const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwcxlw11xxkbmWF
 
 // You can add more admin emails here
 const ADMIN_EMAILS = ['pepsealsea@gmail.com', 'iampep2009@gmail.com'];
+const UPLOAD_WEB_APP_URL = "https://script.google.com/macros/s/AKfycby7FOqHLZN24sWCwl7XP4maUSi_iCxEFcg6REG-F8qp2C33aJL0US1Ye8XTZ7qUBDC8fw/exec";
 
 type UserInfo = {
     email: string;
@@ -33,6 +34,7 @@ export default function AdminPage() {
 
     const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
     const [errorMessage, setErrorMessage] = useState('');
+    const [isUploading, setIsUploading] = useState(false);
 
     useEffect(() => {
         const savedUser = localStorage.getItem('homework_user');
@@ -46,6 +48,42 @@ export default function AdminPage() {
         setIsAuthChecking(false);
     }, []);
 
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setIsUploading(true);
+        try {
+            const reader = new FileReader();
+            const base64Promise = new Promise<string>((resolve) => {
+                reader.onload = () => {
+                    const base64 = (reader.result as string).split(',')[1];
+                    resolve(base64);
+                };
+                reader.readAsDataURL(file);
+            });
+
+            const base64Data = await base64Promise;
+
+            const response = await fetch(`${UPLOAD_WEB_APP_URL}?action=upload&filename=${encodeURIComponent(file.name)}&contentType=${encodeURIComponent(file.type)}`, {
+                method: 'POST',
+                body: base64Data
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                setFormData(prev => ({ ...prev, link_image: result.url }));
+            } else {
+                alert("Upload failed: " + result.message);
+            }
+        } catch (error) {
+            console.error("Upload error:", error);
+            alert("Failed to upload image.");
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setStatus('submitting');
@@ -53,7 +91,6 @@ export default function AdminPage() {
         try {
             const response = await fetch(GAS_WEB_APP_URL, {
                 method: 'POST',
-                mode: 'no-cors',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     action: 'addHomework',
@@ -61,8 +98,11 @@ export default function AdminPage() {
                 })
             });
 
-            // Since we use no-cors, we can't reliably read the response body, 
-            // but if the fetch doesn't throw, we assume success for GAS simple triggers.
+            const result = await response.json();
+            if (!result?.success) {
+                throw new Error(result?.error || 'Backend error');
+            }
+
             setStatus('success');
             setFormData({
                 subject: 'Math',
@@ -178,14 +218,24 @@ export default function AdminPage() {
                         </div>
                         <div className="form-group">
                             <label style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.75rem', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Image URL (Optional)</label>
-                            <input
-                                type="url"
-                                placeholder="https://..."
-                                className="glass"
-                                style={{ width: '100%', padding: '0.875rem', borderRadius: '0.75rem', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid var(--card-border)', outline: 'none' }}
-                                value={formData.link_image}
-                                onChange={(e) => setFormData({ ...formData, link_image: e.target.value })}
-                            />
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                <input
+                                    type="url"
+                                    placeholder="https://..."
+                                    className="glass"
+                                    style={{ flex: 1, padding: '0.875rem', borderRadius: '0.75rem', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid var(--card-border)', outline: 'none' }}
+                                    value={formData.link_image}
+                                    onChange={(e) => setFormData({ ...formData, link_image: e.target.value })}
+                                />
+                                <label className="glass" style={{
+                                    padding: '0.875rem', borderRadius: '0.75rem', background: 'rgba(99, 102, 241, 0.1)',
+                                    border: '1px dashed var(--primary)', cursor: 'pointer', fontSize: '0.75rem',
+                                    display: 'flex', alignItems: 'center', transition: '0.2s', minWidth: '90px', justifyContent: 'center'
+                                }}>
+                                    {isUploading ? '⌛...' : '📷 Upload'}
+                                    <input type="file" accept="image/*" hidden onChange={handleFileUpload} disabled={isUploading} />
+                                </label>
+                            </div>
                         </div>
                     </div>
 

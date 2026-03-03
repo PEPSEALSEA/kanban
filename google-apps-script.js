@@ -9,6 +9,7 @@ const SHEETS = {
     HOMEWORK: "Homework",
     USERS: "Users",
     PROGRESS: "Progress",
+    URLS: "URLs",
 };
 
 function doGet(e) {
@@ -30,6 +31,10 @@ function doGet(e) {
     }
 }
 
+function doOptions() {
+    return _json({ success: true, data: "ok" });
+}
+
 function doPost(e) {
     try {
         const body = JSON.parse(e.postData.contents);
@@ -42,7 +47,7 @@ function doPost(e) {
             addUser(body.email, body.display_name, body.photo_url);
             result = "ok";
         } else if (action === "updateProgress") {
-            updateProgress(body.email, body.homework_id, body.status);
+            updateProgress(body.email, body.homework_id, body.status, body.image_url);
             result = "ok";
         } else {
             throw new Error("unknown action: " + action);
@@ -56,7 +61,10 @@ function doPost(e) {
 
 function _json(obj) {
     const output = ContentService.createTextOutput(JSON.stringify(obj));
-    output.setMimeType(ContentService.MimeType.TEXT);
+    output.setMimeType(ContentService.MimeType.JSON);
+    output.setHeader("Access-Control-Allow-Origin", "*");
+    output.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+    output.setHeader("Access-Control-Allow-Headers", "Content-Type");
     return output;
 }
 
@@ -65,6 +73,7 @@ function setupSheet() {
     _setupHomework(ss);
     _setupUsers(ss);
     _setupProgress(ss);
+    _setupUrls(ss);
 }
 
 function _setupHomework(ss) {
@@ -84,11 +93,18 @@ function _setupUsers(ss) {
 function _setupProgress(ss) {
     let sheet = ss.getSheetByName(SHEETS.PROGRESS) || ss.insertSheet(SHEETS.PROGRESS);
     sheet.clearContents();
-    sheet.getRange(1, 1, 1, 4).setValues([["email", "homework_id", "status", "updated_at"]]);
+    sheet.getRange(1, 1, 1, 5).setValues([["email", "homework_id", "status", "image_url", "updated_at"]]);
     sheet.setFrozenRows(1);
     sheet.getRange("C2:C5000").setDataValidation(
         SpreadsheetApp.newDataValidation().requireValueInList(["pending", "in_progress", "done"]).build()
     );
+}
+
+function _setupUrls(ss) {
+    let sheet = ss.getSheetByName(SHEETS.URLS) || ss.insertSheet(SHEETS.URLS);
+    sheet.clearContents();
+    sheet.getRange(1, 1, 1, 7).setValues([["ID", "Name", "Type", "URL", "Created At", "Expiry Date", "Drive ID"]]);
+    sheet.setFrozenRows(1);
 }
 
 function addHomework(subject, title, description, deadline, linkWork, linkImage, note) {
@@ -111,22 +127,25 @@ function addUser(email, displayName, photoUrl) {
     }
 }
 
-function updateProgress(email, homeworkId, status) {
+function updateProgress(email, homeworkId, status, imageUrl) {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const sheet = ss.getSheetByName(SHEETS.PROGRESS);
     if (!_isUserAllowed(ss, email)) throw new Error("email not allowed");
 
     const data = sheet.getLastRow() > 1
-        ? sheet.getRange(2, 1, sheet.getLastRow() - 1, 4).getValues()
+        ? sheet.getRange(2, 1, sheet.getLastRow() - 1, 5).getValues()
         : [];
     const rowIndex = data.findIndex(r => r[0] === email && String(r[1]) === String(homeworkId));
 
     if (rowIndex === -1) {
-        sheet.appendRow([email, homeworkId, status, new Date()]);
+        sheet.appendRow([email, homeworkId, status, imageUrl || "", new Date()]);
     } else {
         const targetRow = rowIndex + 2;
         sheet.getRange(targetRow, 3).setValue(status);
-        sheet.getRange(targetRow, 4).setValue(new Date());
+        if (imageUrl !== undefined) {
+            sheet.getRange(targetRow, 4).setValue(imageUrl || "");
+        }
+        sheet.getRange(targetRow, 5).setValue(new Date());
     }
 }
 
@@ -154,14 +173,13 @@ function getProgressByEmail(email) {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const sheet = ss.getSheetByName(SHEETS.PROGRESS);
     if (sheet.getLastRow() < 2) return [];
-    const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 4).getValues();
-
+    const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 5).getValues();
     if (email) {
         return data.filter(r => r[0] === email)
-            .map(r => ({ email: r[0], homework_id: r[1], status: r[2], updated_at: r[3] }));
+            .map(r => ({ email: r[0], homework_id: r[1], status: r[2], image_url: r[3], updated_at: r[4] }));
     }
 
-    return data.map(r => ({ email: r[0], homework_id: r[1], status: r[2], updated_at: r[3] }));
+    return data.map(r => ({ email: r[0], homework_id: r[1], status: r[2], image_url: r[3], updated_at: r[4] }));
 }
 
 function getAllProgress() {
