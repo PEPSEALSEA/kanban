@@ -75,6 +75,19 @@ function doPost(e) {
             const imageUrl = params.image_url || params.imageUrl || postData.image_url || postData.imageUrl;
             updateProgress(email, hwId, status, imageUrl);
             result = "ok";
+        } else if (action === "deleteHomework") {
+            const id = params.id || postData.id;
+            result = deleteHomework(id);
+        } else if (action === "editHomework") {
+            const id = params.id || postData.id;
+            const subject = params.subject || postData.subject;
+            const title = params.title || postData.title;
+            const description = params.description || postData.description;
+            const deadline = params.deadline || postData.deadline;
+            const link_work = params.link_work || postData.link_work;
+            const link_image = params.link_image || postData.link_image;
+            const note = params.note || postData.note;
+            result = editHomework(id, subject, title, description, deadline, link_work, link_image, note);
         } else {
             throw new Error("unknown action: " + action);
         }
@@ -245,4 +258,39 @@ function _toObjects(rows, headers) {
         headers.forEach((h, i) => { obj[h] = row[i]; });
         return obj;
     });
+}
+
+function deleteHomework(id) {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const sheet = ss.getSheetByName(SHEETS.HOMEWORK);
+    if (!sheet) return false;
+    const data = sheet.getDataRange().getValues();
+    for (let i = 1; i < data.length; i++) {
+        if (String(data[i][0]) === String(id)) {
+            sheet.deleteRow(i + 1);
+            return true;
+        }
+    }
+    return false;
+}
+
+function editHomework(id, subject, title, description, deadline, linkWork, linkImage, note) {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const sheet = ss.getSheetByName(SHEETS.HOMEWORK);
+    if (!sheet) return false;
+    const data = sheet.getDataRange().getValues();
+    for (let i = 1; i < data.length; i++) {
+        if (String(data[i][0]) === String(id)) {
+            const row = i + 1;
+            if (subject !== undefined) sheet.getRange(row, 2).setValue(subject);
+            if (title !== undefined) sheet.getRange(row, 3).setValue(title);
+            if (description !== undefined) sheet.getRange(row, 4).setValue(description);
+            if (deadline !== undefined) sheet.getRange(row, 5).setValue(deadline);
+            if (linkWork !== undefined) sheet.getRange(row, 6).setValue(linkWork);
+            if (linkImage !== undefined) sheet.getRange(row, 7).setValue(linkImage);
+            if (note !== undefined) sheet.getRange(row, 8).setValue(note);
+            return true;
+        }
+    }
+    return false;
 }

@@ -52,6 +52,8 @@ export default function StudyFlow() {
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [activeHomework, setActiveHomework] = useState<Homework | null>(null);
   const [shareText, setShareText] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState<Partial<Homework>>({});
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -222,6 +224,40 @@ export default function StudyFlow() {
     if (ok) await fetchData();
   };
 
+  const handleDeleteHomework = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this homework?")) return;
+    setLoadingAction("Deleting Homework...");
+    try {
+      await fetch(GAS_WEB_APP_URL, {
+        method: 'POST',
+        body: new URLSearchParams({ action: 'deleteHomework', id })
+      });
+      fetchData();
+      setActiveHomework(null);
+    } catch (e) { console.error(e); }
+    finally { setLoadingAction(null); }
+  };
+
+  const handleEditHomework = async () => {
+    if (!activeHomework) return;
+    setLoadingAction("Saving Changes...");
+    try {
+      await fetch(GAS_WEB_APP_URL, {
+        method: 'POST',
+        body: new URLSearchParams({
+          action: 'editHomework',
+          id: activeHomework.id,
+          ...editForm as any
+        })
+      });
+      setIsEditing(false);
+      fetchData();
+      // Update local modal data
+      setActiveHomework(prev => prev ? { ...prev, ...editForm } : null);
+    } catch (e) { console.error(e); }
+    finally { setLoadingAction(null); }
+  };
+
   const extractDriveId = (url: string) => {
     if (!url || !url.includes('http')) return null;
     // Handles lh3.googleusercontent.com/u/d/ID or drive.google.com/file/d/ID/view
@@ -385,15 +421,61 @@ export default function StudyFlow() {
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem' }}>
-              <div>
-                <span className="card-tag" style={{ backgroundColor: `${getSubjectColor(activeHomework.subject)}25`, color: getSubjectColor(activeHomework.subject), border: `1px solid ${getSubjectColor(activeHomework.subject)}40`, fontWeight: 700, fontSize: '0.8rem', marginBottom: '1rem', display: 'inline-block' }}>
-                  {activeHomework.subject}
-                </span>
-                <h2 style={{ fontSize: '2.25rem', fontWeight: 800, margin: 0 }}>{activeHomework.title}</h2>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Deadline: {new Date(activeHomework.deadline).toLocaleDateString()}</p>
+              <div style={{ flex: 1 }}>
+                {isEditing ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <div style={{ display: 'flex', gap: '1rem' }}>
+                      <input
+                        className="glass"
+                        style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '0.5rem', borderRadius: '0.5rem', flex: 1 }}
+                        value={editForm.title}
+                        onChange={e => setEditForm(prev => ({ ...prev, title: e.target.value }))}
+                        placeholder="Title"
+                      />
+                      <input
+                        className="glass"
+                        style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '0.5rem', borderRadius: '0.5rem', width: '150px' }}
+                        value={editForm.subject}
+                        onChange={e => setEditForm(prev => ({ ...prev, subject: e.target.value }))}
+                        placeholder="Subject"
+                      />
+                    </div>
+                    <input
+                      type="date"
+                      className="glass"
+                      style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '0.5rem', borderRadius: '0.5rem' }}
+                      value={editForm.deadline}
+                      onChange={e => setEditForm(prev => ({ ...prev, deadline: e.target.value }))}
+                    />
+                    <div style={{ display: 'flex', gap: '1rem' }}>
+                      <button onClick={handleEditHomework} style={{ background: 'var(--primary)', color: '#fff', border: 'none', padding: '0.5rem 1.5rem', borderRadius: '0.5rem', cursor: 'pointer', fontWeight: 700 }}>Save Changes</button>
+                      <button onClick={() => setIsEditing(false)} style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', padding: '0.5rem 1.5rem', borderRadius: '0.5rem', cursor: 'pointer' }}>Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <span className="card-tag" style={{ backgroundColor: `${getSubjectColor(activeHomework.subject)}25`, color: getSubjectColor(activeHomework.subject), border: `1px solid ${getSubjectColor(activeHomework.subject)}40`, fontWeight: 700, fontSize: '0.8rem', marginBottom: '1rem', display: 'inline-block' }}>
+                      {activeHomework.subject}
+                    </span>
+                    <h2 style={{ fontSize: '2.25rem', fontWeight: 800, margin: 0 }}>{activeHomework.title}</h2>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Deadline: {new Date(activeHomework.deadline).toLocaleDateString()}</p>
+                    {isAdmin && (
+                      <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem' }}>
+                        <button
+                          onClick={() => { setIsEditing(true); setEditForm(activeHomework); }}
+                          style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '0.4rem 1rem', borderRadius: '0.5rem', fontSize: '0.75rem', cursor: 'pointer' }}
+                        >Edit Info</button>
+                        <button
+                          onClick={() => handleDeleteHomework(activeHomework.id)}
+                          style={{ background: 'rgba(244, 63, 94, 0.1)', border: '1px solid rgba(244, 63, 94, 0.2)', color: '#f43f5e', padding: '0.4rem 1rem', borderRadius: '0.5rem', fontSize: '0.75rem', cursor: 'pointer' }}
+                        >Delete</button>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
               <button
-                onClick={() => setActiveHomework(null)}
+                onClick={() => { setActiveHomework(null); setIsEditing(false); }}
                 style={{ background: 'rgba(255,255,255,0.05)', border: 'none', color: '#fff', width: '40px', height: '40px', borderRadius: '50%', cursor: 'pointer', fontSize: '1.2rem' }}
               >✕</button>
             </div>
@@ -402,7 +484,17 @@ export default function StudyFlow() {
               <div>
                 <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>📝 Description</h3>
                 <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1.5rem', borderRadius: '1rem', color: 'rgba(255,255,255,0.8)', lineHeight: 1.6, marginBottom: '2rem' }}>
-                  {activeHomework.description || "No description provided."}
+                  {isEditing ? (
+                    <textarea
+                      className="glass"
+                      style={{ background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '1rem', borderRadius: '0.5rem', width: '100%', minHeight: '150px', outline: 'none' }}
+                      value={editForm.description}
+                      onChange={e => setEditForm(prev => ({ ...prev, description: e.target.value }))}
+                      placeholder="Description"
+                    />
+                  ) : (
+                    activeHomework.description || "No description provided."
+                  )}
                 </div>
 
                 <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>💬 Shared Files & Notes</h3>
