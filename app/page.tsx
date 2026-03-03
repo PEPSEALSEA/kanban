@@ -407,18 +407,35 @@ export default function StudyFlow() {
                       value={shareText}
                       onChange={(e) => setShareText(e.target.value)}
                     />
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <label className="glass" style={{ padding: '0.5rem 1rem', borderRadius: '0.5rem', fontSize: '0.75rem', cursor: 'pointer', background: 'rgba(255,255,255,0.05)' }}>
-                        📷 Attach Image
-                        <input type="file" hidden accept="image/*" onChange={async (e) => {
-                          const file = e.target.files?.[0];
-                          if (file && user) {
-                            setIsUploading(true);
-                            await handleFileUpload(file, activeHomework.id, 'done');
-                            fetchData();
-                          }
-                        }} />
-                      </label>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8_px' }}>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <label className="glass" style={{ padding: '0.5rem 0.75rem', borderRadius: '0.5rem', fontSize: '0.7rem', cursor: 'pointer', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          📷 Image
+                          <input type="file" multiple hidden accept="image/*" onChange={async (e) => {
+                            const files = e.target.files;
+                            if (files && files.length > 0 && user) {
+                              setIsUploading(true);
+                              for (let i = 0; i < files.length; i++) {
+                                await handleFileUpload(files[i], activeHomework.id, 'done');
+                              }
+                              fetchData();
+                            }
+                          }} />
+                        </label>
+                        <label className="glass" style={{ padding: '0.5rem 0.75rem', borderRadius: '0.5rem', fontSize: '0.7rem', cursor: 'pointer', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          📎 File
+                          <input type="file" multiple hidden onChange={async (e) => {
+                            const files = e.target.files;
+                            if (files && files.length > 0 && user) {
+                              setIsUploading(true);
+                              for (let i = 0; i < files.length; i++) {
+                                await handleFileUpload(files[i], activeHomework.id, 'done');
+                              }
+                              fetchData();
+                            }
+                          }} />
+                        </label>
+                      </div>
                       <button
                         disabled={!shareText || isUploading}
                         onClick={async () => {
@@ -443,7 +460,7 @@ export default function StudyFlow() {
                             setLoadingAction(null);
                           }
                         }}
-                        style={{ padding: '0.5rem 1.5rem', borderRadius: '0.5rem', background: 'var(--primary)', color: '#fff', border: 'none', fontWeight: 600, cursor: 'pointer', opacity: (!shareText || isUploading) ? 0.5 : 1 }}
+                        style={{ padding: '0.5rem 1.25rem', borderRadius: '0.5rem', background: 'var(--primary)', color: '#fff', border: 'none', fontWeight: 600, cursor: 'pointer', opacity: (!shareText || isUploading) ? 0.5 : 1, fontSize: '0.85rem' }}
                       >Share</button>
                     </div>
                   </div>
@@ -457,13 +474,67 @@ export default function StudyFlow() {
                           <span style={{ fontWeight: 600, fontSize: '0.85rem' }}>{student.name}</span>
                           <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Finished</span>
                         </div>
-                        {student.proof && student.proof.startsWith('http') ? (
-                          <div style={{ position: 'relative', marginTop: '0.5rem' }}>
-                            <img src={student.proof} style={{ width: '100%', borderRadius: '0.5rem', maxHeight: '300px', objectFit: 'contain' }} alt="Proof" />
-                            <a href={student.proof} target="_blank" rel="noreferrer" style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(0,0,0,0.6)', padding: '5px 10px', borderRadius: '5px', fontSize: '0.7rem', color: '#fff' }}>Open Original ↗</a>
+                        {student.proof && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.5rem' }}>
+                            {student.proof.split(',').map((item, idx) => {
+                              const isDriveFile = item.includes('drive.google.com/file/d/');
+                              const isImageThumbnail = item.includes('googleusercontent.com/u/d/');
+                              const isPlainText = !item.startsWith('http');
+
+                              if (isPlainText) {
+                                return <p key={idx} style={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.7)', padding: '0.5rem', background: 'rgba(255,255,255,0.02)', borderRadius: '0.5rem' }}>{item}</p>;
+                              }
+
+                              return (
+                                <div key={idx} style={{ position: 'relative', background: 'rgba(0,0,0,0.2)', borderRadius: '0.75rem', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                  {isImageThumbnail ? (
+                                    <img src={item} style={{ width: '100%', maxHeight: '250px', objectFit: 'contain', background: '#000' }} alt="Shared Attachment" />
+                                  ) : (
+                                    <div style={{ padding: '1.25rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                      <span style={{ fontSize: '1.5rem' }}>📄</span>
+                                      <div style={{ flex: 1 }}>
+                                        <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#fff' }}>Document Attachment</div>
+                                        <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Google Drive File</div>
+                                      </div>
+                                    </div>
+                                  )}
+                                  <div style={{ padding: '0.5rem', background: 'rgba(0,0,0,0.4)', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                                    <a
+                                      href={isImageThumbnail ? item.replace('googleusercontent.com/u/d/', 'drive.google.com/file/d/') + '/view' : item}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      style={{ fontSize: '0.7rem', color: '#fff', background: 'rgba(255,255,255,0.1)', padding: '4px 8px', borderRadius: '4px', textDecoration: 'none' }}
+                                    >
+                                      {isImageThumbnail ? 'Open Original ↗' : 'View File ↗'}
+                                    </a>
+                                    {user?.email === student.email && (
+                                      <button
+                                        onClick={async () => {
+                                          if (!confirm("Remove this attachment?")) return;
+                                          setLoadingAction("Removing attachment...");
+                                          const remaining = student.proof?.split(',').filter(u => u !== item).join(',') || "";
+                                          try {
+                                            await fetch(GAS_WEB_APP_URL, {
+                                              method: 'POST',
+                                              body: new URLSearchParams({
+                                                action: 'updateProgress',
+                                                email: user.email,
+                                                homework_id: String(activeHomework.id),
+                                                status: 'done',
+                                                image_url: remaining || ' ' // send space to clear if empty
+                                              })
+                                            });
+                                            fetchData();
+                                          } catch (e) { console.error(e); } finally { setLoadingAction(null); }
+                                        }}
+                                        style={{ fontSize: '0.7rem', color: '#ff4d4d', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px' }}
+                                      >Remove</button>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
-                        ) : (
-                          <p style={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.7)', marginTop: '0.5rem' }}>{student.proof}</p>
                         )}
                       </div>
                     </div>

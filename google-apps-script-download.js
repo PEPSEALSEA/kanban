@@ -24,6 +24,13 @@ function doOptions(e) {
     return createResponse(true, 'CORS Preflight Success');
 }
 
+/**
+ * Creates an embeddable thumbnail URL for an image in Google Drive.
+ */
+function generateImageThumbnailUrl(fileId) {
+    return "https://lh3.googleusercontent.com/u/d/" + fileId;
+}
+
 function doPost(e) {
     var debugInfo = {
         hasParameters: !!e.parameters,
@@ -151,18 +158,23 @@ function doPost(e) {
                 const file = folder.createFile(blob);
                 file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
 
+                const driveId = file.getId();
+                const thumbnail = (contentType && contentType.indexOf('image/') !== -1) ? generateImageThumbnailUrl(driveId) : null;
+                const viewUrl = 'https://drive.google.com/file/d/' + driveId + '/view';
+
                 // --- CONNECT TO MAIN SHEET ---
-                logUploadToSheet(file.getId(), file.getUrl(), filename, contentType);
+                logUploadToSheet(driveId, viewUrl, filename, contentType);
                 if (action === 'uploadProof') {
-                    _updateProgressProof(email, homeworkId, status, file.getUrl());
+                    _updateProgressProof(email, homeworkId, status, thumbnail || viewUrl);
                 }
 
                 return createResponse(true, 'Upload successful', {
-                    driveId: file.getId(),
-                    url: file.getUrl(),
-                    directUrl: 'https://drive.google.com/file/d/' + file.getId(),
+                    driveId: driveId,
+                    url: thumbnail || viewUrl,
+                    thumbnail: thumbnail,
+                    directUrl: viewUrl,
                     downloadUrl: file.getDownloadUrl(),
-                    viewUrl: file.getUrl()
+                    viewUrl: viewUrl
                 });
             } catch (e) {
                 return createResponse(false, 'Upload decoding failed: ' + e.toString());
@@ -514,29 +526,34 @@ function _updateProgressProof(email, homeworkId, status, imageUrl) {
     if (!homeworkId && homeworkId !== 0) throw new Error("missing homework_id");
 
     const ss = SpreadsheetApp.openById(SHEET_ID);
-    const users = ss.getSheetByName(MAIN_SHEETS.USERS);
     const progress = ss.getSheetByName(MAIN_SHEETS.PROGRESS);
-    if (!users) throw new Error("Users sheet not found");
     if (!progress) throw new Error("Progress sheet not found");
-
-    // basic allow-list: email must exist in Users sheet
-    const userEmails = users.getLastRow() > 1
-        ? users.getRange(2, 1, users.getLastRow() - 1, 1).getValues().map(r => String(r[0]))
-        : [];
-    if (userEmails.indexOf(email) === -1) throw new Error("email not allowed");
 
     const data = progress.getLastRow() > 1
         ? progress.getRange(2, 1, progress.getLastRow() - 1, 5).getValues()
         : [];
 
-    const idx = data.findIndex(r => String(r[0]) === String(email) && String(r[1]) === String(homeworkId));
+    const idx = data.findIndex(r => String(r[0]).toLowerCase() === String(email).toLowerCase() && String(r[1]) === String(homeworkId));
+
     if (idx === -1) {
         progress.appendRow([email, homeworkId, status || "done", imageUrl || "", new Date()]);
         return;
     }
 
     const targetRow = idx + 2;
+    const currentUrl = progress.getRange(targetRow, 4).getValue();
+
+    // Support multiple files - append if it's a new URL
+    let newUrl = imageUrl;
+    if (currentUrl && imageUrl && String(currentUrl).indexOf(imageUrl) === -1) {
+        newUrl = currentUrl + "," + imageUrl;
+    } else if (!currentUrl) {
+        newUrl = imageUrl;
+    } else {
+        newUrl = currentUrl; // already exists
+    }
+
     progress.getRange(targetRow, 3).setValue(status || "done");
-    progress.getRange(targetRow, 4).setValue(imageUrl || "");
+    progress.getRange(targetRow, 4).setValue(newUrl);
     progress.getRange(targetRow, 5).setValue(new Date());
 }
