@@ -43,6 +43,7 @@ export default function StudyFlow() {
   const [isLoading, setIsLoading] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [activeHomework, setActiveHomework] = useState<Homework | null>(null);
   const [shareText, setShareText] = useState("");
 
@@ -56,6 +57,7 @@ export default function StudyFlow() {
 
   const fetchData = useCallback(async (email?: string) => {
     setIsLoading(true);
+    setLoadingAction("Synchronizing with Cloud...");
     try {
       const action = email ? 'listWithProgress' : 'list';
       const [hwRes, usersRes, progressRes] = await Promise.all([
@@ -71,6 +73,7 @@ export default function StudyFlow() {
       console.error("Failed to fetch data:", error);
     } finally {
       setIsLoading(false);
+      setLoadingAction(null);
     }
   }, []);
 
@@ -112,6 +115,7 @@ export default function StudyFlow() {
 
   const handleFileUpload = async (file: File, homeworkId: string, status: string): Promise<boolean> => {
     setIsUploading(true);
+    setLoadingAction(`Uploading ${file.name}...`);
     try {
       const reader = new FileReader();
       const base64Promise = new Promise<string>((resolve) => {
@@ -139,6 +143,7 @@ export default function StudyFlow() {
       return false;
     } finally {
       setIsUploading(false);
+      setLoadingAction(null);
     }
   };
 
@@ -147,32 +152,6 @@ export default function StudyFlow() {
     if (!user) return;
     const newStatus = currentStatus === 'done' ? 'pending' : 'done';
 
-    let imageUrl: string | undefined = undefined;
-
-    if (newStatus === 'done') {
-      // Create a hidden input to trigger file selection
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'image/*';
-
-      const filePromise = new Promise<File | null>((resolve) => {
-        input.onchange = (event: any) => {
-          const file = event.target.files?.[0];
-          resolve(file || null);
-        };
-        // If user cancels, we might not get an event, but that's okay, status remains 'pending'
-      });
-
-      const userConfirm = window.confirm("Do you want to upload a proof picture for this work?");
-      if (userConfirm) {
-        input.click();
-        const file = await filePromise;
-        if (file) {
-          await handleFileUpload(file, hwId, newStatus);
-        }
-      }
-    }
-
     setAllHomework(prev => prev.map(hw =>
       String(hw.id) === String(hwId) ? { ...hw, my_status: newStatus as any } : hw
     ));
@@ -180,11 +159,12 @@ export default function StudyFlow() {
     setAllProgress(prev => {
       const filtered = prev.filter(p => !(p.email === user.email && String(p.homework_id) === String(hwId)));
       if (newStatus === 'done') {
-        return [...filtered, { email: user.email, homework_id: String(hwId), status: 'done', image_url: imageUrl }];
+        return [...filtered, { email: user.email, homework_id: String(hwId), status: 'done' }];
       }
       return filtered;
     });
 
+    setLoadingAction("Updating Status...");
     try {
       await fetch(GAS_WEB_APP_URL, {
         method: 'POST',
@@ -192,13 +172,16 @@ export default function StudyFlow() {
           action: 'updateProgress',
           email: user.email,
           homework_id: String(hwId),
-          status: newStatus,
-          image_url: imageUrl || ''
+          status: newStatus
         })
       });
       // Refresh data to get latest from server
       fetchData(user.email);
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingAction(null);
+    }
   };
 
   const uploadOrReplaceProof = async (e: React.MouseEvent, hwId: string) => {
@@ -268,6 +251,45 @@ export default function StudyFlow() {
 
   return (
     <main style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      {/* Global Loading Overlay */}
+      {loadingAction && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.7)',
+          backdropFilter: 'blur(12px)',
+          zIndex: 9999,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '1.5rem',
+          cursor: 'wait'
+        }}>
+          <div className="loader" style={{
+            width: '64px',
+            height: '64px',
+            border: '5px solid rgba(99, 102, 241, 0.2)',
+            borderTop: '5px solid var(--primary)',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite'
+          }}></div>
+          <div style={{
+            color: '#fff',
+            fontSize: '1.25rem',
+            fontWeight: 700,
+            letterSpacing: '0.05em',
+            background: 'linear-gradient(to right, #818cf8, #f43f5e)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            textAlign: 'center'
+          }}>
+            {loadingAction}
+          </div>
+          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.8rem', fontWeight: 500 }}>Please wait while we handle the cloud transfer.</p>
+        </div>
+      )}
+
       <header style={{ padding: '1rem 2.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.05)', backgroundColor: 'rgba(15, 23, 42, 0.8)', position: 'sticky', top: 0, backdropFilter: 'blur(10px)', zIndex: 100 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
           {!user ? (
@@ -359,6 +381,7 @@ export default function StudyFlow() {
                         disabled={!shareText || isUploading}
                         onClick={async () => {
                           if (!user) return;
+                          setLoadingAction("Posting share...");
                           try {
                             await fetch(GAS_WEB_APP_URL, {
                               method: 'POST',
@@ -372,7 +395,11 @@ export default function StudyFlow() {
                             });
                             setShareText("");
                             fetchData(user.email);
-                          } catch (e) { console.error(e); }
+                          } catch (e) {
+                            console.error(e);
+                          } finally {
+                            setLoadingAction(null);
+                          }
                         }}
                         style={{ padding: '0.5rem 1.5rem', borderRadius: '0.5rem', background: 'var(--primary)', color: '#fff', border: 'none', fontWeight: 600, cursor: 'pointer', opacity: (!shareText || isUploading) ? 0.5 : 1 }}
                       >Share</button>
@@ -574,6 +601,7 @@ export default function StudyFlow() {
       <style jsx>{`
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .card:hover { transform: translateY(-4px); box-shadow: 0 12px 25px rgba(0,0,0,0.5); border-color: rgba(255,255,255,0.2) !important; }
         .card.expanded { background: rgba(30, 41, 59, 0.95) !important; box-shadow: 0 20px 40px rgba(0,0,0,0.6); }
       `}</style>

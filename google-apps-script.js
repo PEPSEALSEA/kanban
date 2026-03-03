@@ -143,8 +143,12 @@ function addHomework(subject, title, description, deadline, linkWork, linkImage,
 }
 
 function addUser(email, displayName, photoUrl) {
+    if (!email) return;
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    const sheet = ss.getSheetByName(SHEETS.USERS);
+    let sheet = ss.getSheetByName(SHEETS.USERS) || ss.insertSheet(SHEETS.USERS);
+    if (sheet.getLastRow() === 0) {
+        sheet.appendRow(["email", "display_name", "photo_url", "created_at"]);
+    }
     const existingRow = _getUserRow(sheet, email);
     if (existingRow) {
         // Update name and photo if they changed
@@ -229,8 +233,9 @@ function _isUserAllowed(ss, email) {
 }
 
 function _getUserRow(sheet, email) {
-    if (sheet.getLastRow() < 2) return null;
-    const idx = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues().findIndex(r => r[0] === email);
+    if (!sheet || sheet.getLastRow() < 2) return null;
+    const emailToFind = String(email).toLowerCase();
+    const idx = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues().findIndex(r => String(r[0]).toLowerCase() === emailToFind);
     return idx === -1 ? null : idx + 2;
 }
 
