@@ -251,8 +251,8 @@ export default function StudyFlow() {
 
   return (
     <main style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      {/* Global Loading Overlay */}
-      {loadingAction && (
+      {/* Global Loading Overlay (for critical actions) */}
+      {loadingAction && loadingAction !== "Synchronizing with Cloud..." && (
         <div style={{
           position: 'fixed',
           inset: 0,
@@ -287,6 +287,36 @@ export default function StudyFlow() {
             {loadingAction}
           </div>
           <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.8rem', fontWeight: 500 }}>Please wait while we handle the cloud transfer.</p>
+        </div>
+      )}
+
+      {/* Top-Right Sync Pill (non-blocking) */}
+      {loadingAction === "Synchronizing with Cloud..." && (
+        <div style={{
+          position: 'fixed',
+          top: '1.5rem',
+          right: '1.5rem',
+          zIndex: 10000,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          padding: '0.75rem 1.25rem',
+          background: 'rgba(30, 41, 59, 0.9)',
+          backdropFilter: 'blur(10px)',
+          borderRadius: '1rem',
+          border: '1px solid rgba(255,255,255,0.1)',
+          boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+          animation: 'slideInRight 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+        }}>
+          <div className="loader" style={{
+            width: '18px',
+            height: '18px',
+            border: '2px solid rgba(129, 140, 248, 0.2)',
+            borderTop: '2px solid #818cf8',
+            borderRadius: '50%',
+            animation: 'spin 0.8s linear infinite'
+          }}></div>
+          <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#fff', letterSpacing: '0.02em' }}>Syncing...</span>
         </div>
       )}
 
@@ -602,6 +632,10 @@ export default function StudyFlow() {
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes slideInRight { 
+          from { opacity: 0; transform: translateX(30px) scale(0.9); } 
+          to { opacity: 1; transform: translateX(0) scale(1); } 
+        }
         .card:hover { transform: translateY(-4px); box-shadow: 0 12px 25px rgba(0,0,0,0.5); border-color: rgba(255,255,255,0.2) !important; }
         .card.expanded { background: rgba(30, 41, 59, 0.95) !important; box-shadow: 0 20px 40px rgba(0,0,0,0.6); }
       `}</style>
