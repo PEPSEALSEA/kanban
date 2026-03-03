@@ -43,6 +43,8 @@ export default function StudyFlow() {
   const [isLoading, setIsLoading] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [activeHomework, setActiveHomework] = useState<Homework | null>(null);
+  const [shareText, setShareText] = useState("");
 
   // Load user from localStorage
   useEffect(() => {
@@ -298,6 +300,141 @@ export default function StudyFlow() {
         </div>
       </header>
 
+      {/* Trello-style Modal Overflow */}
+      {activeHomework && (
+        <div
+          style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}
+          onClick={() => setActiveHomework(null)}
+        >
+          <div
+            className="glass"
+            style={{ width: '100%', maxWidth: '800px', maxHeight: '90vh', overflowY: 'auto', borderRadius: '2rem', padding: '2.5rem', border: '1px solid rgba(255,255,255,0.1)', cursor: 'default' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem' }}>
+              <div>
+                <span className="card-tag" style={{ backgroundColor: `${getSubjectColor(activeHomework.subject)}25`, color: getSubjectColor(activeHomework.subject), border: `1px solid ${getSubjectColor(activeHomework.subject)}40`, fontWeight: 700, fontSize: '0.8rem', marginBottom: '1rem', display: 'inline-block' }}>
+                  {activeHomework.subject}
+                </span>
+                <h2 style={{ fontSize: '2.25rem', fontWeight: 800, margin: 0 }}>{activeHomework.title}</h2>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Deadline: {new Date(activeHomework.deadline).toLocaleDateString()}</p>
+              </div>
+              <button
+                onClick={() => setActiveHomework(null)}
+                style={{ background: 'rgba(255,255,255,0.05)', border: 'none', color: '#fff', width: '40px', height: '40px', borderRadius: '50%', cursor: 'pointer', fontSize: '1.2rem' }}
+              >✕</button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '2rem' }}>
+              <div>
+                <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>📝 Description</h3>
+                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1.5rem', borderRadius: '1rem', color: 'rgba(255,255,255,0.8)', lineHeight: 1.6, marginBottom: '2rem' }}>
+                  {activeHomework.description || "No description provided."}
+                </div>
+
+                <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>💬 Shared Files & Notes</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {/* Share Input */}
+                  <div className="glass" style={{ padding: '1rem', borderRadius: '1rem', background: 'rgba(99, 102, 241, 0.05)' }}>
+                    <textarea
+                      placeholder="Share a link or a message about this homework..."
+                      style={{ width: '100%', background: 'none', border: 'none', color: '#fff', outline: 'none', resize: 'none', marginBottom: '1rem', fontSize: '0.9rem' }}
+                      rows={2}
+                      value={shareText}
+                      onChange={(e) => setShareText(e.target.value)}
+                    />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <label className="glass" style={{ padding: '0.5rem 1rem', borderRadius: '0.5rem', fontSize: '0.75rem', cursor: 'pointer', background: 'rgba(255,255,255,0.05)' }}>
+                        📷 Attach Image
+                        <input type="file" hidden accept="image/*" onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (file && user) {
+                            setIsUploading(true);
+                            await handleFileUpload(file, activeHomework.id, 'done');
+                            fetchData(user.email);
+                          }
+                        }} />
+                      </label>
+                      <button
+                        disabled={!shareText || isUploading}
+                        onClick={async () => {
+                          if (!user) return;
+                          try {
+                            await fetch(GAS_WEB_APP_URL, {
+                              method: 'POST',
+                              body: new URLSearchParams({
+                                action: 'updateProgress',
+                                email: user.email,
+                                homework_id: String(activeHomework.id),
+                                status: 'done',
+                                image_url: shareText // reusing field for text for now
+                              })
+                            });
+                            setShareText("");
+                            fetchData(user.email);
+                          } catch (e) { console.error(e); }
+                        }}
+                        style={{ padding: '0.5rem 1.5rem', borderRadius: '0.5rem', background: 'var(--primary)', color: '#fff', border: 'none', fontWeight: 600, cursor: 'pointer', opacity: (!shareText || isUploading) ? 0.5 : 1 }}
+                      >Share</button>
+                    </div>
+                  </div>
+
+                  {/* Shared Feed */}
+                  {getFinishedUsers(activeHomework.id).map((student, i) => (
+                    <div key={i} style={{ display: 'flex', gap: '1rem', padding: '1rem', borderRadius: '1rem', background: 'rgba(255,255,255,0.02)' }}>
+                      <img src={student.picture} style={{ width: '32px', height: '32px', borderRadius: '50%' }} alt="" />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ fontWeight: 600, fontSize: '0.85rem' }}>{student.name}</span>
+                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Finished</span>
+                        </div>
+                        {student.proof && student.proof.startsWith('http') ? (
+                          <img src={student.proof} style={{ width: '100%', borderRadius: '0.5rem', marginTop: '0.5rem', maxHeight: '300px', objectFit: 'contain' }} alt="Proof" />
+                        ) : (
+                          <p style={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.7)', marginTop: '0.5rem' }}>{student.proof}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                <h3 style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>Status</h3>
+                {user && (
+                  <button
+                    onClick={(e) => toggleComplete(e, activeHomework.id, activeHomework.my_status)}
+                    style={{
+                      padding: '1rem', borderRadius: '1rem', background: activeHomework.my_status === 'done' ? '#10b981' : 'rgba(255,255,255,0.05)',
+                      border: 'none', color: '#fff', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
+                    }}
+                  >
+                    {activeHomework.my_status === 'done' ? '✓ Finished' : 'Mark as Finish'}
+                  </button>
+                )}
+
+                <h3 style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>Students Done</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  {getFinishedUsers(activeHomework.id).length === 0 && <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>No one finished yet.</p>}
+                  {getFinishedUsers(activeHomework.id).map(u => (
+                    <div key={u.email} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <img src={u.picture} style={{ width: '24px', height: '24px', borderRadius: '50%' }} alt="" />
+                      <span style={{ fontSize: '0.85rem' }}>{u.name}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {activeHomework.link_work && (
+                  <a href={activeHomework.link_work} target="_blank" rel="noreferrer" className="glass" style={{ padding: '1rem', borderRadius: '1rem', textAlign: 'center', fontWeight: 700, marginTop: 'auto', background: 'var(--bg-card)' }}>
+                    🔗 Assignment Link
+                  </a>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="kanban-container" style={{ padding: '2rem 2.5rem', flex: 1 }}>
         {[
           { key: 'soon', title: '🔥 3 วันก่อนส่ง', items: columns.soon, color: '#f43f5e' },
@@ -327,7 +464,7 @@ export default function StudyFlow() {
                   <div
                     key={hw.id}
                     className={`card glass ${isExpanded ? 'expanded' : ''}`}
-                    onClick={() => setExpandedId(isExpanded ? null : hw.id)}
+                    onClick={() => setActiveHomework(hw)}
                     style={{
                       opacity: isDone ? 0.45 : 1,
                       filter: isDone ? 'grayscale(0.3)' : 'none',
@@ -359,75 +496,18 @@ export default function StudyFlow() {
                     </div>
 
                     <div style={{
-                      maxHeight: isExpanded ? '1000px' : '45px',
+                      maxHeight: '45px',
                       overflow: 'hidden',
-                      transition: 'all 0.5s ease',
                       fontSize: '0.9rem',
                       lineHeight: 1.5,
-                      color: isExpanded ? '#fff' : 'rgba(255,255,255,0.6)',
+                      color: 'rgba(255,255,255,0.6)',
                       marginTop: '1rem',
                       display: '-webkit-box',
-                      WebkitLineClamp: isExpanded ? 'unset' : 2,
+                      WebkitLineClamp: 2,
                       WebkitBoxOrient: 'vertical'
                     }}>
                       {hw.description}
                     </div>
-
-                    {isExpanded && (
-                      <div style={{ marginTop: '1.5rem', animation: 'fadeIn 0.4s ease' }}>
-                        {hw.note && (
-                          <div style={{ marginBottom: '1.5rem', padding: '1rem', background: 'rgba(99, 102, 241, 0.1)', borderRadius: '0.75rem', fontSize: '0.85rem', borderLeft: '3px solid var(--primary)' }}>
-                            <strong style={{ color: 'var(--primary)', display: 'block', marginBottom: '4px' }}>Professor's Note:</strong>
-                            {hw.note}
-                          </div>
-                        )}
-
-                        {hw.link_work && (
-                          <a
-                            href={hw.link_work}
-                            target="_blank"
-                            rel="noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', width: '100%', padding: '0.85rem', background: 'linear-gradient(135deg, #6366f1, #4f46e5)', color: '#fff', borderRadius: '0.75rem', textDecoration: 'none', fontWeight: 700, fontSize: '0.9rem', boxShadow: '0 4px 15px rgba(79, 70, 229, 0.4)', transition: '0.2s' }}
-                            onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
-                            onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-                          >
-                            🔗 Open Assignment Link
-                          </a>
-                        )}
-
-                        {user && (
-                          <button
-                            onClick={(e) => uploadOrReplaceProof(e, hw.id)}
-                            disabled={isUploading}
-                            style={{
-                              width: '100%',
-                              marginTop: '0.75rem',
-                              padding: '0.85rem',
-                              borderRadius: '0.75rem',
-                              border: '1px solid rgba(255,255,255,0.12)',
-                              background: isUploading ? 'rgba(255,255,255,0.06)' : 'rgba(16, 185, 129, 0.12)',
-                              color: '#fff',
-                              fontWeight: 800,
-                              cursor: isUploading ? 'wait' : 'pointer'
-                            }}
-                          >
-                            {isUploading ? 'Uploading proof...' : '📷 Upload / Replace proof picture'}
-                          </button>
-                        )}
-
-                        {user && allProgress.find(p => p.email === user.email && String(p.homework_id) === String(hw.id))?.image_url && (
-                          <div style={{ marginTop: '1rem', textAlign: 'center' }}>
-                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '8px' }}>Your submitted proof:</div>
-                            <img
-                              src={allProgress.find(p => p.email === user.email && String(p.homework_id) === String(hw.id))?.image_url}
-                              style={{ maxWidth: '100%', borderRadius: '0.75rem', border: '2px solid rgba(16, 185, 129, 0.3)', maxHeight: '200px', objectFit: 'contain' }}
-                              alt="Your proof"
-                            />
-                          </div>
-                        )}
-                      </div>
-                    )}
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '1rem' }}>
                       <div style={{ display: 'flex', flexDirection: 'column' }}>
