@@ -27,11 +27,12 @@ export default function AdminPage() {
         title: '',
         description: '',
         deadline: '',
-        link_work: '',
-        link_image: '',
+        link_work: [] as string[],
+        link_image: [] as string[],
         note: ''
     });
 
+    const [newLink, setNewLink] = useState('');
     const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
     const [errorMessage, setErrorMessage] = useState('');
     const [isUploading, setIsUploading] = useState(false);
@@ -49,36 +50,35 @@ export default function AdminPage() {
     }, []);
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
 
         setIsUploading(true);
         try {
-            const reader = new FileReader();
-            const base64Promise = new Promise<string>((resolve) => {
-                reader.onload = () => {
-                    const base64 = (reader.result as string).split(',')[1];
-                    resolve(base64);
-                };
-                reader.readAsDataURL(file);
-            });
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const reader = new FileReader();
+                const base64Promise = new Promise<string>((resolve) => {
+                    reader.onload = () => {
+                        const base64 = (reader.result as string).split(',')[1];
+                        resolve(base64);
+                    };
+                    reader.readAsDataURL(file);
+                });
 
-            const base64Data = await base64Promise;
+                const base64Data = await base64Promise;
+                const response = await fetch(`${UPLOAD_WEB_APP_URL}?action=upload&filename=${encodeURIComponent(file.name)}&contentType=${encodeURIComponent(file.type)}`, {
+                    method: 'POST',
+                    body: base64Data
+                });
 
-            const response = await fetch(`${UPLOAD_WEB_APP_URL}?action=upload&filename=${encodeURIComponent(file.name)}&contentType=${encodeURIComponent(file.type)}`, {
-                method: 'POST',
-                body: base64Data
-            });
-
-            const result = await response.json();
-            if (result.success) {
-                setFormData(prev => ({ ...prev, link_image: result.url }));
-            } else {
-                alert("Upload failed: " + result.message);
+                const result = await response.json();
+                if (result.success) {
+                    setFormData(prev => ({ ...prev, link_image: [...prev.link_image, result.url] }));
+                }
             }
         } catch (error) {
             console.error("Upload error:", error);
-            alert("Failed to upload image.");
         } finally {
             setIsUploading(false);
         }
@@ -89,19 +89,22 @@ export default function AdminPage() {
         setStatus('submitting');
 
         try {
-            const formDataObj: Record<string, string> = {
-                action: 'addHomework',
-                ...formData
+            const submissionData = {
+                ...formData,
+                link_work: formData.link_work.join(','),
+                link_image: formData.link_image.join(',')
             };
+
             const response = await fetch(GAS_WEB_APP_URL, {
                 method: 'POST',
-                body: new URLSearchParams(formDataObj)
+                body: new URLSearchParams({
+                    action: 'addHomework',
+                    ...submissionData
+                })
             });
 
             const result = await response.json();
-            if (!result?.success) {
-                throw new Error(result?.error || 'Backend error');
-            }
+            if (!result?.success) throw new Error(result?.error || 'Backend error');
 
             setStatus('success');
             setFormData({
@@ -109,8 +112,8 @@ export default function AdminPage() {
                 title: '',
                 description: '',
                 deadline: '',
-                link_work: '',
-                link_image: '',
+                link_work: [],
+                link_image: [],
                 note: ''
             });
 
@@ -159,11 +162,11 @@ export default function AdminPage() {
                             <label style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.75rem', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Subject</label>
                             <select
                                 className="glass"
-                                style={{ width: '100%', padding: '0.875rem', borderRadius: '0.75rem', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid var(--card-border)', outline: 'none' }}
+                                style={{ width: '100%', padding: '0.875rem', borderRadius: '0.75rem', background: '#0f172a', color: '#fff', border: '1px solid var(--card-border)', outline: 'none' }}
                                 value={formData.subject}
                                 onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
                             >
-                                {['Math', 'Science', 'History', 'English', 'Arts', 'Computer', 'Other'].map(s => <option key={s} value={s} style={{ background: '#0f172a' }}>{s}</option>)}
+                                {['Math', 'Science', 'History', 'English', 'Arts', 'Computer', 'Other'].map(s => <option key={s} value={s}>{s}</option>)}
                             </select>
                         </div>
                         <div className="form-group">
@@ -204,38 +207,61 @@ export default function AdminPage() {
                         />
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-                        <div className="form-group">
-                            <label style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.75rem', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Work Link</label>
+                    {/* Multi-Link Field */}
+                    <div className="form-group">
+                        <label style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.75rem', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Attached Links (Documents/Tasks)</label>
+                        <div style={{ display: 'flex', gap: '8px', marginBottom: '0.5rem' }}>
                             <input
                                 type="url"
                                 placeholder="https://..."
                                 className="glass"
-                                style={{ width: '100%', padding: '0.875rem', borderRadius: '0.75rem', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid var(--card-border)', outline: 'none' }}
-                                value={formData.link_work}
-                                onChange={(e) => setFormData({ ...formData, link_work: e.target.value })}
+                                style={{ flex: 1, padding: '0.875rem', borderRadius: '0.75rem', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid var(--card-border)', outline: 'none' }}
+                                value={newLink}
+                                onChange={(e) => setNewLink(e.target.value)}
                             />
+                            <button
+                                type="button"
+                                onClick={() => { if (newLink) { setFormData(prev => ({ ...prev, link_work: [...prev.link_work, newLink] })); setNewLink(''); } }}
+                                className="glass"
+                                style={{ padding: '0 1.5rem', borderRadius: '0.75rem', background: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', fontWeight: 600, cursor: 'pointer' }}
+                            >Add</button>
                         </div>
-                        <div className="form-group">
-                            <label style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.75rem', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Image URL (Optional)</label>
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                                <input
-                                    type="url"
-                                    placeholder="https://..."
-                                    className="glass"
-                                    style={{ flex: 1, padding: '0.875rem', borderRadius: '0.75rem', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid var(--card-border)', outline: 'none' }}
-                                    value={formData.link_image}
-                                    onChange={(e) => setFormData({ ...formData, link_image: e.target.value })}
-                                />
-                                <label className="glass" style={{
-                                    padding: '0.875rem', borderRadius: '0.75rem', background: 'rgba(99, 102, 241, 0.1)',
-                                    border: '1px dashed var(--primary)', cursor: 'pointer', fontSize: '0.75rem',
-                                    display: 'flex', alignItems: 'center', transition: '0.2s', minWidth: '90px', justifyContent: 'center'
-                                }}>
-                                    {isUploading ? '⌛...' : '📷 Upload'}
-                                    <input type="file" accept="image/*" hidden onChange={handleFileUpload} disabled={isUploading} />
-                                </label>
-                            </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            {formData.link_work.map((link, idx) => (
+                                <div key={idx} style={{ padding: '0.5rem 1rem', borderRadius: '0.5rem', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span style={{ fontSize: '0.8rem', opacity: 0.6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '80%' }}>{link}</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormData(prev => ({ ...prev, link_work: prev.link_work.filter((_, i) => i !== idx) }))}
+                                        style={{ color: '#f43f5e', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem' }}
+                                    >Remove</button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Multi-Image Field */}
+                    <div className="form-group">
+                        <label style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.75rem', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Assignment Background/Images</label>
+                        <label className="glass" style={{
+                            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem',
+                            border: '2px dashed rgba(255,255,255,0.1)', borderRadius: '1.25rem', cursor: 'pointer', transition: '0.2s', background: 'rgba(255,255,255,0.02)'
+                        }}>
+                            <span style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>📸</span>
+                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{isUploading ? 'Uploading attachments...' : 'Add images to this assignment'}</span>
+                            <input type="file" multiple accept="image/*" hidden onChange={handleFileUpload} disabled={isUploading} />
+                        </label>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
+                            {formData.link_image.map((img, idx) => (
+                                <div key={idx} style={{ position: 'relative', height: '100px', borderRadius: '0.75rem', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                    <img src={img} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Preview" />
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormData(prev => ({ ...prev, link_image: prev.link_image.filter((_, i) => i !== idx) }))}
+                                        style={{ position: 'absolute', top: '4px', right: '4px', background: 'rgba(244, 63, 94, 0.8)', border: 'none', color: '#fff', borderRadius: '50%', width: '20px', height: '20px', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                                    >✕</button>
+                                </div>
+                            ))}
                         </div>
                     </div>
 

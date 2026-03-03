@@ -462,7 +462,14 @@ export default function StudyFlow() {
                     {isAdmin && (
                       <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem' }}>
                         <button
-                          onClick={() => { setIsEditing(true); setEditForm(activeHomework); }}
+                          onClick={() => {
+                            setIsEditing(true);
+                            setEditForm({
+                              ...activeHomework,
+                              link_work: activeHomework.link_work || "",
+                              link_image: activeHomework.link_image || ""
+                            });
+                          }}
                           style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '0.4rem 1rem', borderRadius: '0.5rem', fontSize: '0.75rem', cursor: 'pointer' }}
                         >Edit Info</button>
                         <button
@@ -485,15 +492,48 @@ export default function StudyFlow() {
                 <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>📝 Description</h3>
                 <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1.5rem', borderRadius: '1rem', color: 'rgba(255,255,255,0.8)', lineHeight: 1.6, marginBottom: '2rem' }}>
                   {isEditing ? (
-                    <textarea
-                      className="glass"
-                      style={{ background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '1rem', borderRadius: '0.5rem', width: '100%', minHeight: '150px', outline: 'none' }}
-                      value={editForm.description}
-                      onChange={e => setEditForm(prev => ({ ...prev, description: e.target.value }))}
-                      placeholder="Description"
-                    />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                      <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Assignment Details</label>
+                      <textarea
+                        className="glass"
+                        style={{ background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '1rem', borderRadius: '0.5rem', width: '100%', minHeight: '120px', outline: 'none' }}
+                        value={editForm.description}
+                        onChange={e => setEditForm(prev => ({ ...prev, description: e.target.value }))}
+                        placeholder="Description"
+                      />
+
+                      <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Attached Links (comma-separated)</label>
+                      <input
+                        className="glass"
+                        style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '0.5rem', borderRadius: '0.5rem' }}
+                        value={editForm.link_work}
+                        onChange={e => setEditForm(prev => ({ ...prev, link_work: e.target.value }))}
+                        placeholder="https://link1.com, https://link2.com"
+                      />
+
+                      <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Attached Images (comma-separated)</label>
+                      <input
+                        className="glass"
+                        style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '0.5rem', borderRadius: '0.5rem' }}
+                        value={editForm.link_image}
+                        onChange={e => setEditForm(prev => ({ ...prev, link_image: e.target.value }))}
+                        placeholder="https://img1.com, https://img2.com"
+                      />
+                    </div>
                   ) : (
-                    activeHomework.description || "No description provided."
+                    <>
+                      <div style={{ marginBottom: activeHomework.link_image ? '1.5rem' : '0' }}>{activeHomework.description || "No description provided."}</div>
+
+                      {activeHomework.link_image && (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+                          {activeHomework.link_image.split(',').filter(Boolean).map((img, idx) => (
+                            <div key={idx} style={{ borderRadius: '1rem', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
+                              <img src={img.trim()} style={{ width: '100%', height: '100%', objectFit: 'cover', maxHeight: '200px' }} alt="Assignment Resource" />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
 
@@ -684,11 +724,11 @@ export default function StudyFlow() {
                   ))}
                 </div>
 
-                {activeHomework.link_work && (
-                  <a href={activeHomework.link_work} target="_blank" rel="noreferrer" className="glass" style={{ padding: '1rem', borderRadius: '1rem', textAlign: 'center', fontWeight: 700, marginTop: 'auto', background: 'var(--bg-card)' }}>
-                    🔗 Assignment Link
+                {activeHomework.link_work && activeHomework.link_work.split(',').filter(Boolean).map((link, idx) => (
+                  <a key={idx} href={link.trim()} target="_blank" rel="noreferrer" className="glass" style={{ padding: '0.875rem', borderRadius: '1rem', textAlign: 'center', fontWeight: 700, background: 'rgba(99, 102, 241, 0.1)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', border: '1px solid rgba(99, 102, 241, 0.2)' }}>
+                    🔗 Resource Link {idx + 1}
                   </a>
-                )}
+                ))}
               </div>
             </div>
           </div>
@@ -841,7 +881,7 @@ export default function StudyFlow() {
         .card:hover { transform: translateY(-4px); box-shadow: 0 12px 25px rgba(0,0,0,0.5); border-color: rgba(255,255,255,0.2) !important; }
         .card.expanded { background: rgba(30, 41, 59, 0.95) !important; box-shadow: 0 20px 40px rgba(0,0,0,0.6); }
       `}</style>
-    </main>
+    </main >
   );
 }
 
