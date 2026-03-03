@@ -20,6 +20,7 @@ function doGet(e) {
         if (action === "list") result = getHomeworkList();
         else if (action === "listWithProgress") result = getHomeworkWithProgress(email);
         else if (action === "progress") result = getProgressByEmail(email);
+        else if (action === "allProgress") result = getAllProgress();
         else if (action === "users") result = getUserList();
         else throw new Error("unknown action: " + action);
 
@@ -153,9 +154,18 @@ function getProgressByEmail(email) {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const sheet = ss.getSheetByName(SHEETS.PROGRESS);
     if (sheet.getLastRow() < 2) return [];
-    return sheet.getRange(2, 1, sheet.getLastRow() - 1, 4).getValues()
-        .filter(r => r[0] === email)
-        .map(r => ({ email: r[0], homework_id: r[1], status: r[2], updated_at: r[3] }));
+    const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 4).getValues();
+
+    if (email) {
+        return data.filter(r => r[0] === email)
+            .map(r => ({ email: r[0], homework_id: r[1], status: r[2], updated_at: r[3] }));
+    }
+
+    return data.map(r => ({ email: r[0], homework_id: r[1], status: r[2], updated_at: r[3] }));
+}
+
+function getAllProgress() {
+    return getProgressByEmail();
 }
 
 function getHomeworkWithProgress(email) {
