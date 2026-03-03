@@ -89,12 +89,13 @@ export default function AdminPage() {
         setStatus('submitting');
 
         try {
+            const formDataObj: Record<string, string> = {
+                action: 'addHomework',
+                ...formData
+            };
             const response = await fetch(GAS_WEB_APP_URL, {
                 method: 'POST',
-                body: JSON.stringify({
-                    action: 'addHomework',
-                    ...formData
-                })
+                body: new URLSearchParams(formDataObj)
             });
 
             const result = await response.json();

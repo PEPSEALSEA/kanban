@@ -89,7 +89,7 @@ export default function StudyFlow() {
     try {
       await fetch(GAS_WEB_APP_URL, {
         method: 'POST',
-        body: JSON.stringify({
+        body: new URLSearchParams({
           action: 'addUser',
           email: newUser.email,
           display_name: newUser.name,
@@ -186,12 +186,12 @@ export default function StudyFlow() {
     try {
       await fetch(GAS_WEB_APP_URL, {
         method: 'POST',
-        body: JSON.stringify({
+        body: new URLSearchParams({
           action: 'updateProgress',
           email: user.email,
           homework_id: String(hwId),
           status: newStatus,
-          image_url: imageUrl
+          image_url: imageUrl || ''
         })
       });
       // Refresh data to get latest from server

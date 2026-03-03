@@ -13,8 +13,9 @@ const SHEETS = {
 };
 
 function doGet(e) {
-    const action = e.parameter.action;
-    const email = e.parameter.email || "";
+    const params = e.parameter || {};
+    const action = params.action;
+    const email = params.email || "";
 
     try {
         let result;
@@ -23,6 +24,7 @@ function doGet(e) {
         else if (action === "progress") result = getProgressByEmail(email);
         else if (action === "allProgress") result = getAllProgress();
         else if (action === "users") result = getUserList();
+        else if (action === "setup") { setupSheet(); result = "setup complete"; }
         else throw new Error("unknown action: " + action);
 
         return _json({ success: true, data: result });
@@ -32,26 +34,46 @@ function doGet(e) {
 }
 
 function doOptions() {
-    return _json({ success: true, data: "ok" });
+    return ContentService.createTextOutput("")
+        .setMimeType(ContentService.MimeType.TEXT);
 }
 
 function doPost(e) {
     try {
-        if (!e.postData || !e.postData.contents) {
-            throw new Error("No data received in request body");
+        const params = e.parameter || {};
+        let postData = {};
+        if (e.postData && e.postData.contents) {
+            try {
+                postData = JSON.parse(e.postData.contents);
+            } catch (ex) {
+                // Not JSON, that's fine, we'll use params
+            }
         }
 
-        const body = JSON.parse(e.postData.contents);
-        const action = body.action;
+        const action = params.action || postData.action;
         let result;
 
         if (action === "addHomework") {
-            result = addHomework(body.subject, body.title, body.description, body.deadline, body.link_work, body.link_image, body.note);
+            const subject = params.subject || postData.subject;
+            const title = params.title || postData.title;
+            const description = params.description || postData.description;
+            const deadline = params.deadline || postData.deadline;
+            const link_work = params.link_work || postData.link_work;
+            const link_image = params.link_image || postData.link_image;
+            const note = params.note || postData.note;
+            result = addHomework(subject, title, description, deadline, link_work, link_image, note);
         } else if (action === "addUser") {
-            addUser(body.email, body.display_name, body.photo_url);
+            const email = params.email || postData.email;
+            const display_name = params.display_name || postData.display_name;
+            const photo_url = params.photo_url || postData.photo_url;
+            addUser(email, display_name, photo_url);
             result = "ok";
         } else if (action === "updateProgress") {
-            updateProgress(body.email, body.homework_id, body.status, body.image_url);
+            const email = params.email || postData.email;
+            const hwId = params.homework_id || params.homeworkId || postData.homework_id || postData.homeworkId;
+            const status = params.status || postData.status;
+            const imageUrl = params.image_url || params.imageUrl || postData.image_url || postData.imageUrl;
+            updateProgress(email, hwId, status, imageUrl);
             result = "ok";
         } else {
             throw new Error("unknown action: " + action);
@@ -110,9 +132,13 @@ function _setupUrls(ss) {
 
 function addHomework(subject, title, description, deadline, linkWork, linkImage, note) {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    const sheet = ss.getSheetByName(SHEETS.HOMEWORK);
+    const sheet = ss.getSheetByName(SHEETS.HOMEWORK) || ss.insertSheet(SHEETS.HOMEWORK);
+    // Ensure header if new
+    if (sheet.getLastRow() === 0) {
+        sheet.appendRow(["id", "subject", "title", "description", "deadline", "link_work", "link_image", "note", "created_at"]);
+    }
     const id = sheet.getLastRow();
-    sheet.appendRow([id, subject, title, description, deadline, linkWork || "", linkImage || "", note || "", new Date()]);
+    sheet.appendRow([id, subject || "", title || "", description || "", deadline || "", linkWork || "", linkImage || "", note || "", new Date()]);
     return id;
 }
 
@@ -129,17 +155,22 @@ function addUser(email, displayName, photoUrl) {
 }
 
 function updateProgress(email, homeworkId, status, imageUrl) {
+    if (!email) throw new Error("Email is required");
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    const sheet = ss.getSheetByName(SHEETS.PROGRESS);
-    if (!_isUserAllowed(ss, email)) throw new Error("email not allowed");
+    let sheet = ss.getSheetByName(SHEETS.PROGRESS) || ss.insertSheet(SHEETS.PROGRESS);
+    if (sheet.getLastRow() === 0) {
+        sheet.appendRow(["email", "homework_id", "status", "image_url", "updated_at"]);
+    }
+
+    if (!_isUserAllowed(ss, email)) throw new Error("email not allowed: " + email);
 
     const data = sheet.getLastRow() > 1
         ? sheet.getRange(2, 1, sheet.getLastRow() - 1, 5).getValues()
         : [];
-    const rowIndex = data.findIndex(r => r[0] === email && String(r[1]) === String(homeworkId));
+    const rowIndex = data.findIndex(r => String(r[0]).toLowerCase() === String(email).toLowerCase() && String(r[1]) === String(homeworkId));
 
     if (rowIndex === -1) {
-        sheet.appendRow([email, homeworkId, status, imageUrl || "", new Date()]);
+        sheet.appendRow([email, homeworkId, status || "pending", imageUrl || "", new Date()]);
     } else {
         const targetRow = rowIndex + 2;
         sheet.getRange(targetRow, 3).setValue(status);
