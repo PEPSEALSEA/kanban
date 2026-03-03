@@ -506,7 +506,6 @@ export default function StudyFlow() {
               </div>
             </div>
             <div className="tasks-container">
-              {isLoading && <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>Syncing...</div>}
               {!isLoading && col.items.length === 0 && (
                 <div style={{ textAlign: 'center', padding: '3rem', color: 'rgba(255,255,255,0.2)', border: '2px dashed rgba(255,255,255,0.05)', borderRadius: '1.5rem' }}>
                   No active tasks
