@@ -52,7 +52,6 @@ export default function StudyFlow() {
   const fetchData = useCallback(async (email?: string) => {
     setIsLoading(true);
     try {
-      // Parallel fetch for board data, users, and all progress
       const action = email ? 'listWithProgress' : 'list';
       const [hwRes, usersRes, progressRes] = await Promise.all([
         fetch(`${GAS_WEB_APP_URL}?action=${action}${email ? `&email=${encodeURIComponent(email)}` : ''}`).then(r => r.json()),
@@ -84,7 +83,6 @@ export default function StudyFlow() {
     setUser(newUser);
     localStorage.setItem('homework_user', JSON.stringify(newUser));
 
-    // Sync user with GAS
     try {
       await fetch(GAS_WEB_APP_URL, {
         method: 'POST',
@@ -110,16 +108,14 @@ export default function StudyFlow() {
   };
 
   const toggleComplete = async (e: React.MouseEvent, hwId: string, currentStatus?: string) => {
-    e.stopPropagation(); // Don't expand when clicking checkbox
+    e.stopPropagation();
     if (!user) return;
     const newStatus = currentStatus === 'done' ? 'pending' : 'done';
 
-    // Optimistic UI Update
     setAllHomework(prev => prev.map(hw =>
       String(hw.id) === String(hwId) ? { ...hw, my_status: newStatus as any } : hw
     ));
 
-    // Update local "allProgress" for immediate avatar update
     setAllProgress(prev => {
       const filtered = prev.filter(p => !(p.email === user.email && String(p.homework_id) === String(hwId)));
       if (newStatus === 'done') {
@@ -170,7 +166,6 @@ export default function StudyFlow() {
     };
   }, [allHomework]);
 
-  // Helper to find users who finished a homework
   const getFinishedUsers = (hwId: string) => {
     const finishedEmails = allProgress
       .filter(p => String(p.homework_id) === String(hwId) && p.status === 'done')
@@ -183,7 +178,7 @@ export default function StudyFlow() {
 
   return (
     <main style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <header style={{ padding: '1rem 2.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+      <header style={{ padding: '1rem 2.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.05)', backgroundColor: 'rgba(15, 23, 42, 0.8)', sticky: 'top', backdropFilter: 'blur(10px)', zIndex: 100 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
           {!user ? (
             <div className="login-trigger">
@@ -195,36 +190,46 @@ export default function StudyFlow() {
             </div>
           ) : (
             <div className="glass" style={{ padding: '0.4rem 0.8rem', borderRadius: '1rem', display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-              <img src={user.picture} style={{ width: '32px', height: '32px', borderRadius: '50%' }} alt="user" />
+              <img src={user.picture} style={{ width: '32px', height: '32px', borderRadius: '50%', border: '2px solid var(--primary)' }} alt="user" />
               <div style={{ lineHeight: 1.2 }}>
                 <div style={{ fontSize: '0.8rem', fontWeight: 600 }}>{user.name}</div>
                 <button onClick={handleLogout} style={{ fontSize: '0.65rem', color: 'var(--accent)', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>Logout</button>
               </div>
             </div>
           )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginLeft: '1rem' }}>
-            <div style={{ fontSize: '1.5rem' }}>🎓</div>
-            <h1 style={{ fontSize: '1.5rem', fontWeight: 800, background: 'linear-gradient(to right, #6366f1, #f43f5e)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>การบ้าน 603</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <div style={{ fontSize: '1.75rem', animation: 'bounce 2s infinite' }}>🎓</div>
+            <h1 style={{ fontSize: '1.6rem', fontWeight: 900, background: 'linear-gradient(to right, #818cf8, #f43f5e)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: '-0.02em' }}>การบ้าน 603</h1>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-          {isAdmin && <Link href="/admin" className="glass" style={{ padding: '0.5rem 1rem', borderRadius: '0.75rem', background: 'rgba(244, 63, 94, 0.1)', color: '#f43f5e', fontSize: '0.75rem', fontWeight: 600, border: '1px solid rgba(244, 63, 94, 0.2)' }}>Admin Console</Link>}
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}> <span style={{ color: '#10b981' }}>●</span> Live Data</div>
+        <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'center' }}>
+          {isAdmin && <Link href="/admin" className="glass" style={{ padding: '0.5rem 1.25rem', borderRadius: '0.75rem', background: 'rgba(244, 63, 94, 0.15)', color: '#f43f5e', fontSize: '0.8rem', fontWeight: 700, border: '1px solid rgba(244, 63, 94, 0.3)', transition: '0.2s' }}>Console</Link>}
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }}></span> Live Cloud
+          </div>
         </div>
       </header>
 
-      <div className="kanban-container" style={{ padding: '2rem 2.5rem' }}>
+      <div className="kanban-container" style={{ padding: '2rem 2.5rem', flex: 1 }}>
         {[
-          { key: 'soon', title: '🔥 3 วันก่อนส่ง', items: columns.soon },
-          { key: 'week', title: '📅 7 วันก่อนส่ง', items: columns.week },
-          { key: 'backlog', title: '🐚 งานดองเค็ม', items: columns.backlog }
+          { key: 'soon', title: '🔥 3 วันก่อนส่ง', items: columns.soon, color: '#f43f5e' },
+          { key: 'week', title: '📅 7 วันก่อนส่ง', items: columns.week, color: '#f59e0b' },
+          { key: 'backlog', title: '🐚 งานดองเค็ม', items: columns.backlog, color: '#6366f1' }
         ].map(col => (
-          <div key={col.key} className="column glass" style={{ minWidth: '350px' }}>
-            <div className="column-header" style={{ paddingBottom: '1rem' }}>
-              <h3 className="column-title" style={{ fontSize: '1.25rem' }}>{col.title} <span className="badge">{col.items.length}</span></h3>
+          <div key={col.key} className="column glass" style={{ minWidth: '360px', borderTop: `4px solid ${col.color}` }}>
+            <div className="column-header" style={{ padding: '0.5rem 0.5rem 1.5rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3 className="column-title" style={{ fontSize: '1.3rem', fontWeight: 700 }}>{col.title}</h3>
+                <span className="badge" style={{ padding: '4px 10px', fontSize: '0.8rem', borderRadius: '8px' }}>{col.items.length}</span>
+              </div>
             </div>
             <div className="tasks-container">
-              {isLoading && <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Refreshing list...</div>}
+              {isLoading && <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>Syncing...</div>}
+              {!isLoading && col.items.length === 0 && (
+                <div style={{ textAlign: 'center', padding: '3rem', color: 'rgba(255,255,255,0.2)', border: '2px dashed rgba(255,255,255,0.05)', borderRadius: '1.5rem' }}>
+                  No active tasks
+                </div>
+              )}
               {col.items.map(hw => {
                 const isDone = hw.my_status === 'done';
                 const isExpanded = expandedId === hw.id;
@@ -233,83 +238,117 @@ export default function StudyFlow() {
                 return (
                   <div
                     key={hw.id}
-                    className="card glass"
+                    className={`card glass ${isExpanded ? 'expanded' : ''}`}
                     onClick={() => setExpandedId(isExpanded ? null : hw.id)}
                     style={{
-                      opacity: isDone ? 0.4 : 1,
-                      filter: isDone ? 'grayscale(0.5)' : 'none',
-                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                      borderLeft: isDone ? '4px solid #10b981' : `4px solid ${getSubjectColor(hw.subject)}`,
-                      cursor: 'pointer'
+                      opacity: isDone ? 0.45 : 1,
+                      filter: isDone ? 'grayscale(0.3)' : 'none',
+                      transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                      borderLeft: isDone ? '6px solid #10b981' : `6px solid ${getSubjectColor(hw.subject)}`,
+                      cursor: 'pointer',
+                      transform: isExpanded ? 'scale(1.02)' : 'scale(1)',
+                      zIndex: isExpanded ? 10 : 1
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                       <div style={{ flex: 1 }}>
-                        <span className="card-tag" style={{ backgroundColor: `${getSubjectColor(hw.subject)}22`, color: getSubjectColor(hw.subject), border: `1px solid ${getSubjectColor(hw.subject)}44` }}>
-                          {hw.subject}
-                        </span>
-                        <h4 style={{ margin: '0.75rem 0 0.5rem', textDecoration: isDone ? 'line-through' : 'none', fontSize: '1.1rem' }}>{hw.title}</h4>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                          <span className="card-tag" style={{ backgroundColor: `${getSubjectColor(hw.subject)}25`, color: getSubjectColor(hw.subject), border: `1px solid ${getSubjectColor(hw.subject)}40`, fontWeight: 700, fontSize: '0.7rem' }}>
+                            {hw.subject}
+                          </span>
+                          {isDone && <span style={{ color: '#10b981', fontSize: '0.7rem', fontWeight: 800 }}>COMPLETED</span>}
+                        </div>
+                        <h4 style={{ margin: '0', textDecoration: isDone ? 'line-through' : 'none', fontSize: '1.15rem', fontWeight: 700, lineHeight: 1.3 }}>{hw.title}</h4>
                       </div>
                       {user && (
                         <div
                           onClick={(e) => toggleComplete(e, hw.id, hw.my_status)}
-                          style={{ width: '24px', height: '24px', borderRadius: '6px', border: '2px solid var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', background: isDone ? 'var(--primary)' : 'transparent', transition: '0.2s', marginTop: '4px' }}
+                          style={{ width: '28px', height: '28px', borderRadius: '8px', border: '2px solid var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', background: isDone ? 'var(--primary)' : 'rgba(255,255,255,0.05)', transition: '0.3s', flexShrink: 0, marginLeft: '1rem' }}
                         >
-                          {isDone && <span style={{ color: '#fff', fontSize: '0.8rem' }}>✓</span>}
+                          {isDone && <span style={{ color: '#fff', fontSize: '1rem', fontWeight: 900 }}>✓</span>}
                         </div>
                       )}
                     </div>
 
                     <div style={{
-                      maxHeight: isExpanded ? '500px' : '40px',
+                      maxHeight: isExpanded ? '1000px' : '45px',
                       overflow: 'hidden',
-                      transition: 'all 0.4s ease',
-                      fontSize: '0.85rem',
-                      color: isExpanded ? 'var(--text-main)' : 'var(--text-muted)',
-                      marginTop: '0.5rem'
+                      transition: 'all 0.5s ease',
+                      fontSize: '0.9rem',
+                      lineHeight: 1.5,
+                      color: isExpanded ? '#fff' : 'rgba(255,255,255,0.6)',
+                      marginTop: '1rem',
+                      display: '-webkit-box',
+                      WebkitLineClamp: isExpanded ? 'unset' : 2,
+                      WebkitBoxOrient: 'vertical'
                     }}>
                       {hw.description}
                     </div>
 
-                    {isExpanded && hw.note && (
-                      <div style={{ marginTop: '1rem', padding: '0.75rem', background: 'rgba(255,255,255,0.05)', borderRadius: '0.5rem', fontSize: '0.8rem', borderLeft: '2px solid var(--primary)' }}>
-                        <strong>Note:</strong> {hw.note}
+                    {isExpanded && (
+                      <div style={{ marginTop: '1.5rem', animation: 'fadeIn 0.4s ease' }}>
+                        {hw.note && (
+                          <div style={{ marginBottom: '1.5rem', padding: '1rem', background: 'rgba(99, 102, 241, 0.1)', borderRadius: '0.75rem', fontSize: '0.85rem', borderLeft: '3px solid var(--primary)' }}>
+                            <strong style={{ color: 'var(--primary)', display: 'block', marginBottom: '4px' }}>Professor's Note:</strong>
+                            {hw.note}
+                          </div>
+                        )}
+
+                        {hw.link_work && (
+                          <a
+                            href={hw.link_work}
+                            target="_blank"
+                            rel="noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', width: '100%', padding: '0.85rem', background: 'linear-gradient(135deg, #6366f1, #4f46e5)', color: '#fff', borderRadius: '0.75rem', textDecoration: 'none', fontWeight: 700, fontSize: '0.9rem', boxShadow: '0 4px 15px rgba(79, 70, 229, 0.4)', transition: '0.2s' }}
+                            onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                            onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                          >
+                            🔗 Open Assignment Link
+                          </a>
+                        )}
                       </div>
                     )}
 
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem', flexWrap: 'wrap', gap: '8px' }}>
-                      <div style={{ color: 'var(--accent)', fontWeight: 600, fontSize: '0.75rem' }}>Due: {new Date(hw.deadline).toLocaleDateString('th-TH')}</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '1rem' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <span style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Deadline</span>
+                        <div style={{ color: hw.deadline === new Date().toISOString().split('T')[0] ? '#f43f5e' : '#fff', fontWeight: 800, fontSize: '0.8rem' }}>{new Date(hw.deadline).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
+                      </div>
 
-                      {/* Avatars of people who finished */}
-                      <div style={{ display: 'flex', alignItems: 'center' }}>
-                        {completedBy.slice(0, 5).map((u, i) => (
-                          <img
-                            key={u.email}
-                            src={u.picture}
-                            title={u.name}
-                            style={{ width: '22px', height: '22px', borderRadius: '50%', border: '2px solid var(--card-bg)', marginLeft: i === 0 ? 0 : '-8px', transition: 'transform 0.2s' }}
-                            onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-4px)'}
-                            onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-                          />
-                        ))}
-                        {completedBy.length > 5 && (
-                          <span style={{ fontSize: '0.65rem', marginLeft: '5px', color: 'var(--text-muted)' }}>+{completedBy.length - 5}</span>
+                      {/* Facepile Section */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center' }}>
+                          {completedBy.slice(0, 4).map((u, i) => (
+                            <div key={u.email} style={{ position: 'relative' }} className="avatar-group">
+                              <img
+                                src={u.picture}
+                                style={{ width: '26px', height: '26px', borderRadius: '50%', border: '2px solid #1e293b', marginLeft: i === 0 ? 0 : '-10px', boxShadow: '0 4px 6px rgba(0,0,0,0.3)', cursor: 'help', transition: '0.2s z-index: 10' }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.transform = 'translateY(-6px) scale(1.1)';
+                                  e.currentTarget.style.zIndex = '100';
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.transform = 'translateY(0) scale(1)';
+                                  e.currentTarget.style.zIndex = 'auto';
+                                }}
+                                title={u.name}
+                              />
+                            </div>
+                          ))}
+                          {completedBy.length > 4 && (
+                            <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: '#334155', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', fontWeight: 800, marginLeft: '-10px', border: '2px solid #1e293b' }}>
+                              +{completedBy.length - 4}
+                            </div>
+                          )}
+                        </div>
+                        {completedBy.length > 0 && (
+                          <span style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>
+                            {completedBy.length} {completedBy.length === 1 ? 'student' : 'students'}
+                          </span>
                         )}
-                        {completedBy.length > 0 && <span style={{ fontSize: '0.65rem', marginLeft: '5px', color: 'var(--text-muted)' }}>✅ finished</span>}
                       </div>
                     </div>
-
-                    {isExpanded && hw.link_work && (
-                      <a
-                        href={hw.link_work}
-                        target="_blank"
-                        rel="noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        style={{ display: 'block', marginTop: '1rem', padding: '0.6rem', background: 'var(--primary)', color: '#fff', borderRadius: '0.5rem', textAlign: 'center', textDecoration: 'none', fontWeight: 600, fontSize: '0.8rem' }}
-                      >
-                        🔗 Click to Open Work Link
-                      </a>
-                    )}
                   </div>
                 );
               })}
@@ -317,13 +356,26 @@ export default function StudyFlow() {
           </div>
         ))}
       </div>
+
+      <style jsx>{`
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+        .card:hover { transform: translateY(-4px); box-shadow: 0 12px 25px rgba(0,0,0,0.5); border-color: rgba(255,255,255,0.2) !important; }
+        .card.expanded { background: rgba(30, 41, 59, 0.95) !important; box-shadow: 0 20px 40px rgba(0,0,0,0.6); }
+      `}</style>
     </main>
   );
 }
 
 function getSubjectColor(subject: string) {
   const colors: Record<string, string> = {
-    'Math': '#3b82f6', 'Science': '#10b981', 'History': '#f59e0b', 'English': '#ef4444', 'Arts': '#ec4899', 'Computer': '#6d28d9', 'Other': '#6366f1'
+    'Math': '#6366f1',
+    'Science': '#10b981',
+    'History': '#f59e0b',
+    'English': '#f43f5e',
+    'Arts': '#ec4899',
+    'Computer': '#8b5cf6',
+    'Other': '#94a3b8'
   };
   return colors[subject] || colors['Other'];
 }
