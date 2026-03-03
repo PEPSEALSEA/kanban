@@ -198,10 +198,10 @@ function getHomeworkList() {
 function getUserList() {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const sheet = ss.getSheetByName(SHEETS.USERS);
-    if (sheet.getLastRow() < 2) return [];
+    if (!sheet || sheet.getLastRow() < 2) return [];
     return _toObjects(
         sheet.getRange(2, 1, sheet.getLastRow() - 1, 4).getValues(),
-        ["email", "display_name", "photo_url", "created_at"]
+        ["email", "name", "picture", "created_at"]
     );
 }
 

@@ -254,7 +254,7 @@ export default function StudyFlow() {
       .filter(p => String(p.homework_id) === String(hwId) && p.status === 'done');
 
     return finishedWithProgress.map(p => {
-      const u = allUsers.find(user => user.email === p.email);
+      const u = allUsers.find(user => String(user.email).toLowerCase() === String(p.email).toLowerCase());
       return u ? { ...u, proof: p.image_url } : null;
     }).filter(u => u !== null) as (UserInfo & { proof?: string })[];
   };
