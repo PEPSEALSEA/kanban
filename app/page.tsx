@@ -73,6 +73,8 @@ export default function StudyFlow() {
   const [uploadQueue, setUploadQueue] = useState<{ name: string; status: 'uploading' | 'done' | 'error'; id: string }[]>([]);
   const [viewMode, setViewMode] = useState<'kanban' | 'calendar' | 'timeline'>('kanban');
   const [currentDate, setCurrentDate] = useState(new Date()); // For Calendar month navigation
+  const [comments, setComments] = useState<any[]>([]);
+  const [commentText, setCommentText] = useState<{ [key: string]: string }>({}); // email -> text
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -305,6 +307,49 @@ export default function StudyFlow() {
         }
       }
     });
+  };
+
+  const fetchComments = useCallback(async (hwId: string) => {
+    try {
+      const res = await fetch(`${GAS_WEB_APP_URL}?action=comments&homework_id=${hwId}`);
+      const data = await res.json();
+      if (data.success) setComments(data.data);
+    } catch (e) { }
+  }, []);
+
+  useEffect(() => {
+    if (activeHomework) {
+      fetchComments(activeHomework.id);
+    } else {
+      setComments([]);
+    }
+  }, [activeHomework, fetchComments]);
+
+  const handlePostComment = async (ownerEmail: string) => {
+    const text = commentText[ownerEmail];
+    if (!text || !user || !activeHomework) return;
+
+    setLoadingAction("Sending Comment...");
+    try {
+      await fetch(GAS_WEB_APP_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          action: 'addComment',
+          homework_id: String(activeHomework.id),
+          owner_email: ownerEmail,
+          commenter_email: user.email,
+          text: text
+        })
+      });
+      setCommentText(prev => ({ ...prev, [ownerEmail]: "" }));
+      fetchComments(activeHomework.id);
+      setNotification({ message: "Comment posted!", type: 'success' });
+    } catch (e) {
+      setNotification({ message: "Failed to post comment.", type: 'error' });
+    } finally {
+      setLoadingAction(null);
+    }
   };
 
   const handleEditHomework = async () => {
@@ -1049,6 +1094,47 @@ export default function StudyFlow() {
                               })}
                             </div>
                           )}
+
+                          {/* Comment System UI */}
+                          <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.03)' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                              {comments.filter(c => c.owner_email === student.email).map((c, idx) => (
+                                <div key={idx} style={{ display: 'flex', gap: '10px', background: 'rgba(255,255,255,0.01)', padding: '8px 12px', borderRadius: '12px' }}>
+                                  <img src={c.commenter_picture} style={{ width: '24px', height: '24px', borderRadius: '6px' }} alt="" />
+                                  <div style={{ flex: 1 }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
+                                      <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'rgba(255,255,255,0.8)' }}>{c.commenter_name}</span>
+                                      <span style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.2)' }}>{new Date(c.created_at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}</span>
+                                    </div>
+                                    <p style={{ margin: 0, fontSize: '0.8rem', color: 'rgba(255,255,255,0.6)', lineHeight: 1.4 }}>{c.text}</p>
+                                  </div>
+                                </div>
+                              ))}
+
+                              {user && (
+                                <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
+                                  <img src={user.picture} style={{ width: '28px', height: '28px', borderRadius: '8px' }} alt="" />
+                                  <div style={{ flex: 1, position: 'relative' }}>
+                                    <input
+                                      className="glass"
+                                      type="text"
+                                      placeholder="Write a comment..."
+                                      style={{ width: '100%', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '6px 12px', paddingRight: '45px', fontSize: '0.8rem', color: '#fff', outline: 'none' }}
+                                      value={commentText[student.email] || ""}
+                                      onChange={(e) => setCommentText(prev => ({ ...prev, [student.email]: e.target.value }))}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') handlePostComment(student.email);
+                                      }}
+                                    />
+                                    <button
+                                      onClick={() => handlePostComment(student.email)}
+                                      style={{ position: 'absolute', right: '4px', top: '4px', bottom: '4px', background: 'none', border: 'none', color: 'var(--primary)', fontWeight: 800, fontSize: '0.7rem', cursor: 'pointer', padding: '0 8px' }}
+                                    >Send</button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </div>
                     ))}

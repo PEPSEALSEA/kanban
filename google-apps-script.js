@@ -10,7 +10,10 @@ const SHEETS = {
     USERS: "Users",
     PROGRESS: "Progress",
     URLS: "URLs",
+    COMMENTS: "Comments",
 };
+
+const DISCORD_WEBHOOK_URL = ""; // USER: Please fill your Discord Webhook URL here
 
 function doGet(e) {
     const params = e.parameter || {};
@@ -24,6 +27,7 @@ function doGet(e) {
         else if (action === "progress") result = getProgressByEmail(email);
         else if (action === "allProgress") result = getAllProgress();
         else if (action === "users") result = getUserList();
+        else if (action === "comments") result = getComments(params.homework_id, params.owner_email);
         else if (action === "setup") { setupSheet(); result = "setup complete"; }
         else throw new Error("unknown action: " + action);
 
@@ -81,6 +85,10 @@ function doPost(e) {
                 getVal('id'), getVal('subject'), getVal('title'), getVal('description'),
                 getVal('deadline'), getVal('link_work'), getVal('link_image'), getVal('note')
             );
+        } else if (action === "addComment") {
+            result = addComment(
+                getVal('homework_id'), getVal('owner_email'), getVal('commenter_email'), getVal('text')
+            );
         } else {
             throw new Error("unknown action: " + action);
         }
@@ -103,6 +111,7 @@ function setupSheet() {
     _setupUsers(ss);
     _setupProgress(ss);
     _setupUrls(ss);
+    _setupComments(ss);
 }
 
 function _setupHomework(ss) {
@@ -299,4 +308,76 @@ function editHomework(id, subject, title, description, deadline, linkWork, linkI
         }
     }
     return false;
+}
+
+function _setupComments(ss) {
+    let sheet = ss.getSheetByName(SHEETS.COMMENTS) || ss.insertSheet(SHEETS.COMMENTS);
+    if (sheet.getLastRow() === 0) {
+        sheet.appendRow(["homework_id", "owner_email", "commenter_email", "comment_text", "created_at"]);
+        sheet.setFrozenRows(1);
+    }
+}
+
+function addComment(homeworkId, ownerEmail, commenterEmail, text) {
+    if (!homeworkId || !ownerEmail || !commenterEmail || !text) throw new Error("Missing parameters for comment");
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const sheet = ss.getSheetByName(SHEETS.COMMENTS);
+    sheet.appendRow([homeworkId, ownerEmail, commenterEmail, text, new Date()]);
+
+    const users = getUserList();
+    const commenter = users.find(u => u.email === commenterEmail) || { name: commenterEmail };
+    const owner = users.find(u => u.email === ownerEmail) || { name: ownerEmail };
+    const hwList = getHomeworkList();
+    const hw = hwList.find(h => String(h.id) === String(homeworkId)) || { title: "Homework" };
+
+    sendDiscordNotification(commenter.name, owner.name, hw.title, text);
+    return true;
+}
+
+function getComments(homeworkId, ownerEmail) {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const sheet = ss.getSheetByName(SHEETS.COMMENTS);
+    if (!sheet || sheet.getLastRow() < 2) return [];
+    const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 5).getValues();
+
+    let filtered = data;
+    if (homeworkId) filtered = filtered.filter(r => String(r[0]) === String(homeworkId));
+    if (ownerEmail) filtered = filtered.filter(r => String(r[1]).toLowerCase() === String(ownerEmail).toLowerCase());
+
+    const users = getUserList();
+    return filtered.map(r => {
+        const u = users.find(user => String(user.email).toLowerCase() === String(r[2]).toLowerCase());
+        return {
+            commenter_email: r[2],
+            commenter_name: u ? u.name : r[2],
+            commenter_picture: u ? u.picture : "",
+            text: r[3],
+            created_at: r[4]
+        };
+    });
+}
+
+function sendDiscordNotification(commenter, owner, homeworkTitle, text) {
+    if (!DISCORD_WEBHOOK_URL) return;
+    const payload = {
+        embeds: [{
+            title: "💬 New Comment in Activity Feed",
+            color: 7506394, // Discord Blurple
+            fields: [
+                { name: "From", value: commenter, inline: true },
+                { name: "To", value: owner + "'s work", inline: true },
+                { name: "Homework", value: homeworkTitle, inline: false },
+                { name: "Comment", value: text }
+            ],
+            footer: { text: "StudyFlow Activity Feed" },
+            timestamp: new Date().toISOString()
+        }]
+    };
+
+    UrlFetchApp.fetch(DISCORD_WEBHOOK_URL, {
+        method: "post",
+        contentType: "application/json",
+        payload: JSON.stringify(payload),
+        muteHttpExceptions: true
+    });
 }
