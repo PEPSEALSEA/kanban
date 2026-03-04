@@ -13,7 +13,7 @@ const SHEETS = {
     COMMENTS: "Comments",
 };
 
-const DISCORD_WEBHOOK_URL = ""; // USER: Please fill your Discord Webhook URL here
+const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1478774323874500640/3jwe9TnrxPJNCOJkPFln6OP1Ts1zxYhDaMC1FnIt5CzBhJwFDn-ogkMw-XYWtYr5eNVl"; // USER: Please fill your Discord Webhook URL here
 
 function doGet(e) {
     const params = e.parameter || {};
@@ -79,7 +79,23 @@ function doPost(e) {
             );
             result = "ok";
         } else if (action === "deleteHomework") {
+            const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+            const hw = getHomeworkList().find(h => String(h.id) === String(getVal('id')));
+            if (hw) {
+                // Collect Drive IDs to clean up URLs sheet
+                const allUrls = (hw.link_image || "").split(',').concat(
+                    getAllProgress()
+                        .filter(p => String(p.homework_id) === String(getVal('id')))
+                        .map(p => p.image_url || "")
+                ).join(',').split(',').filter(Boolean);
+
+                const driveIds = allUrls.map(url => _extractDriveId(url)).filter(Boolean);
+                if (driveIds.length > 0) _removeUrlsByDriveIds(driveIds);
+            }
             result = deleteHomework(getVal('id'));
+        } else if (action === "deleteUrl") {
+            _removeUrlsByDriveIds([getVal('driveId')]);
+            result = "ok";
         } else if (action === "editHomework") {
             result = editHomework(
                 getVal('id'), getVal('subject'), getVal('title'), getVal('description'),
@@ -211,6 +227,16 @@ function updateProgress(email, homeworkId, status, imageUrl, append = false) {
         }
         sheet.getRange(targetRow, 5).setValue(new Date());
     }
+
+    // New: Send notification IF there is an attachment or comment content
+    // We skip if it's just a status check (empty image_url or just a space)
+    if (imageUrl && imageUrl.trim().length > 0) {
+        const users = getUserList();
+        const user = users.find(u => u.email === email) || { name: email };
+        const hws = getHomeworkList();
+        const hw = hws.find(h => String(h.id) === String(homeworkId)) || { title: "Homework" };
+        sendSubmissionNotification(user.name, hw.title, status, imageUrl);
+    }
 }
 
 function getHomeworkList() {
@@ -258,6 +284,28 @@ function getHomeworkWithProgress(email) {
 
 function _isUserAllowed(ss, email) {
     return !!_getUserRow(ss.getSheetByName(SHEETS.USERS), email);
+}
+
+function _extractDriveId(url) {
+    if (!url) return null;
+    const match = url.match(/[-\w]{25,}/);
+    return match ? match[0] : null;
+}
+
+function _removeUrlsByDriveIds(driveIds) {
+    if (!driveIds || driveIds.length === 0) return;
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const sheet = ss.getSheetByName(SHEETS.URLS);
+    if (!sheet || sheet.getLastRow() < 2) return;
+
+    const data = sheet.getRange(2, 7, sheet.getLastRow() - 1, 1).getValues();
+    const idsToMatch = driveIds.map(id => String(id));
+
+    for (let i = data.length - 1; i >= 0; i--) {
+        if (idsToMatch.includes(String(data[i][0]))) {
+            sheet.deleteRow(i + 2);
+        }
+    }
 }
 
 function _getUserRow(sheet, email) {
@@ -368,6 +416,45 @@ function sendDiscordNotification(commenter, owner, homeworkTitle, text) {
                 { name: "To", value: owner + "'s work", inline: true },
                 { name: "Homework", value: homeworkTitle, inline: false },
                 { name: "Comment", value: text }
+            ],
+            footer: { text: "StudyFlow Activity Feed" },
+            timestamp: new Date().toISOString()
+        }]
+    };
+
+    UrlFetchApp.fetch(DISCORD_WEBHOOK_URL, {
+        method: "post",
+        contentType: "application/json",
+        payload: JSON.stringify(payload),
+        muteHttpExceptions: true
+    });
+}
+
+function sendSubmissionNotification(studentName, homeworkTitle, status, content) {
+    if (!DISCORD_WEBHOOK_URL) return;
+
+    const isFile = content.includes("http");
+    const label = isFile ? "📎 New Attachment" : "📣 New Progress Update";
+    const color = isFile ? 3447003 : 15105570; // Blue for files, Orange for updates
+
+    // Create a clean preview of content (files or text)
+    let displayContent = content;
+    if (isFile) {
+        const parts = content.split(',');
+        displayContent = parts.map(p => {
+            const [url, hash] = p.trim().split('#');
+            return hash ? `[${decodeURIComponent(hash)}](${url})` : `[View File](${url})`;
+        }).join('\n');
+    }
+
+    const payload = {
+        embeds: [{
+            title: label,
+            color: color,
+            fields: [
+                { name: "Student", value: studentName, inline: true },
+                { name: "Homework", value: homeworkTitle, inline: true },
+                { name: "Content", value: displayContent.substring(0, 1000) }
             ],
             footer: { text: "StudyFlow Activity Feed" },
             timestamp: new Date().toISOString()

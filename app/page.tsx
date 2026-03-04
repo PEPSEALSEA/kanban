@@ -789,7 +789,7 @@ export default function StudyFlow() {
                         <div>
                           <label style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)', marginBottom: '8px', display: 'block', fontWeight: 700, textTransform: 'uppercase' }}>Google Drive Content (Files)</label>
                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
-                            {editForm.link_image?.split(',').filter(Boolean).map((item, idx) => {
+                            {editForm.link_image?.split(',').filter(s => s && s.trim()).map((item, idx) => {
                               const trimmedItem = item.trim();
                               const [rawUrl, hashName] = trimmedItem.split('#');
                               const realFilename = hashName ? decodeURIComponent(hashName) : getFileLabel(trimmedItem);
@@ -825,7 +825,7 @@ export default function StudyFlow() {
                         <div>
                           <label style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)', marginBottom: '8px', display: 'block', fontWeight: 700, textTransform: 'uppercase' }}>External Links (URLs)</label>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '1rem' }}>
-                            {editForm.link_work?.split(',').filter(Boolean).map((link, idx) => (
+                            {editForm.link_work?.split(',').filter(s => s && s.trim()).map((link, idx) => (
                               <div key={idx} style={{ display: 'flex', gap: '10px', alignItems: 'center', padding: '10px 14px', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
                                 <span style={{ flex: 1, fontSize: '0.8rem', color: 'rgba(255,255,255,0.6)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>🔗 {link.trim()}</span>
                                 <button
@@ -1040,7 +1040,7 @@ export default function StudyFlow() {
 
                           {student.proof && (
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '8px', marginTop: '10px' }}>
-                              {student.proof.split(',').map((item, idx) => {
+                              {student.proof.split(',').filter(s => s && s.trim()).map((item, idx) => {
                                 const [rawUrl, hashName] = item.split('#');
                                 const realFilename = hashName ? decodeURIComponent(hashName) : 'Attachment';
                                 const isImage = rawUrl.includes('googleusercontent.com') || rawUrl.match(/\.(jpg|jpeg|png|gif|webp)$|^data:image/i);
@@ -1076,7 +1076,7 @@ export default function StudyFlow() {
                                               if (driveId) { try { await fetch(`${UPLOAD_WEB_APP_URL}?action=deleteFiles&driveIds=${driveId}`, { method: 'POST', mode: 'no-cors' }); } catch (e) { } }
                                               await fetch(GAS_WEB_APP_URL, {
                                                 method: 'POST',
-                                                body: new URLSearchParams({ action: 'updateProgress', email: user.email, homework_id: String(activeHomework.id), status: 'done', image_url: student.proof?.split(',').filter(u => u !== item).join(',') || " " })
+                                                body: new URLSearchParams({ action: 'updateProgress', email: user.email, homework_id: String(activeHomework.id), status: 'done', image_url: student.proof?.split(',').filter(u => u !== item).join(',') || "" })
                                               });
                                               fetchData();
                                               setNotification({ message: "Attachment removed.", type: 'success' });
