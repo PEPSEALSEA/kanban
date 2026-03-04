@@ -4,6 +4,8 @@
  */
 
 const folderId = "10CuQpxSeJiv_gDRAnL2fOVKIr0jLap6Y";
+const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1478774323874500640/3jwe9TnrxPJNCOJkPFln6OP1Ts1zxYhDaMC1FnIt5CzBhJwFDn-ogkMw-XYWtYr5eNVl";
+
 //removed folder not used just remove it
 const removedFolderId = "";
 
@@ -467,4 +469,62 @@ function _updateProgressProof(email, homeworkId, status, imageUrl) {
     progress.getRange(targetRow, 3).setValue(status || "done");
     progress.getRange(targetRow, 4).setValue(urlList.join(','));
     progress.getRange(targetRow, 5).setValue(new Date());
+
+    // Send Discord Notification for the new attachment
+    try {
+        const spreadsheet = SpreadsheetApp.openById(SHEET_ID);
+        // Get User Name
+        const usersSheet = spreadsheet.getSheetByName("Users");
+        const usersData = usersSheet.getDataRange().getValues();
+        const userRow = usersData.find(r => String(r[0]).toLowerCase() === String(email).toLowerCase());
+        const studentName = userRow ? userRow[1] : email;
+
+        // Get Homework Title
+        const hwSheet = spreadsheet.getSheetByName("Homework");
+        const hwData = hwSheet.getDataRange().getValues();
+        const hwRow = hwData.find(r => String(r[0]) === String(homeworkId));
+        const hwTitle = hwRow ? hwRow[2] : "Homework";
+
+        sendSubmissionNotification(studentName, hwTitle, status || "done", imageUrl);
+    } catch (e) {
+        Logger.log("Notification error: " + e.toString());
+    }
+}
+
+function sendSubmissionNotification(studentName, homeworkTitle, status, content) {
+    if (!DISCORD_WEBHOOK_URL) return;
+
+    const isFile = content.includes("http");
+    const label = isFile ? "📎 New Attachment" : "📣 New Progress Update";
+    const color = isFile ? 3447003 : 15105570; // Blue for files, Orange for updates
+
+    let displayContent = content;
+    if (isFile) {
+        const parts = content.split(',');
+        displayContent = parts.map(p => {
+            const [url, hash] = p.trim().split('#');
+            return hash ? `[${decodeURIComponent(hash)}](${url})` : `[View File](${url})`;
+        }).join('\n');
+    }
+
+    const payload = {
+        embeds: [{
+            title: label,
+            color: color,
+            fields: [
+                { name: "Student", value: studentName, inline: true },
+                { name: "Homework", value: homeworkTitle, inline: true },
+                { name: "Content", value: displayContent.substring(0, 1000) }
+            ],
+            footer: { text: "StudyFlow Activity Feed" },
+            timestamp: new Date().toISOString()
+        }]
+    };
+
+    UrlFetchApp.fetch(DISCORD_WEBHOOK_URL, {
+        method: "post",
+        contentType: "application/json",
+        payload: JSON.stringify(payload),
+        muteHttpExceptions: true
+    });
 }
