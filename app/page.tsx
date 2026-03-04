@@ -239,17 +239,52 @@ export default function StudyFlow() {
   };
 
   const handleDeleteHomework = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this homework?")) return;
-    setLoadingAction("Deleting Homework...");
+    if (!confirm("Are you sure? This will delete the homework and all associated files from Google Drive and student activity feed.")) return;
+    setLoadingAction("Deleting Homework & Files...");
     try {
+      // 1. Collect all associated file Drive IDs (Assignment Media + Activity Feed)
+      const hw = allHomework.find(h => String(h.id) === String(id));
+      const assignmentFiles = hw?.link_image ? hw.link_image.split(',') : [];
+      const activityFiles = allProgress
+        .filter(p => String(p.homework_id) === String(id))
+        .map(p => p.image_url)
+        .filter(Boolean);
+
+      let allUrls: string[] = [...assignmentFiles];
+      activityFiles.forEach(urlStr => {
+        if (urlStr) allUrls.push(...urlStr.split(','));
+      });
+
+      const driveIds = allUrls
+        .map(url => extractDriveId(url.trim()))
+        .filter(Boolean) as string[];
+
+      // 2. Delete from Google Drive if any files exist
+      if (driveIds.length > 0) {
+        const uniqueIds = Array.from(new Set(driveIds)).join(',');
+        try {
+          await fetch(`${UPLOAD_WEB_APP_URL}?action=deleteFiles&driveIds=${uniqueIds}`, {
+            method: 'POST',
+            mode: 'no-cors'
+          });
+        } catch (e) {
+          console.error("Drive file deletion error (non-critical):", e);
+        }
+      }
+
+      // 3. Delete homework record from Spreadsheet
       await fetch(GAS_WEB_APP_URL, {
         method: 'POST',
         body: new URLSearchParams({ action: 'deleteHomework', id })
       });
+
       fetchData();
       setActiveHomework(null);
-    } catch (e) { console.error(e); }
-    finally { setLoadingAction(null); }
+    } catch (e) {
+      console.error("Delete operation failed:", e);
+    } finally {
+      setLoadingAction(null);
+    }
   };
 
   const handleEditHomework = async () => {
@@ -268,8 +303,11 @@ export default function StudyFlow() {
       fetchData();
       // Update local modal data
       setActiveHomework(prev => prev ? { ...prev, ...editForm } : null);
-    } catch (e) { console.error(e); }
-    finally { setLoadingAction(null); }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingAction(null);
+    }
   };
 
   const extractDriveId = (url: string) => {
@@ -438,7 +476,7 @@ export default function StudyFlow() {
 
       {/* Premium Homework Detail Modal */}
       {activeHomework && (
-        <div 
+        <div
           style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(15px)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}
           onClick={() => { setActiveHomework(null); setIsEditing(false); }}
         >
@@ -469,7 +507,7 @@ export default function StudyFlow() {
                     <h2 style={{ fontSize: '2.2rem', fontWeight: 900, margin: 0, lineHeight: 1.1, color: '#fff', letterSpacing: '-0.02em' }}>{activeHomework.title}</h2>
                   )}
                 </div>
-                
+
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                   {isAdmin && (
                     <div style={{ display: 'flex', gap: '8px', background: 'rgba(0,0,0,0.2)', padding: '6px', borderRadius: '1rem' }}>
@@ -505,9 +543,9 @@ export default function StudyFlow() {
               {/* Left Side: Body & Content */}
               <div style={{ overflowY: 'auto', padding: '2.5rem', borderRight: '1px solid rgba(255,255,255,0.06)' }}>
                 <h3 style={{ fontSize: '1.1rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '10px', color: 'rgba(255,255,255,0.9)' }}>
-                   <span style={{ background: 'rgba(255,255,255,0.05)', padding: '6px', borderRadius: '8px' }}>📝</span> Instructions
+                  <span style={{ background: 'rgba(255,255,255,0.05)', padding: '6px', borderRadius: '8px' }}>📝</span> Instructions
                 </h3>
-                
+
                 <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1.5rem', borderRadius: '1.5rem', border: '1px solid rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.8)', lineHeight: 1.8, marginBottom: '2.5rem', whiteSpace: 'pre-wrap' }}>
                   {isEditing ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -589,12 +627,12 @@ export default function StudyFlow() {
                       {!isEditing && activeHomework.link_work && (
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
                           {activeHomework.link_work.split(',').filter(Boolean).map((link, idx) => (
-                            <a 
-                              key={idx} 
-                              href={link.trim()} 
-                              target="_blank" 
-                              rel="noreferrer" 
-                              className="glass" 
+                            <a
+                              key={idx}
+                              href={link.trim()}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="glass"
                               style={{ padding: '10px 18px', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 700, background: 'rgba(99, 102, 241, 0.1)', border: '1px solid rgba(99, 102, 241, 0.2)', color: '#fff', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px', transition: '0.2s' }}
                             >
                               🔗 Link {idx + 1}
@@ -607,145 +645,145 @@ export default function StudyFlow() {
                 </div>
               </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', background: 'rgba(0,0,0,0.15)', overflow: 'hidden' }}>
-                  <div style={{ padding: '2rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                     <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1.5rem' }}>
-                      {user && (
-                        <button
-                          onClick={async (e) => {
-                            await toggleComplete(e, activeHomework.id, activeHomework.my_status);
-                            const nextStatus = activeHomework.my_status === 'done' ? 'pending' : 'done';
-                            setActiveHomework(prev => prev ? { ...prev, my_status: nextStatus as any } : null);
-                          }}
-                          style={{
-                            flex: 1, padding: '1.1rem', borderRadius: '1.25rem', background: activeHomework.my_status === 'done' ? '#10b981' : 'var(--primary)',
-                            border: 'none', color: '#fff', fontWeight: 800, fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', transition: '0.3s', boxShadow: activeHomework.my_status === 'done' ? '0 10px 25px rgba(16, 185, 129, 0.3)' : '0 10px 25px rgba(99, 102, 241, 0.3)'
-                          }}
-                        >
-                          {activeHomework.my_status === 'done' ? '✓ Assignment Completed' : '🚀 Mark as Finished'}
-                        </button>
-                      )}
-                     </div>
+              <div style={{ display: 'flex', flexDirection: 'column', background: 'rgba(0,0,0,0.15)', overflow: 'hidden' }}>
+                <div style={{ padding: '2rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1.5rem' }}>
+                    {user && (
+                      <button
+                        onClick={async (e) => {
+                          await toggleComplete(e, activeHomework.id, activeHomework.my_status);
+                          const nextStatus = activeHomework.my_status === 'done' ? 'pending' : 'done';
+                          setActiveHomework(prev => prev ? { ...prev, my_status: nextStatus as any } : null);
+                        }}
+                        style={{
+                          flex: 1, padding: '1.1rem', borderRadius: '1.25rem', background: activeHomework.my_status === 'done' ? '#10b981' : 'var(--primary)',
+                          border: 'none', color: '#fff', fontWeight: 800, fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', transition: '0.3s', boxShadow: activeHomework.my_status === 'done' ? '0 10px 25px rgba(16, 185, 129, 0.3)' : '0 10px 25px rgba(99, 102, 241, 0.3)'
+                        }}
+                      >
+                        {activeHomework.my_status === 'done' ? '✓ Assignment Completed' : '🚀 Mark as Finished'}
+                      </button>
+                    )}
+                  </div>
 
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h3 style={{ fontSize: '0.9rem', fontWeight: 800, margin: 0, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'rgba(255,255,255,0.6)' }}>Activity Feed</h3>
+                    <div style={{ padding: '4px 10px', borderRadius: '20px', background: 'rgba(255,255,255,0.05)', fontSize: '0.7rem', fontWeight: 700 }}>
+                      {getFinishedUsers(activeHomework.id).length} Submissions
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem 2rem' }}>
+                  {/* Modern Share Input Box */}
+                  <div className="glass" style={{ padding: '1.25rem', borderRadius: '1.5rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', marginBottom: '2rem' }}>
+                    <textarea
+                      placeholder="Discuss or share your work progress..."
+                      style={{ width: '100%', background: 'none', border: 'none', color: '#fff', outline: 'none', resize: 'none', marginBottom: '1rem', fontSize: '0.9rem', lineHeight: 1.5 }}
+                      rows={2}
+                      value={shareText}
+                      onChange={(e) => setShareText(e.target.value)}
+                    />
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <h3 style={{ fontSize: '0.9rem', fontWeight: 800, margin: 0, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'rgba(255,255,255,0.6)' }}>Activity Feed</h3>
-                      <div style={{ padding: '4px 10px', borderRadius: '20px', background: 'rgba(255,255,255,0.05)', fontSize: '0.7rem', fontWeight: 700 }}>
-                        {getFinishedUsers(activeHomework.id).length} Submissions
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        {[
+                          { icon: '🖼️', type: 'image/*', label: 'Image' },
+                          { icon: '📎', type: '*', label: 'File' }
+                        ].map(btn => (
+                          <label key={btn.label} className="glass" style={{ padding: '8px 14px', borderRadius: '10px', fontSize: '0.75rem', cursor: 'pointer', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', gap: '6px', transition: '0.2s', fontWeight: 600 }}>
+                            {btn.icon} {btn.label}
+                            <input type="file" multiple hidden accept={btn.type} onChange={async (e) => {
+                              const files = e.target.files;
+                              if (files && files.length > 0 && user) {
+                                setIsUploading(true);
+                                for (let i = 0; i < files.length; i++) {
+                                  await handleFileUpload(files[i], activeHomework.id, 'done');
+                                }
+                                fetchData();
+                              }
+                            }} />
+                          </label>
+                        ))}
                       </div>
+                      <button
+                        disabled={!shareText || isUploading}
+                        onClick={async () => {
+                          if (!user) return;
+                          setLoadingAction("Syncing Activity...");
+                          try {
+                            await fetch(GAS_WEB_APP_URL, {
+                              method: 'POST',
+                              body: new URLSearchParams({ action: 'updateProgress', email: user.email, homework_id: String(activeHomework.id), status: 'done', image_url: shareText })
+                            });
+                            setShareText("");
+                            fetchData();
+                          } catch (e) { } finally { setLoadingAction(null); }
+                        }}
+                        style={{ padding: '8px 20px', borderRadius: '10px', background: 'var(--primary)', color: '#fff', border: 'none', fontWeight: 800, cursor: 'pointer', opacity: (!shareText || isUploading) ? 0.3 : 1, fontSize: '0.8rem', transition: '0.2s' }}
+                      >Post</button>
                     </div>
                   </div>
 
-                  <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem 2rem' }}>
-                    {/* Modern Share Input Box */}
-                    <div className="glass" style={{ padding: '1.25rem', borderRadius: '1.5rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', marginBottom: '2rem' }}>
-                      <textarea
-                        placeholder="Discuss or share your work progress..."
-                        style={{ width: '100%', background: 'none', border: 'none', color: '#fff', outline: 'none', resize: 'none', marginBottom: '1rem', fontSize: '0.9rem', lineHeight: 1.5 }}
-                        rows={2}
-                        value={shareText}
-                        onChange={(e) => setShareText(e.target.value)}
-                      />
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ display: 'flex', gap: '6px' }}>
-                          {[
-                            { icon: '🖼️', type: 'image/*', label: 'Image' },
-                            { icon: '📎', type: '*', label: 'File' }
-                          ].map(btn => (
-                            <label key={btn.label} className="glass" style={{ padding: '8px 14px', borderRadius: '10px', fontSize: '0.75rem', cursor: 'pointer', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', gap: '6px', transition: '0.2s', fontWeight: 600 }}>
-                              {btn.icon} {btn.label}
-                              <input type="file" multiple hidden accept={btn.type} onChange={async (e) => {
-                                const files = e.target.files;
-                                if (files && files.length > 0 && user) {
-                                  setIsUploading(true);
-                                  for (let i = 0; i < files.length; i++) {
-                                    await handleFileUpload(files[i], activeHomework.id, 'done');
-                                  }
-                                  fetchData();
-                                }
-                              }} />
-                            </label>
-                          ))}
-                        </div>
-                        <button
-                          disabled={!shareText || isUploading}
-                          onClick={async () => {
-                            if (!user) return;
-                            setLoadingAction("Syncing Activity...");
-                            try {
-                              await fetch(GAS_WEB_APP_URL, {
-                                method: 'POST',
-                                body: new URLSearchParams({ action: 'updateProgress', email: user.email, homework_id: String(activeHomework.id), status: 'done', image_url: shareText })
-                              });
-                              setShareText("");
-                              fetchData();
-                            } catch (e) { } finally { setLoadingAction(null); }
-                          }}
-                          style={{ padding: '8px 20px', borderRadius: '10px', background: 'var(--primary)', color: '#fff', border: 'none', fontWeight: 800, cursor: 'pointer', opacity: (!shareText || isUploading) ? 0.3 : 1, fontSize: '0.8rem', transition: '0.2s' }}
-                        >Post</button>
+                  {/* Activity Feed Items */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                    {getFinishedUsers(activeHomework.id).length === 0 && (
+                      <div style={{ textAlign: 'center', padding: '3rem 1rem', opacity: 0.3 }}>
+                        <span style={{ fontSize: '2rem', display: 'block', marginBottom: '1rem' }}>🧊</span>
+                        <p style={{ fontSize: '0.85rem' }}>No student activity yet.</p>
                       </div>
-                    </div>
-
-                    {/* Activity Feed Items */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                      {getFinishedUsers(activeHomework.id).length === 0 && (
-                        <div style={{ textAlign: 'center', padding: '3rem 1rem', opacity: 0.3 }}>
-                           <span style={{ fontSize: '2rem', display: 'block', marginBottom: '1rem' }}>🧊</span>
-                           <p style={{ fontSize: '0.85rem' }}>No student activity yet.</p>
+                    )}
+                    {getFinishedUsers(activeHomework.id).map((student, i) => (
+                      <div key={i} style={{ display: 'flex', gap: '12px', padding: '1.25rem', borderRadius: '1.5rem', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)', animation: 'fadeIn 0.4s ease-out' }}>
+                        <div style={{ position: 'relative', flexShrink: 0 }}>
+                          <img src={student.picture} style={{ width: '40px', height: '40px', borderRadius: '14px', border: '2px solid rgba(255,255,255,0.1)' }} alt="" />
+                          <div style={{ position: 'absolute', bottom: '-4px', right: '-4px', background: '#10b981', width: '14px', height: '14px', borderRadius: '50%', border: '2px solid #000', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '6px' }}>✓</div>
                         </div>
-                      )}
-                      {getFinishedUsers(activeHomework.id).map((student, i) => (
-                        <div key={i} style={{ display: 'flex', gap: '12px', padding: '1.25rem', borderRadius: '1.5rem', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)', animation: 'fadeIn 0.4s ease-out' }}>
-                          <div style={{ position: 'relative', flexShrink: 0 }}>
-                            <img src={student.picture} style={{ width: '40px', height: '40px', borderRadius: '14px', border: '2px solid rgba(255,255,255,0.1)' }} alt="" />
-                            <div style={{ position: 'absolute', bottom: '-4px', right: '-4px', background: '#10b981', width: '14px', height: '14px', borderRadius: '50%', border: '2px solid #000', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '6px' }}>✓</div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                            <span style={{ fontWeight: 800, fontSize: '0.9rem', color: '#fff' }}>{student.name}</span>
+                            <span style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.3)', fontWeight: 600 }}>SUBMITTED</span>
                           </div>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                              <span style={{ fontWeight: 800, fontSize: '0.9rem', color: '#fff' }}>{student.name}</span>
-                              <span style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.3)', fontWeight: 600 }}>SUBMITTED</span>
+
+                          {student.proof && (
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '8px', marginTop: '10px' }}>
+                              {student.proof.split(',').map((item, idx) => {
+                                const [rawUrl, hashName] = item.split('#');
+                                const realFilename = hashName ? decodeURIComponent(hashName) : 'Attachment';
+                                const isImage = rawUrl.includes('googleusercontent.com') || rawUrl.match(/\.(jpg|jpeg|png|gif|webp)$|^data:image/i);
+                                const isPdf = rawUrl.toLowerCase().includes('pdf') || realFilename.toLowerCase().endsWith('.pdf');
+                                const driveId = extractDriveId(rawUrl);
+
+                                return (
+                                  <div
+                                    key={idx}
+                                    className="glass"
+                                    style={{ position: 'relative', background: 'rgba(0,0,0,0.2)', borderRadius: '10px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)', cursor: 'pointer', transition: '0.2s' }}
+                                    onClick={() => setPreviewItem({ url: rawUrl, type: isImage ? 'image' : (isPdf ? 'pdf' : 'other'), filename: realFilename, driveId })}
+                                  >
+                                    {isImage ? (
+                                      <img src={rawUrl} style={{ width: '100%', height: '70px', objectFit: 'cover' }} alt="" />
+                                    ) : (
+                                      <div style={{ height: '70px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                                        <span style={{ fontSize: '1.2rem' }}>{isPdf ? '📕' : '📄'}</span>
+                                      </div>
+                                    )}
+                                    {user?.email === student.email && (
+                                      <button onClick={async (e) => {
+                                        e.stopPropagation();
+                                        if (!confirm("Remove?")) return;
+                                        setLoadingAction("Deleting...");
+                                        const driveId = extractDriveId(rawUrl);
+                                        if (driveId) { try { await fetch(`${UPLOAD_WEB_APP_URL}?action=deleteFiles&driveIds=${driveId}`, { method: 'POST', mode: 'no-cors' }); } catch (e) { } }
+                                        try { await fetch(GAS_WEB_APP_URL, { method: 'POST', body: new URLSearchParams({ action: 'updateProgress', email: user.email, homework_id: String(activeHomework.id), status: 'done', image_url: student.proof?.split(',').filter(u => u !== item).join(',') || " " }) }); fetchData(); } catch (e) { } finally { setLoadingAction(null); }
+                                      }} style={{ position: 'absolute', top: '2px', right: '2px', width: '16px', height: '16px', borderRadius: '4px', background: 'rgba(244, 63, 94, 0.8)', color: '#fff', border: 'none', fontSize: '8px', cursor: 'pointer' }}>✕</button>
+                                    )}
+                                  </div>
+                                );
+                              })}
                             </div>
-
-                            {student.proof && (
-                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '8px', marginTop: '10px' }}>
-                                {student.proof.split(',').map((item, idx) => {
-                                  const [rawUrl, hashName] = item.split('#');
-                                  const realFilename = hashName ? decodeURIComponent(hashName) : 'Attachment';
-                                  const isImage = rawUrl.includes('googleusercontent.com') || rawUrl.match(/\.(jpg|jpeg|png|gif|webp)$|^data:image/i);
-                                  const isPdf = rawUrl.toLowerCase().includes('pdf') || realFilename.toLowerCase().endsWith('.pdf');
-                                  const driveId = extractDriveId(rawUrl);
-
-                                  return (
-                                    <div
-                                      key={idx}
-                                      className="glass"
-                                      style={{ position: 'relative', background: 'rgba(0,0,0,0.2)', borderRadius: '10px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)', cursor: 'pointer', transition: '0.2s' }}
-                                      onClick={() => setPreviewItem({ url: rawUrl, type: isImage ? 'image' : (isPdf ? 'pdf' : 'other'), filename: realFilename, driveId })}
-                                    >
-                                      {isImage ? (
-                                        <img src={rawUrl} style={{ width: '100%', height: '70px', objectFit: 'cover' }} alt="" />
-                                      ) : (
-                                        <div style={{ height: '70px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                                          <span style={{ fontSize: '1.2rem' }}>{isPdf ? '📕' : '📄'}</span>
-                                        </div>
-                                      )}
-                                      {user?.email === student.email && (
-                                        <button onClick={async (e) => {
-                                          e.stopPropagation();
-                                          if (!confirm("Remove?")) return;
-                                          setLoadingAction("Deleting...");
-                                          const driveId = extractDriveId(rawUrl);
-                                          if (driveId) { try { await fetch(`${UPLOAD_WEB_APP_URL}?action=deleteFiles&driveIds=${driveId}`, { method: 'POST', mode: 'no-cors' }); } catch (e) { } }
-                                          try { await fetch(GAS_WEB_APP_URL, { method: 'POST', body: new URLSearchParams({ action: 'updateProgress', email: user.email, homework_id: String(activeHomework.id), status: 'done', image_url: student.proof?.split(',').filter(u => u !== item).join(',') || " " }) }); fetchData(); } catch (e) { } finally { setLoadingAction(null); }
-                                        }} style={{ position: 'absolute', top: '2px', right: '2px', width: '16px', height: '16px', borderRadius: '4px', background: 'rgba(244, 63, 94, 0.8)', color: '#fff', border: 'none', fontSize: '8px', cursor: 'pointer' }}>✕</button>
-                                      )}
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
+                          )}
                         </div>
-                      ))}
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -754,223 +792,223 @@ export default function StudyFlow() {
         </div>
       )}
 
-            <div className="kanban-container" style={{ padding: '2rem 2.5rem', flex: 1 }}>
-              {[
-                { key: 'soon', title: '🔥 3 วันก่อนส่ง', items: columns.soon, color: '#f43f5e' },
-                { key: 'week', title: '📅 7 วันก่อนส่ง', items: columns.week, color: '#f59e0b' },
-                { key: 'backlog', title: '🐚 งานดองเค็ม', items: columns.backlog, color: '#6366f1' }
-              ].map(col => (
-                <div key={col.key} className="column glass" style={{ minWidth: '360px', borderTop: `4px solid ${col.color}` }}>
-                  <div className="column-header" style={{ padding: '0.5rem 0.5rem 1.5rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <h3 className="column-title" style={{ fontSize: '1.3rem', fontWeight: 700 }}>{col.title}</h3>
-                      <span className="badge" style={{ padding: '4px 10px', fontSize: '0.8rem', borderRadius: '8px' }}>{col.items.length}</span>
-                    </div>
-                  </div>
-                  <div className="tasks-container">
-                    {!isLoading && col.items.length === 0 && (
-                      <div style={{ textAlign: 'center', padding: '3rem', color: 'rgba(255,255,255,0.2)', border: '2px dashed rgba(255,255,255,0.05)', borderRadius: '1.5rem' }}>
-                        No active tasks
+      <div className="kanban-container" style={{ padding: '2rem 2.5rem', flex: 1 }}>
+        {[
+          { key: 'soon', title: '🔥 3 วันก่อนส่ง', items: columns.soon, color: '#f43f5e' },
+          { key: 'week', title: '📅 7 วันก่อนส่ง', items: columns.week, color: '#f59e0b' },
+          { key: 'backlog', title: '🐚 งานดองเค็ม', items: columns.backlog, color: '#6366f1' }
+        ].map(col => (
+          <div key={col.key} className="column glass" style={{ minWidth: '360px', borderTop: `4px solid ${col.color}` }}>
+            <div className="column-header" style={{ padding: '0.5rem 0.5rem 1.5rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3 className="column-title" style={{ fontSize: '1.3rem', fontWeight: 700 }}>{col.title}</h3>
+                <span className="badge" style={{ padding: '4px 10px', fontSize: '0.8rem', borderRadius: '8px' }}>{col.items.length}</span>
+              </div>
+            </div>
+            <div className="tasks-container">
+              {!isLoading && col.items.length === 0 && (
+                <div style={{ textAlign: 'center', padding: '3rem', color: 'rgba(255,255,255,0.2)', border: '2px dashed rgba(255,255,255,0.05)', borderRadius: '1.5rem' }}>
+                  No active tasks
+                </div>
+              )}
+              {col.items.map(hw => {
+                const isDone = hw.my_status === 'done';
+                const isExpanded = expandedId === hw.id;
+                const completedBy = getFinishedUsers(hw.id);
+
+                return (
+                  <div
+                    key={hw.id}
+                    className={`card glass ${isExpanded ? 'expanded' : ''}`}
+                    onClick={() => setActiveHomework(hw)}
+                    style={{
+                      opacity: isDone ? 0.45 : 1,
+                      filter: isDone ? 'grayscale(0.3)' : 'none',
+                      transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                      borderLeft: isDone ? '6px solid #10b981' : `6px solid ${getSubjectColor(hw.subject)}`,
+                      cursor: 'pointer',
+                      transform: isExpanded ? 'scale(1.02)' : 'scale(1)',
+                      zIndex: isExpanded ? 10 : 1
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                          <span className="card-tag" style={{ backgroundColor: `${getSubjectColor(hw.subject)}25`, color: getSubjectColor(hw.subject), border: `1px solid ${getSubjectColor(hw.subject)}40`, fontWeight: 700, fontSize: '0.7rem' }}>
+                            {hw.subject}
+                          </span>
+                          {isDone && <span style={{ color: '#10b981', fontSize: '0.7rem', fontWeight: 800 }}>COMPLETED</span>}
+                        </div>
+                        <h4 style={{ margin: '0', textDecoration: isDone ? 'line-through' : 'none', fontSize: '1.15rem', fontWeight: 700, lineHeight: 1.3 }}>{hw.title}</h4>
                       </div>
-                    )}
-                    {col.items.map(hw => {
-                      const isDone = hw.my_status === 'done';
-                      const isExpanded = expandedId === hw.id;
-                      const completedBy = getFinishedUsers(hw.id);
-
-                      return (
+                      {user && (
                         <div
-                          key={hw.id}
-                          className={`card glass ${isExpanded ? 'expanded' : ''}`}
-                          onClick={() => setActiveHomework(hw)}
-                          style={{
-                            opacity: isDone ? 0.45 : 1,
-                            filter: isDone ? 'grayscale(0.3)' : 'none',
-                            transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-                            borderLeft: isDone ? '6px solid #10b981' : `6px solid ${getSubjectColor(hw.subject)}`,
-                            cursor: 'pointer',
-                            transform: isExpanded ? 'scale(1.02)' : 'scale(1)',
-                            zIndex: isExpanded ? 10 : 1
-                          }}
+                          onClick={(e) => toggleComplete(e, hw.id, hw.my_status)}
+                          style={{ width: '28px', height: '28px', borderRadius: '8px', border: '2px solid var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', background: isDone ? 'var(--primary)' : 'rgba(255,255,255,0.05)', transition: '0.3s', flexShrink: 0, marginLeft: '1rem' }}
                         >
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                            <div style={{ flex: 1 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                                <span className="card-tag" style={{ backgroundColor: `${getSubjectColor(hw.subject)}25`, color: getSubjectColor(hw.subject), border: `1px solid ${getSubjectColor(hw.subject)}40`, fontWeight: 700, fontSize: '0.7rem' }}>
-                                  {hw.subject}
-                                </span>
-                                {isDone && <span style={{ color: '#10b981', fontSize: '0.7rem', fontWeight: 800 }}>COMPLETED</span>}
-                              </div>
-                              <h4 style={{ margin: '0', textDecoration: isDone ? 'line-through' : 'none', fontSize: '1.15rem', fontWeight: 700, lineHeight: 1.3 }}>{hw.title}</h4>
-                            </div>
-                            {user && (
+                          {isDone && <span style={{ color: '#fff', fontSize: '1rem', fontWeight: 900 }}>✓</span>}
+                        </div>
+                      )}
+                    </div>
+
+                    <div style={{
+                      maxHeight: '45px',
+                      overflow: 'hidden',
+                      fontSize: '0.9rem',
+                      lineHeight: 1.5,
+                      color: 'rgba(255,255,255,0.6)',
+                      marginTop: '1rem',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical'
+                    }}>
+                      {hw.description}
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '1rem' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <span style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Deadline</span>
+                        <div style={{ color: hw.deadline === new Date().toISOString().split('T')[0] ? '#f43f5e' : '#fff', fontWeight: 800, fontSize: '0.8rem' }}>{new Date(hw.deadline).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
+                      </div>
+
+                      {/* Facepile Section */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center' }}>
+                          {completedBy.slice(0, 4).map((u, i) => (
+                            <div key={u.email} style={{ position: 'relative' }} className="avatar-group">
                               <div
-                                onClick={(e) => toggleComplete(e, hw.id, hw.my_status)}
-                                style={{ width: '28px', height: '28px', borderRadius: '8px', border: '2px solid var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', background: isDone ? 'var(--primary)' : 'rgba(255,255,255,0.05)', transition: '0.3s', flexShrink: 0, marginLeft: '1rem' }}
+                                style={{ position: 'relative' }}
+                                onMouseEnter={(e) => {
+                                  const target = e.currentTarget.querySelector('.proof-preview') as HTMLElement;
+                                  if (target) target.style.opacity = '1';
+                                }}
+                                onMouseLeave={(e) => {
+                                  const target = e.currentTarget.querySelector('.proof-preview') as HTMLElement;
+                                  if (target) target.style.opacity = '0';
+                                }}
                               >
-                                {isDone && <span style={{ color: '#fff', fontSize: '1rem', fontWeight: 900 }}>✓</span>}
-                              </div>
-                            )}
-                          </div>
-
-                          <div style={{
-                            maxHeight: '45px',
-                            overflow: 'hidden',
-                            fontSize: '0.9rem',
-                            lineHeight: 1.5,
-                            color: 'rgba(255,255,255,0.6)',
-                            marginTop: '1rem',
-                            display: '-webkit-box',
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: 'vertical'
-                          }}>
-                            {hw.description}
-                          </div>
-
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '1rem' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column' }}>
-                              <span style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Deadline</span>
-                              <div style={{ color: hw.deadline === new Date().toISOString().split('T')[0] ? '#f43f5e' : '#fff', fontWeight: 800, fontSize: '0.8rem' }}>{new Date(hw.deadline).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
-                            </div>
-
-                            {/* Facepile Section */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <div style={{ display: 'flex', alignItems: 'center' }}>
-                                {completedBy.slice(0, 4).map((u, i) => (
-                                  <div key={u.email} style={{ position: 'relative' }} className="avatar-group">
-                                    <div
-                                      style={{ position: 'relative' }}
-                                      onMouseEnter={(e) => {
-                                        const target = e.currentTarget.querySelector('.proof-preview') as HTMLElement;
-                                        if (target) target.style.opacity = '1';
-                                      }}
-                                      onMouseLeave={(e) => {
-                                        const target = e.currentTarget.querySelector('.proof-preview') as HTMLElement;
-                                        if (target) target.style.opacity = '0';
-                                      }}
-                                    >
-                                      <img
-                                        src={u.picture}
-                                        style={{ width: '26px', height: '26px', borderRadius: '50%', border: '2px solid #1e293b', marginLeft: i === 0 ? 0 : '-10px', boxShadow: '0 4px 6px rgba(0,0,0,0.3)', cursor: 'help', transition: '0.2s' }}
-                                        title={u.name}
-                                      />
-                                      {u.proof && (
-                                        <div className="proof-preview" style={{
-                                          position: 'absolute', bottom: '35px', left: '50%', transform: 'translateX(-50%)',
-                                          width: '120px', height: '120px', background: '#1e293b', border: '2px solid var(--primary)',
-                                          borderRadius: '8px', overflow: 'hidden', opacity: 0, pointerEvents: 'none', transition: '0.3s', zIndex: 1000,
-                                          boxShadow: '0 10px 20px rgba(0,0,0,0.5)'
-                                        }}>
-                                          <img src={u.proof} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Proof" />
-                                          <div style={{ position: 'absolute', bottom: 0, width: '100%', background: 'rgba(0,0,0,0.7)', color: '#fff', fontSize: '0.5rem', padding: '2px', textAlign: 'center' }}>Proof of completion</div>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                ))}
-                                {completedBy.length > 4 && (
-                                  <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: '#334155', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', fontWeight: 800, marginLeft: '-10px', border: '2px solid #1e293b' }}>
-                                    +{completedBy.length - 4}
+                                <img
+                                  src={u.picture}
+                                  style={{ width: '26px', height: '26px', borderRadius: '50%', border: '2px solid #1e293b', marginLeft: i === 0 ? 0 : '-10px', boxShadow: '0 4px 6px rgba(0,0,0,0.3)', cursor: 'help', transition: '0.2s' }}
+                                  title={u.name}
+                                />
+                                {u.proof && (
+                                  <div className="proof-preview" style={{
+                                    position: 'absolute', bottom: '35px', left: '50%', transform: 'translateX(-50%)',
+                                    width: '120px', height: '120px', background: '#1e293b', border: '2px solid var(--primary)',
+                                    borderRadius: '8px', overflow: 'hidden', opacity: 0, pointerEvents: 'none', transition: '0.3s', zIndex: 1000,
+                                    boxShadow: '0 10px 20px rgba(0,0,0,0.5)'
+                                  }}>
+                                    <img src={u.proof} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Proof" />
+                                    <div style={{ position: 'absolute', bottom: 0, width: '100%', background: 'rgba(0,0,0,0.7)', color: '#fff', fontSize: '0.5rem', padding: '2px', textAlign: 'center' }}>Proof of completion</div>
                                   </div>
                                 )}
                               </div>
-                              {completedBy.length > 0 && (
-                                <span style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>
-                                  {completedBy.length} {completedBy.length === 1 ? 'student' : 'students'}
-                                </span>
-                              )}
                             </div>
-                          </div>
+                          ))}
+                          {completedBy.length > 4 && (
+                            <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: '#334155', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', fontWeight: 800, marginLeft: '-10px', border: '2px solid #1e293b' }}>
+                              +{completedBy.length - 4}
+                            </div>
+                          )}
                         </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Modern Attachment Preview Modal */}
-            {
-              previewItem && (
-                <div
-                  style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.95)', backdropFilter: 'blur(15px)', zIndex: 11000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '1rem', animation: 'fadeIn 0.3s ease-out' }}
-                  onClick={() => setPreviewItem(null)}
-                >
-                  <header style={{ width: '100%', maxWidth: '1200px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.5rem', position: 'absolute', top: 0 }}>
-                    <div style={{ animation: 'slideInRight 0.4s ease-out' }}>
-                      <h4 style={{ color: '#fff', margin: 0, fontSize: '1.2rem', fontWeight: 700 }}>{previewItem.filename}</h4>
-                      <p style={{ color: 'rgba(255,255,255,0.5)', margin: 0, fontSize: '0.85rem', letterSpacing: '1px' }}>{previewItem.type.toUpperCase()} PREVIEW</p>
-                    </div>
-                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                      {previewItem.driveId && (
-                        <>
-                          <a
-                            href={`https://drive.google.com/uc?export=download&id=${previewItem.driveId}`}
-                            className="glass"
-                            onClick={(e) => e.stopPropagation()}
-                            style={{ padding: '0.7rem 1.5rem', borderRadius: '0.75rem', background: 'var(--primary)', color: '#fff', textDecoration: 'none', fontWeight: 700, fontSize: '0.9rem', boxShadow: '0 4px 15px rgba(99, 102, 241, 0.3)' }}
-                          >
-                            Download ↓
-                          </a>
-                          <a
-                            href={`https://drive.google.com/file/d/${previewItem.driveId}/view`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="glass"
-                            onClick={(e) => e.stopPropagation()}
-                            style={{ padding: '0.7rem 1.5rem', borderRadius: '0.75rem', background: 'rgba(255,255,255,0.1)', color: '#fff', textDecoration: 'none', fontWeight: 600, fontSize: '0.9rem' }}
-                          >
-                            Direct Link ↗
-                          </a>
-                        </>
-                      )}
-                      <button
-                        onClick={() => setPreviewItem(null)}
-                        style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', fontSize: '1.2rem', cursor: 'pointer', width: '45px', height: '45px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: '0.2s' }}
-                      >✕</button>
-                    </div>
-                  </header>
-
-                  <div
-                    style={{ width: '100%', maxWidth: '1200px', height: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', marginTop: '4rem' }}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {previewItem.type === 'image' && (
-                      <img
-                        src={previewItem.url}
-                        style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: '1rem', boxShadow: '0 30px 60px rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.1)' }}
-                        alt="Preview"
-                      />
-                    )}
-                    {previewItem.type === 'pdf' && (
-                      <iframe
-                        src={previewItem.driveId ? `https://drive.google.com/file/d/${previewItem.driveId}/preview` : previewItem.url}
-                        style={{ width: '100%', height: '100%', border: 'none', borderRadius: '1rem', backgroundColor: '#fff', boxShadow: '0 30px 60px rgba(0,0,0,0.8)' }}
-                        title="PDF Preview"
-                      />
-                    )}
-                    {previewItem.type === 'other' && (
-                      <div className="glass" style={{ padding: '5rem', borderRadius: '2rem', textAlign: 'center', border: '1px solid rgba(255,255,255,0.1)' }}>
-                        <span style={{ fontSize: '6rem', display: 'block', marginBottom: '1.5rem', animation: 'bounce 2s infinite' }}>📄</span>
-                        <h2 style={{ fontSize: '1.8rem', fontWeight: 800 }}>No Preview Available</h2>
-                        <p style={{ color: 'var(--text-muted)', maxWidth: '400px', margin: '1rem auto' }}>We can't preview this file type directly, but you can open it in Google Drive or download it.</p>
-                        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginTop: '2.5rem' }}>
-                          <a href={`https://drive.google.com/file/d/${previewItem.driveId}/view`} target="_blank" rel="noreferrer" style={{ background: 'var(--primary)', padding: '1rem 2.5rem', borderRadius: '1.25rem', color: '#fff', textDecoration: 'none', fontWeight: 800, fontSize: '1rem' }}>Open Externally</a>
-                        </div>
+                        {completedBy.length > 0 && (
+                          <span style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>
+                            {completedBy.length} {completedBy.length === 1 ? 'student' : 'students'}
+                          </span>
+                        )}
                       </div>
-                    )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Modern Attachment Preview Modal */}
+      {
+        previewItem && (
+          <div
+            style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.95)', backdropFilter: 'blur(15px)', zIndex: 11000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '1rem', animation: 'fadeIn 0.3s ease-out' }}
+            onClick={() => setPreviewItem(null)}
+          >
+            <header style={{ width: '100%', maxWidth: '1200px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.5rem', position: 'absolute', top: 0 }}>
+              <div style={{ animation: 'slideInRight 0.4s ease-out' }}>
+                <h4 style={{ color: '#fff', margin: 0, fontSize: '1.2rem', fontWeight: 700 }}>{previewItem.filename}</h4>
+                <p style={{ color: 'rgba(255,255,255,0.5)', margin: 0, fontSize: '0.85rem', letterSpacing: '1px' }}>{previewItem.type.toUpperCase()} PREVIEW</p>
+              </div>
+              <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                {previewItem.driveId && (
+                  <>
+                    <a
+                      href={`https://drive.google.com/uc?export=download&id=${previewItem.driveId}`}
+                      className="glass"
+                      onClick={(e) => e.stopPropagation()}
+                      style={{ padding: '0.7rem 1.5rem', borderRadius: '0.75rem', background: 'var(--primary)', color: '#fff', textDecoration: 'none', fontWeight: 700, fontSize: '0.9rem', boxShadow: '0 4px 15px rgba(99, 102, 241, 0.3)' }}
+                    >
+                      Download ↓
+                    </a>
+                    <a
+                      href={`https://drive.google.com/file/d/${previewItem.driveId}/view`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="glass"
+                      onClick={(e) => e.stopPropagation()}
+                      style={{ padding: '0.7rem 1.5rem', borderRadius: '0.75rem', background: 'rgba(255,255,255,0.1)', color: '#fff', textDecoration: 'none', fontWeight: 600, fontSize: '0.9rem' }}
+                    >
+                      Direct Link ↗
+                    </a>
+                  </>
+                )}
+                <button
+                  onClick={() => setPreviewItem(null)}
+                  style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', fontSize: '1.2rem', cursor: 'pointer', width: '45px', height: '45px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: '0.2s' }}
+                >✕</button>
+              </div>
+            </header>
+
+            <div
+              style={{ width: '100%', maxWidth: '1200px', height: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', marginTop: '4rem' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {previewItem.type === 'image' && (
+                <img
+                  src={previewItem.url}
+                  style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: '1rem', boxShadow: '0 30px 60px rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.1)' }}
+                  alt="Preview"
+                />
+              )}
+              {previewItem.type === 'pdf' && (
+                <iframe
+                  src={previewItem.driveId ? `https://drive.google.com/file/d/${previewItem.driveId}/preview` : previewItem.url}
+                  style={{ width: '100%', height: '100%', border: 'none', borderRadius: '1rem', backgroundColor: '#fff', boxShadow: '0 30px 60px rgba(0,0,0,0.8)' }}
+                  title="PDF Preview"
+                />
+              )}
+              {previewItem.type === 'other' && (
+                <div className="glass" style={{ padding: '5rem', borderRadius: '2rem', textAlign: 'center', border: '1px solid rgba(255,255,255,0.1)' }}>
+                  <span style={{ fontSize: '6rem', display: 'block', marginBottom: '1.5rem', animation: 'bounce 2s infinite' }}>📄</span>
+                  <h2 style={{ fontSize: '1.8rem', fontWeight: 800 }}>No Preview Available</h2>
+                  <p style={{ color: 'var(--text-muted)', maxWidth: '400px', margin: '1rem auto' }}>We can't preview this file type directly, but you can open it in Google Drive or download it.</p>
+                  <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginTop: '2.5rem' }}>
+                    <a href={`https://drive.google.com/file/d/${previewItem.driveId}/view`} target="_blank" rel="noreferrer" style={{ background: 'var(--primary)', padding: '1rem 2.5rem', borderRadius: '1.25rem', color: '#fff', textDecoration: 'none', fontWeight: 800, fontSize: '1rem' }}>Open Externally</a>
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        )}
 
-            <style jsx>{`
+      <style jsx>{`
               @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
               @keyframes slideInRight { 
                 from { opacity: 0; transform: translateX(30px) scale(0.9); } 
                 to { opacity: 1; transform: translateX(0) scale(1); } 
               }
             `}</style>
-          </main>
+    </main>
 
-        );
+  );
 }
