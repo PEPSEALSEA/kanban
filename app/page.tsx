@@ -54,6 +54,7 @@ export default function StudyFlow() {
   const [shareText, setShareText] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState<Partial<Homework>>({});
+  const [previewItem, setPreviewItem] = useState<{ url: string; type: 'image' | 'pdf' | 'other'; filename: string; driveId?: string | null } | null>(null);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -538,36 +539,37 @@ export default function StudyFlow() {
                       <div style={{ marginBottom: activeHomework.link_image ? '1.5rem' : '0' }}>{activeHomework.description || "No description provided."}</div>
 
                       {activeHomework.link_image && (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '1rem' }}>
                           {activeHomework.link_image.split(',').filter(Boolean).map((item, idx) => {
                             const trimmedItem = item.trim();
                             const [rawUrl, hashName] = trimmedItem.split('#');
                             const realFilename = hashName ? decodeURIComponent(hashName) : getFileLabel(trimmedItem);
 
                             const isImage = rawUrl.includes('googleusercontent.com') || rawUrl.match(/\.(jpg|jpeg|png|gif|webp)$|^data:image/i);
+                            const isPdf = rawUrl.toLowerCase().includes('pdf') || realFilename.toLowerCase().endsWith('.pdf');
                             const driveId = extractDriveId(rawUrl);
-                            const downloadUrl = driveId ? `https://drive.google.com/uc?export=download&id=${driveId}` : rawUrl;
-                            const viewUrl = driveId ? `https://drive.google.com/file/d/${driveId}/view` : rawUrl;
 
                             return (
-                              <div key={idx} style={{ borderRadius: '1rem', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.02)', display: 'flex', flexDirection: 'column' }}>
+                              <div
+                                key={idx}
+                                className="glass"
+                                style={{ borderRadius: '0.75rem', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', display: 'flex', flexDirection: 'column', cursor: 'pointer', transition: '0.2s' }}
+                                onClick={() => setPreviewItem({ url: rawUrl, type: isImage ? 'image' : (isPdf ? 'pdf' : 'other'), filename: realFilename, driveId })}
+                              >
                                 {isImage ? (
-                                  <div style={{ position: 'relative' }}>
-                                    <img src={rawUrl} style={{ width: '100%', height: 'auto', maxHeight: '300px', objectFit: 'contain', background: '#000' }} alt={realFilename} />
+                                  <div style={{ height: '90px', position: 'relative' }}>
+                                    <img src={rawUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt={realFilename} />
                                   </div>
                                 ) : (
-                                  <div style={{ padding: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
-                                    <span style={{ fontSize: '2.5rem' }}>{rawUrl.toLowerCase().includes('pdf') || realFilename.toLowerCase().endsWith('.pdf') ? '📕' : '📄'}</span>
-                                    <span style={{ fontSize: '0.9rem', fontWeight: 600, textAlign: 'center', padding: '0 1rem' }}>{realFilename}</span>
+                                  <div style={{ height: '90px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                                    <span style={{ fontSize: '1.5rem' }}>{isPdf ? '📕' : '📄'}</span>
+                                    <span style={{ fontSize: '0.6rem', fontWeight: 600, color: 'var(--text-muted)', textAlign: 'center', padding: '0 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '90%' }}>
+                                      {realFilename}
+                                    </span>
                                   </div>
                                 )}
-                                <div style={{ padding: '0.75rem', background: 'rgba(0,0,0,0.3)', display: 'flex', gap: '8px' }}>
-                                  <a href={viewUrl} target="_blank" rel="noreferrer" style={{ flex: 1, textAlign: 'center', fontSize: '0.75rem', color: '#fff', background: 'rgba(255,255,255,0.1)', padding: '6px 0', borderRadius: '6px', textDecoration: 'none', fontWeight: 600 }}>
-                                    {isImage ? 'Open Original ↗' : 'Open File ↗'}
-                                  </a>
-                                  <a href={downloadUrl} target="_blank" rel="noreferrer" style={{ flex: 1, textAlign: 'center', fontSize: '0.75rem', color: '#fff', background: 'rgba(255,255,255,0.1)', padding: '6px 0', borderRadius: '6px', textDecoration: 'none', fontWeight: 600 }}>
-                                    Download ↓
-                                  </a>
+                                <div style={{ padding: '0.4rem', background: 'rgba(0,0,0,0.3)', display: 'flex', gap: '4px' }}>
+                                  <span style={{ flex: 1, textAlign: 'center', fontSize: '0.55rem', fontWeight: 700, opacity: 0.8 }}>PREVIEW</span>
                                 </div>
                               </div>
                             );
@@ -657,67 +659,63 @@ export default function StudyFlow() {
                           <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Finished</span>
                         </div>
                         {student.proof && (
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginTop: '0.75rem' }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '0.75rem', marginTop: '0.75rem' }}>
                             {student.proof.split(',').map((item, idx) => {
                               const [rawUrl, hashName] = item.split('#');
                               const realFilename = hashName ? decodeURIComponent(hashName) : 'Attachment';
 
                               const isImage = rawUrl.includes('googleusercontent.com') || rawUrl.match(/\.(jpg|jpeg|png|gif|webp)$|^data:image/i);
+                              const isPdf = rawUrl.toLowerCase().includes('pdf') || realFilename.toLowerCase().endsWith('.pdf');
                               const driveId = extractDriveId(rawUrl);
-                              const downloadUrl = driveId ? `https://drive.google.com/uc?export=download&id=${driveId}` : rawUrl;
-                              const viewUrl = driveId ? `https://drive.google.com/file/d/${driveId}/view` : rawUrl;
-                              const label = getFileLabel(rawUrl);
 
                               return (
-                                <div key={idx} style={{ position: 'relative', background: 'rgba(255,255,255,0.02)', borderRadius: '1rem', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', flexDirection: 'column' }}>
+                                <div
+                                  key={idx}
+                                  className="glass"
+                                  style={{ position: 'relative', background: 'rgba(255,255,255,0.02)', borderRadius: '0.75rem', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', flexDirection: 'column', cursor: 'pointer' }}
+                                  onClick={() => setPreviewItem({ url: rawUrl, type: isImage ? 'image' : (isPdf ? 'pdf' : 'other'), filename: realFilename, driveId })}
+                                >
                                   {isImage ? (
-                                    <img src={rawUrl} style={{ width: '100%', height: '120px', objectFit: 'cover', background: '#000' }} alt={realFilename} />
+                                    <img src={rawUrl} style={{ width: '100%', height: '80px', objectFit: 'cover', background: '#000' }} alt={realFilename} />
                                   ) : (
-                                    <div style={{ height: '120px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                                      <span style={{ fontSize: '2rem' }}>{rawUrl.toLowerCase().includes('pdf') || realFilename.toLowerCase().endsWith('.pdf') ? '📕' : '📄'}</span>
-                                      <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)', textAlign: 'center', padding: '0 0.5rem', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                                    <div style={{ height: '80px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                                      <span style={{ fontSize: '1.5rem' }}>{isPdf ? '📕' : '📄'}</span>
+                                      <span style={{ fontSize: '0.55rem', fontWeight: 600, color: 'var(--text-muted)', textAlign: 'center', padding: '0 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '90%' }}>
                                         {realFilename}
                                       </span>
                                     </div>
                                   )}
 
-                                  <div style={{ padding: '0.5rem', background: 'rgba(0,0,0,0.4)', display: 'flex', gap: '6px' }}>
-                                    <a href={viewUrl} target="_blank" rel="noreferrer" title={`Open ${realFilename}`} style={{ flex: 1, textAlign: 'center', fontSize: '0.65rem', color: '#fff', background: 'rgba(255,255,255,0.1)', padding: '6px 0', borderRadius: '4px', textDecoration: 'none' }}>
-                                      Open ↗
-                                    </a>
-                                    <a href={downloadUrl} target="_blank" rel="noreferrer" title={`Download ${realFilename}`} style={{ flex: 1, textAlign: 'center', fontSize: '0.65rem', color: '#fff', background: 'rgba(255,255,255,0.1)', padding: '6px 0', borderRadius: '4px', textDecoration: 'none' }}>
-                                      Down ↓
-                                    </a>
-                                    {user?.email === student.email && (
-                                      <button
-                                        onClick={async () => {
-                                          if (!confirm("Remove this attachment?")) return;
-                                          setLoadingAction("Deleting...");
-                                          const driveId = extractDriveId(rawUrl);
-                                          if (driveId) {
-                                            try {
-                                              await fetch(`${UPLOAD_WEB_APP_URL}?action=deleteFiles&driveIds=${driveId}`, { method: 'POST', mode: 'no-cors' });
-                                            } catch (e) { }
-                                          }
-                                          const remaining = student.proof?.split(',').filter(u => u !== item).join(',') || "";
+                                  {user?.email === student.email && (
+                                    <button
+                                      onClick={async (e) => {
+                                        e.stopPropagation();
+                                        if (!confirm("Remove this attachment?")) return;
+                                        setLoadingAction("Deleting...");
+                                        const driveId = extractDriveId(rawUrl);
+                                        if (driveId) {
                                           try {
-                                            await fetch(GAS_WEB_APP_URL, {
-                                              method: 'POST',
-                                              body: new URLSearchParams({
-                                                action: 'updateProgress',
-                                                email: user.email,
-                                                homework_id: String(activeHomework.id),
-                                                status: 'done',
-                                                image_url: remaining || ' '
-                                              })
-                                            });
-                                            fetchData();
-                                          } catch (e) { } finally { setLoadingAction(null); }
-                                        }}
-                                        style={{ width: '24px', background: 'rgba(244, 63, 94, 0.2)', border: 'none', color: '#f43f5e', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                      >✕</button>
-                                    )}
-                                  </div>
+                                            await fetch(`${UPLOAD_WEB_APP_URL}?action=deleteFiles&driveIds=${driveId}`, { method: 'POST', mode: 'no-cors' });
+                                          } catch (e) { }
+                                        }
+                                        const remaining = student.proof?.split(',').filter(u => u !== item).join(',') || "";
+                                        try {
+                                          await fetch(GAS_WEB_APP_URL, {
+                                            method: 'POST',
+                                            body: new URLSearchParams({
+                                              action: 'updateProgress',
+                                              email: user.email,
+                                              homework_id: String(activeHomework.id),
+                                              status: 'done',
+                                              image_url: remaining || ' '
+                                            })
+                                          });
+                                          fetchData();
+                                        } catch (e) { } finally { setLoadingAction(null); }
+                                      }}
+                                      style={{ position: 'absolute', top: '2px', right: '2px', width: '18px', height: '18px', background: 'rgba(244, 63, 94, 0.8)', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px' }}
+                                    >✕</button>
+                                  )}
                                 </div>
                               );
                             })}
@@ -906,16 +904,81 @@ export default function StudyFlow() {
         ))}
       </div>
 
+      {/* Modern Attachment Preview Modal */}
+      {previewItem && (
+        <div
+          style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.95)', backdropFilter: 'blur(15px)', zIndex: 11000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '1rem', animation: 'fadeIn 0.3s ease-out' }}
+          onClick={() => setPreviewItem(null)}
+        >
+          <header style={{ width: '100%', maxWidth: '1200px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.5rem', position: 'absolute', top: 0 }}>
+            <div style={{ animation: 'slideInRight 0.4s ease-out' }}>
+              <h4 style={{ color: '#fff', margin: 0, fontSize: '1.2rem', fontWeight: 700 }}>{previewItem.filename}</h4>
+              <p style={{ color: 'rgba(255,255,255,0.5)', margin: 0, fontSize: '0.85rem', letterSpacing: '1px' }}>{previewItem.type.toUpperCase()} PREVIEW</p>
+            </div>
+            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+              {previewItem.driveId && (
+                <>
+                  <a
+                    href={`https://drive.google.com/uc?export=download&id=${previewItem.driveId}`}
+                    className="glass"
+                    onClick={(e) => e.stopPropagation()}
+                    style={{ padding: '0.7rem 1.5rem', borderRadius: '0.75rem', background: 'var(--primary)', color: '#fff', textDecoration: 'none', fontWeight: 700, fontSize: '0.9rem', boxShadow: '0 4px 15px rgba(99, 102, 241, 0.3)' }}
+                  >
+                    Download ↓
+                  </a>
+                  <a
+                    href={`https://drive.google.com/file/d/${previewItem.driveId}/view`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="glass"
+                    onClick={(e) => e.stopPropagation()}
+                    style={{ padding: '0.7rem 1.5rem', borderRadius: '0.75rem', background: 'rgba(255,255,255,0.1)', color: '#fff', textDecoration: 'none', fontWeight: 600, fontSize: '0.9rem' }}
+                  >
+                    Direct Link ↗
+                  </a>
+                </>
+              )}
+              <button
+                onClick={() => setPreviewItem(null)}
+                style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', fontSize: '1.2rem', cursor: 'pointer', width: '45px', height: '45px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: '0.2s' }}
+              >✕</button>
+            </div>
+          </header>
+
+          <div
+            style={{ width: '100%', maxWidth: '1200px', height: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', marginTop: '4rem' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {previewItem.type === 'image' && (
+              <img
+                src={previewItem.url}
+                style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: '1rem', boxShadow: '0 30px 60px rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.1)' }}
+                alt="Preview"
+              />
+            )}
+            {previewItem.type === 'pdf' && (
+              <iframe
+                src={previewItem.driveId ? `https://drive.google.com/file/d/${previewItem.driveId}/preview` : previewItem.url}
+                style={{ width: '100%', height: '100%', border: 'none', borderRadius: '1rem', backgroundColor: '#fff', boxShadow: '0 30px 60px rgba(0,0,0,0.8)' }}
+                title="PDF Preview"
+              />
+            )}
+            {previewItem.type === 'other' && (
+              <div className="glass" style={{ padding: '5rem', borderRadius: '2rem', textAlign: 'center', border: '1px solid rgba(255,255,255,0.1)' }}>
+                <span style={{ fontSize: '6rem', display: 'block', marginBottom: '1.5rem', animation: 'bounce 2s infinite' }}>📄</span>
+                <h2 style={{ fontSize: '1.8rem', fontWeight: 800 }}>No Preview Available</h2>
+                <p style={{ color: 'var(--text-muted)', maxWidth: '400px', margin: '1rem auto' }}>We can't preview this file type directly, but you can open it in Google Drive or download it.</p>
+                <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginTop: '2.5rem' }}>
+                  <a href={`https://drive.google.com/file/d/${previewItem.driveId}/view`} target="_blank" rel="noreferrer" style={{ background: 'var(--primary)', padding: '1rem 2.5rem', borderRadius: '1.25rem', color: '#fff', textDecoration: 'none', fontWeight: 800, fontSize: '1rem' }}>Open Externally</a>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <style jsx>{`
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        @keyframes slideInRight { 
-          from { opacity: 0; transform: translateX(30px) scale(0.9); } 
-          to { opacity: 1; transform: translateX(0) scale(1); } 
-        }
-        .card:hover { transform: translateY(-4px); box-shadow: 0 12px 25px rgba(0,0,0,0.5); border-color: rgba(255,255,255,0.2) !important; }
-        .card.expanded { background: rgba(30, 41, 59, 0.95) !important; box-shadow: 0 20px 40px rgba(0,0,0,0.6); }
       `}</style>
     </main >
   );
