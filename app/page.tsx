@@ -525,12 +525,37 @@ export default function StudyFlow() {
                       <div style={{ marginBottom: activeHomework.link_image ? '1.5rem' : '0' }}>{activeHomework.description || "No description provided."}</div>
 
                       {activeHomework.link_image && (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-                          {activeHomework.link_image.split(',').filter(Boolean).map((img, idx) => (
-                            <div key={idx} style={{ borderRadius: '1rem', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
-                              <img src={img.trim()} style={{ width: '100%', height: '100%', objectFit: 'cover', maxHeight: '200px' }} alt="Assignment Resource" />
-                            </div>
-                          ))}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem' }}>
+                          {activeHomework.link_image.split(',').filter(Boolean).map((item, idx) => {
+                            const trimmedItem = item.trim();
+                            const isImage = trimmedItem.includes('googleusercontent.com/u/d/') || trimmedItem.match(/\.(jpg|jpeg|png|gif|webp)$|^data:image/i);
+                            const driveId = extractDriveId(trimmedItem);
+                            const downloadUrl = driveId ? `https://drive.google.com/uc?export=download&id=${driveId}` : trimmedItem;
+                            const viewUrl = driveId ? `https://drive.google.com/file/d/${driveId}/view` : trimmedItem;
+
+                            return (
+                              <div key={idx} style={{ borderRadius: '1rem', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.02)', display: 'flex', flexDirection: 'column' }}>
+                                {isImage ? (
+                                  <div style={{ position: 'relative' }}>
+                                    <img src={trimmedItem} style={{ width: '100%', height: 'auto', maxHeight: '300px', objectFit: 'contain', background: '#000' }} alt="Assignment Resource" />
+                                  </div>
+                                ) : (
+                                  <div style={{ padding: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+                                    <span style={{ fontSize: '2.5rem' }}>📄</span>
+                                    <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>Document Attachment</span>
+                                  </div>
+                                )}
+                                <div style={{ padding: '0.75rem', background: 'rgba(0,0,0,0.3)', display: 'flex', gap: '8px' }}>
+                                  <a href={viewUrl} target="_blank" rel="noreferrer" style={{ flex: 1, textAlign: 'center', fontSize: '0.75rem', color: '#fff', background: 'rgba(255,255,255,0.1)', padding: '6px 0', borderRadius: '6px', textDecoration: 'none', fontWeight: 600 }}>
+                                    {isImage ? 'Open Original ↗' : 'Open File ↗'}
+                                  </a>
+                                  <a href={downloadUrl} target="_blank" rel="noreferrer" style={{ flex: 1, textAlign: 'center', fontSize: '0.75rem', color: '#fff', background: 'rgba(255,255,255,0.1)', padding: '6px 0', borderRadius: '6px', textDecoration: 'none', fontWeight: 600 }}>
+                                    Download ↓
+                                  </a>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
                     </>

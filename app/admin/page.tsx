@@ -49,6 +49,21 @@ export default function AdminPage() {
         setIsAuthChecking(false);
     }, []);
 
+    const extractDriveId = (url: string) => {
+        if (!url || !url.includes('http')) return null;
+        // Standard view link: drive.google.com/file/d/ID/view
+        if (url.includes('drive.google.com/file/d/')) {
+            const parts = url.split('/d/');
+            if (parts[1]) return parts[1].split('/')[0];
+        }
+        // Thumbnail/Direct link: googleusercontent.com/u/0/d/ID
+        if (url.includes('/d/')) {
+            const parts = url.split('/d/');
+            if (parts[1]) return parts[1].split(/[/?#]/)[0];
+        }
+        return null;
+    };
+
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files;
         if (!files || files.length === 0) return;
@@ -67,20 +82,27 @@ export default function AdminPage() {
                 });
 
                 const base64Data = await base64Promise;
-                const response = await fetch(`${UPLOAD_WEB_APP_URL}?action=upload&filename=${encodeURIComponent(file.name)}&contentType=${encodeURIComponent(file.type)}`, {
+                // Default to octet-stream if browser doesn't know the type
+                const cType = file.type || 'application/octet-stream';
+
+                const response = await fetch(`${UPLOAD_WEB_APP_URL}?action=upload&filename=${encodeURIComponent(file.name)}&contentType=${encodeURIComponent(cType)}`, {
                     method: 'POST',
                     body: base64Data
                 });
 
                 const result = await response.json();
                 if (result.success) {
+                    // result.url is the thumbnail URL for images, or the viewUrl for other files
                     setFormData(prev => ({ ...prev, link_image: [...prev.link_image, result.url] }));
                 }
             }
         } catch (error) {
             console.error("Upload error:", error);
+            alert("Upload failed. Please check your connection and script permissions.");
         } finally {
             setIsUploading(false);
+            // Clear input so same file can be re-selected if needed
+            e.target.value = '';
         }
     };
 
@@ -247,21 +269,47 @@ export default function AdminPage() {
                             display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem',
                             border: '2px dashed rgba(255,255,255,0.1)', borderRadius: '1.25rem', cursor: 'pointer', transition: '0.2s', background: 'rgba(255,255,255,0.02)'
                         }}>
-                            <span style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>📸</span>
-                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{isUploading ? 'Uploading attachments...' : 'Add images to this assignment'}</span>
-                            <input type="file" multiple accept="image/*" hidden onChange={handleFileUpload} disabled={isUploading} />
+                            <span style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>📂</span>
+                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{isUploading ? '📤 Uploading files...' : 'Click to select Images or Documents'}</span>
+                            <input type="file" multiple accept="" hidden onChange={handleFileUpload} disabled={isUploading} />
                         </label>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
-                            {formData.link_image.map((img, idx) => (
-                                <div key={idx} style={{ position: 'relative', height: '100px', borderRadius: '0.75rem', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
-                                    <img src={img} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Preview" />
-                                    <button
-                                        type="button"
-                                        onClick={() => setFormData(prev => ({ ...prev, link_image: prev.link_image.filter((_, i) => i !== idx) }))}
-                                        style={{ position: 'absolute', top: '4px', right: '4px', background: 'rgba(244, 63, 94, 0.8)', border: 'none', color: '#fff', borderRadius: '50%', width: '20px', height: '20px', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-                                    >✕</button>
-                                </div>
-                            ))}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
+                            {formData.link_image.map((url, idx) => {
+                                const isImage = url.includes('googleusercontent.com/u/d/') || url.match(/\.(jpg|jpeg|png|gif|webp)$|^data:image/i);
+                                const driveId = extractDriveId(url);
+                                const downloadUrl = driveId ? `https://drive.google.com/uc?export=download&id=${driveId}` : url;
+                                const viewUrl = driveId ? `https://drive.google.com/file/d/${driveId}/view` : url;
+
+                                return (
+                                    <div key={idx} style={{ position: 'relative', borderRadius: '1rem', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.02)', display: 'flex', flexDirection: 'column' }}>
+                                        {isImage ? (
+                                            <div style={{ height: '100px', width: '100%', position: 'relative' }}>
+                                                <img src={url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Preview" />
+                                            </div>
+                                        ) : (
+                                            <div style={{ height: '100px', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', color: 'var(--text-muted)' }}>
+                                                <span style={{ fontSize: '1.5rem' }}>📄</span>
+                                                <span style={{ fontSize: '0.65rem' }}>Document</span>
+                                            </div>
+                                        )}
+
+                                        <div style={{ padding: '0.5rem', display: 'flex', gap: '4px', background: 'rgba(0,0,0,0.3)' }}>
+                                            <a href={viewUrl} target="_blank" rel="noreferrer" style={{ flex: 1, textAlign: 'center', fontSize: '0.6rem', color: '#fff', background: 'rgba(255,255,255,0.1)', padding: '4px 0', borderRadius: '4px', textDecoration: 'none' }}>
+                                                {isImage ? 'Open' : 'Open'}
+                                            </a>
+                                            <a href={downloadUrl} target="_blank" rel="noreferrer" style={{ flex: 1, textAlign: 'center', fontSize: '0.6rem', color: '#fff', background: 'rgba(255,255,255,0.1)', padding: '4px 0', borderRadius: '4px', textDecoration: 'none' }}>
+                                                Download
+                                            </a>
+                                        </div>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormData(prev => ({ ...prev, link_image: prev.link_image.filter((_, i) => i !== idx) }))}
+                                            style={{ position: 'absolute', top: '4px', right: '4px', background: 'rgba(244, 63, 94, 0.8)', border: 'none', color: '#fff', borderRadius: '50%', width: '20px', height: '20px', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 10 }}
+                                        >✕</button>
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
 

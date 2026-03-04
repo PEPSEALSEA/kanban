@@ -28,7 +28,7 @@ function doOptions(e) {
  * Creates an embeddable thumbnail URL for an image in Google Drive.
  */
 function generateImageThumbnailUrl(fileId) {
-    return "https://lh3.googleusercontent.com/u/d/" + fileId;
+    return "https://lh3.googleusercontent.com/u/0/d/" + fileId;
 }
 
 function doPost(e) {
@@ -71,9 +71,7 @@ function doPost(e) {
             } catch (ex) {
                 // Not JSON
                 if (!isMultipart && typeof e.postData.contents !== 'string') {
-                    if (e.postData.contents.getBytes) {
-                        isMultipart = true;
-                    }
+                    if (e.postData.contents.getBytes) isMultipart = true;
                 }
             }
         }
@@ -81,6 +79,35 @@ function doPost(e) {
         // Special handling for text-only base64 upload (CORS friendly)
         // If request body is a plain string and action is in URL
         var action = params.action || postData.action;
+
+        // HELPER: Unified response and logging logic
+        const processFileAndResponse = (file, filename, contentType, email, homeworkId, status, action) => {
+            file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+            const driveId = file.getId();
+
+            // Only generate thumbnail URL if it's actually an image
+            const isActualImage = contentType && contentType.toLowerCase().indexOf('image/') !== -1;
+            const thumbnail = isActualImage ? generateImageThumbnailUrl(driveId) : null;
+            const viewUrl = 'https://drive.google.com/file/d/' + driveId + '/view';
+
+            logUploadToSheet(driveId, viewUrl, filename, contentType);
+
+            if (action === 'uploadProof' && email && homeworkId) {
+                _updateProgressProof(email, homeworkId, status, thumbnail || viewUrl);
+            }
+
+            return createResponse(true, 'Upload successful', {
+                driveId: driveId,
+                // If it's an image, we want the embeddable thumbnail. Otherwise, the view link.
+                url: thumbnail || viewUrl,
+                thumbnail: thumbnail,
+                directUrl: viewUrl,
+                downloadUrl: file.getDownloadUrl(),
+                viewUrl: viewUrl,
+                contentType: contentType,
+                filename: filename
+            });
+        };
 
         // --- NEW DELETE ACTION ---
         if (action === 'deleteFiles' || action === 'archiveFiles') {
@@ -113,9 +140,7 @@ function doPost(e) {
                         var parents = file.getParents();
                         while (parents.hasNext()) {
                             var p = parents.next();
-                            if (p.getId() !== removedFolderId) {
-                                p.removeFile(file);
-                            }
+                            if (p.getId() !== removedFolderId) p.removeFile(file);
                         }
                     } else {
                         // Default behavior: move to Trash
@@ -133,22 +158,27 @@ function doPost(e) {
             });
         }
 
-        // Check if this is a raw text body upload (simple request)
-        // GAS parses application/x-www-form-urlencoded into e.parameter
-        // But for raw text/plain, it stays in e.postData.contents
-        var base64Content = params.content || postData.content || (e.postData ? e.postData.contents : null);
+        // Shared parameters for all upload types
+        var email = params.email || postData.email || "";
+        var homeworkId = params.homework_id || params.homeworkId || postData.homework_id || postData.homeworkId || "";
+        var status = params.status || postData.status || "done";
 
+        // 1. Raw body / Base64 upload
+        var base64Content = params.content || postData.content || (e.postData ? e.postData.contents : null);
         if ((action === 'upload' || action === 'uploadProof') && base64Content && typeof base64Content === 'string') {
             // Strip data URL prefix if it accidentally leaked through
             if (base64Content.indexOf('base64,') !== -1) {
                 base64Content = base64Content.split('base64,')[1];
             }
 
-            var filename = params.filename || ("Image_" + new Date().getTime() + ".jpg");
-            var contentType = params.contentType || "image/jpeg";
-            var email = params.email || postData.email || "";
-            var homeworkId = params.homework_id || params.homeworkId || postData.homework_id || postData.homeworkId || "";
-            var status = params.status || postData.status || "done";
+            var filename = params.filename || postData.filename || ("File_" + new Date().getTime());
+            var contentType = params.contentType || postData.contentType || "application/octet-stream";
+
+            // If we have a filename but no extension in the name, try to keep it generic
+            if (filename.indexOf('.') === -1 && contentType.indexOf('/') !== -1) {
+                var ext = contentType.split('/')[1];
+                if (ext && ext.length < 5) filename += "." + ext;
+            }
 
             try {
                 const decodedData = Utilities.base64Decode(base64Content);
@@ -156,33 +186,14 @@ function doPost(e) {
 
                 const folder = DriveApp.getFolderById(folderId);
                 const file = folder.createFile(blob);
-                file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
 
-                const driveId = file.getId();
-                const thumbnail = (contentType && contentType.indexOf('image/') !== -1) ? generateImageThumbnailUrl(driveId) : null;
-                const viewUrl = 'https://drive.google.com/file/d/' + driveId + '/view';
-
-                // --- CONNECT TO MAIN SHEET ---
-                logUploadToSheet(driveId, viewUrl, filename, contentType);
-                if (action === 'uploadProof') {
-                    _updateProgressProof(email, homeworkId, status, thumbnail || viewUrl);
-                }
-
-                return createResponse(true, 'Upload successful', {
-                    driveId: driveId,
-                    url: thumbnail || viewUrl,
-                    thumbnail: thumbnail,
-                    directUrl: viewUrl,
-                    downloadUrl: file.getDownloadUrl(),
-                    viewUrl: viewUrl
-                });
+                return processFileAndResponse(file, filename, contentType, email, homeworkId, status, action);
             } catch (e) {
                 return createResponse(false, 'Upload decoding failed: ' + e.toString());
             }
         }
 
-        // Handle FormData upload (multipart/form-data)
-        // Google Apps Script automatically parses multipart/form-data into e.parameters
+        // 2. Handle FormData upload (multipart/form-data) - Google Apps Script automatically parses multipart/form-data into e.parameters
         // Check e.parameters.myFile FIRST as it's the most reliable way
         if (e.parameters && e.parameters.myFile) {
             var fileBlob = null;
@@ -199,22 +210,12 @@ function doPost(e) {
                 const folder = DriveApp.getFolderById(folderId);
                 const file = folder.createFile(fileBlob);
                 if (filename) file.setName(filename);
-                file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
 
-                // --- CONNECT TO MAIN SHEET ---
-                logUploadToSheet(file.getId(), file.getUrl(), filename, contentType);
-
-                return createResponse(true, 'Upload successful', {
-                    driveId: file.getId(),
-                    url: file.getUrl(),
-                    directUrl: 'https://drive.google.com/file/d/' + file.getId(),
-                    downloadUrl: file.getDownloadUrl(),
-                    viewUrl: file.getUrl()
-                });
+                return processFileAndResponse(file, filename, contentType, email, homeworkId, status, action);
             }
         }
 
-        // Fallback: Handle multipart/form-data manually if e.parameters didn't work
+        // 3. Manual Multipart Fallback: Handle multipart/form-data manually if e.parameters didn't work
         // Also try if we have postData.contents that looks like a blob (even if multipart not detected)
         if (isMultipart || (e.postData && e.postData.type && e.postData.type.indexOf('multipart') !== -1) ||
             (e.postData && e.postData.contents && e.postData.contents.getBytes && action === 'upload')) {
@@ -257,101 +258,16 @@ function doPost(e) {
                 const folder = DriveApp.getFolderById(folderId);
                 const file = folder.createFile(fileBlob);
                 if (filename) file.setName(filename);
-                file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
 
-                return createResponse(true, 'Upload successful', {
-                    driveId: file.getId(),
-                    url: 'https://drive.google.com/file/d/' + file.getId(),
-                    downloadUrl: file.getDownloadUrl(),
-                    viewUrl: file.getUrl()
-                });
+                return processFileAndResponse(file, filename, contentType, email, homeworkId, status, action);
             } else {
                 return createResponse(false, 'Failed to extract file from multipart data. postData type: ' + (e.postData ? e.postData.type : 'none') + ', has contents: ' + (e.postData && e.postData.contents ? 'yes' : 'no') + ', contents type: ' + (e.postData && e.postData.contents ? typeof e.postData.contents : 'none') + ', isMultipart: ' + isMultipart);
             }
         }
 
-        // Handle Base64 upload (JSON) - only if we have base64 data AND NOT multipart
-        var base64Data = params.content || postData.content;
-        if (action === 'upload' && !isMultipart && base64Data) {
-            var filename = params.filename || postData.filename || ("Image_" + new Date().getTime());
-            var contentType = params.contentType || postData.contentType || "image/jpeg";
-
-            const decodedData = Utilities.base64Decode(base64Data);
-            const blob = Utilities.newBlob(decodedData, contentType, filename);
-
-            const folder = DriveApp.getFolderById(folderId);
-            const file = folder.createFile(blob);
-            file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-
-            return createResponse(true, 'Upload successful', {
-                driveId: file.getId(),
-                url: 'https://drive.google.com/file/d/' + file.getId(),
-                downloadUrl: file.getDownloadUrl(),
-                viewUrl: file.getUrl()
-            });
-        }
-
-        // Last attempt: check all parameters for any blob/file
-        if (e.parameters) {
-            for (var key in e.parameters) {
-                if (e.parameters.hasOwnProperty(key)) {
-                    var paramValue = e.parameters[key];
-                    if (paramValue && (paramValue.getBytes || (Array.isArray(paramValue) && paramValue.length > 0 && paramValue[0].getBytes))) {
-                        var fileBlob = Array.isArray(paramValue) ? paramValue[0] : paramValue;
-                        var filename = params.filename || (fileBlob.getName ? fileBlob.getName() : null) || ("Image_" + new Date().getTime());
-                        var contentType = params.contentType || (fileBlob.getContentType ? fileBlob.getContentType() : null) || "image/jpeg";
-
-                        const folder = DriveApp.getFolderById(folderId);
-                        const file = folder.createFile(fileBlob);
-                        if (filename) file.setName(filename);
-                        file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-
-                        return createResponse(true, 'Upload successful', {
-                            driveId: file.getId(),
-                            url: 'https://drive.google.com/file/d/' + file.getId(),
-                            downloadUrl: file.getDownloadUrl(),
-                            viewUrl: file.getUrl()
-                        });
-                    }
-                }
-            }
-        }
-
-        // Final fallback: if we have postData.contents as blob and action=upload, try using it directly
-        // This handles cases where Google Apps Script received the file but didn't parse it into parameters
-        if (action === 'upload' && e.postData && e.postData.contents && e.postData.contents.getBytes) {
-            try {
-                var fileBlob = e.postData.contents;
-                var filename = params.filename || ("Image_" + new Date().getTime() + ".jpg");
-                var contentType = params.contentType || "image/jpeg";
-
-                // Try to get content type from blob
-                try {
-                    var blobType = fileBlob.getContentType();
-                    if (blobType && blobType !== 'application/octet-stream') {
-                        contentType = blobType;
-                    }
-                } catch (ex) { }
-
-                const folder = DriveApp.getFolderById(folderId);
-                const file = folder.createFile(fileBlob);
-                if (filename) file.setName(filename);
-                file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-
-                return createResponse(true, 'Upload successful', {
-                    driveId: file.getId(),
-                    url: 'https://drive.google.com/file/d/' + file.getId(),
-                    downloadUrl: file.getDownloadUrl(),
-                    viewUrl: file.getUrl()
-                });
-            } catch (ex) {
-                Logger.log('Error using postData.contents directly: ' + ex.toString());
-            }
-        }
-
-        return createResponse(false, 'Invalid action or missing file. Action: ' + (action || 'none') + ', isMultipart: ' + isMultipart + ', has parameters.myFile: ' + (e.parameters && e.parameters.myFile ? 'yes' : 'no') + ', Debug: ' + JSON.stringify(debugInfo));
+        return createResponse(false, 'Invalid action or missing file. Debug: ' + JSON.stringify(debugInfo));
     } catch (error) {
-        return createResponse(false, 'Upload failed: ' + error.toString() + '. Stack: ' + (error.stack || 'no stack') + ', Debug: ' + JSON.stringify(debugInfo));
+        return createResponse(false, 'Upload failed: ' + error.toString() + '. Debug: ' + JSON.stringify(debugInfo));
     }
 }
 
@@ -388,9 +304,7 @@ function parseMultipartFormData(body, contentType) {
                     // If base64 decode fails, try as raw binary string
                     try {
                         var bytes = [];
-                        for (var j = 0; j < fileContent.length; j++) {
-                            bytes.push(fileContent.charCodeAt(j) & 0xFF);
-                        }
+                        for (var j = 0; j < fileContent.length; j++) bytes.push(fileContent.charCodeAt(j) & 0xFF);
                         return Utilities.newBlob(bytes, fileContentType);
                     } catch (e2) {
                         Logger.log('Error creating blob from multipart: ' + e2.toString());
@@ -541,19 +455,13 @@ function _updateProgressProof(email, homeworkId, status, imageUrl) {
     }
 
     const targetRow = idx + 2;
-    const currentUrl = progress.getRange(targetRow, 4).getValue();
-
-    // Support multiple files - append if it's a new URL
-    let newUrl = imageUrl;
-    if (currentUrl && imageUrl && String(currentUrl).indexOf(imageUrl) === -1) {
-        newUrl = currentUrl + "," + imageUrl;
-    } else if (!currentUrl) {
-        newUrl = imageUrl;
-    } else {
-        newUrl = currentUrl; // already exists
+    const currentUrlVal = String(progress.getRange(targetRow, 4).getValue() || "");
+    let urlList = currentUrlVal ? currentUrlVal.split(',') : [];
+    if (imageUrl && !urlList.includes(imageUrl)) {
+        urlList.push(imageUrl);
     }
 
     progress.getRange(targetRow, 3).setValue(status || "done");
-    progress.getRange(targetRow, 4).setValue(newUrl);
+    progress.getRange(targetRow, 4).setValue(urlList.join(','));
     progress.getRange(targetRow, 5).setValue(new Date());
 }

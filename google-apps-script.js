@@ -46,48 +46,41 @@ function doPost(e) {
             try {
                 postData = JSON.parse(e.postData.contents);
             } catch (ex) {
-                // Not JSON, that's fine, we'll use params
+                // Not JSON
             }
         }
 
-        const action = params.action || postData.action;
+        const getVal = (key) => {
+            if (params[key] !== undefined) return params[key];
+            if (postData[key] !== undefined) return postData[key];
+            if (key === 'homework_id') return getVal('homeworkId') || getVal('id');
+            return undefined;
+        };
+
+        const action = getVal('action');
         let result;
 
         if (action === "addHomework") {
-            const subject = params.subject || postData.subject;
-            const title = params.title || postData.title;
-            const description = params.description || postData.description;
-            const deadline = params.deadline || postData.deadline;
-            const link_work = params.link_work || postData.link_work;
-            const link_image = params.link_image || postData.link_image;
-            const note = params.note || postData.note;
-            result = addHomework(subject, title, description, deadline, link_work, link_image, note);
+            result = addHomework(
+                getVal('subject'), getVal('title'), getVal('description'),
+                getVal('deadline'), getVal('link_work'), getVal('link_image'), getVal('note')
+            );
         } else if (action === "addUser") {
-            const email = params.email || postData.email;
-            const display_name = params.display_name || postData.display_name;
-            const photo_url = params.photo_url || postData.photo_url;
-            addUser(email, display_name, photo_url);
+            addUser(getVal('email'), getVal('display_name'), getVal('photo_url'));
             result = "ok";
         } else if (action === "updateProgress") {
-            const email = params.email || postData.email;
-            const hwId = params.homework_id || params.homeworkId || postData.homework_id || postData.homeworkId;
-            const status = params.status || postData.status;
-            const imageUrl = params.image_url || params.imageUrl || postData.image_url || postData.imageUrl;
-            updateProgress(email, hwId, status, imageUrl);
+            updateProgress(
+                getVal('email'), getVal('homework_id'), getVal('status'),
+                getVal('image_url'), getVal('append') === 'true'
+            );
             result = "ok";
         } else if (action === "deleteHomework") {
-            const id = params.id || postData.id;
-            result = deleteHomework(id);
+            result = deleteHomework(getVal('id'));
         } else if (action === "editHomework") {
-            const id = params.id || postData.id;
-            const subject = params.subject || postData.subject;
-            const title = params.title || postData.title;
-            const description = params.description || postData.description;
-            const deadline = params.deadline || postData.deadline;
-            const link_work = params.link_work || postData.link_work;
-            const link_image = params.link_image || postData.link_image;
-            const note = params.note || postData.note;
-            result = editHomework(id, subject, title, description, deadline, link_work, link_image, note);
+            result = editHomework(
+                getVal('id'), getVal('subject'), getVal('title'), getVal('description'),
+                getVal('deadline'), getVal('link_work'), getVal('link_image'), getVal('note')
+            );
         } else {
             throw new Error("unknown action: " + action);
         }
@@ -146,11 +139,14 @@ function _setupUrls(ss) {
 function addHomework(subject, title, description, deadline, linkWork, linkImage, note) {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const sheet = ss.getSheetByName(SHEETS.HOMEWORK) || ss.insertSheet(SHEETS.HOMEWORK);
-    // Ensure header if new
+
+    // Ensure header if sheet is clean
     if (sheet.getLastRow() === 0) {
         sheet.appendRow(["id", "subject", "title", "description", "deadline", "link_work", "link_image", "note", "created_at"]);
     }
-    const id = sheet.getLastRow();
+
+    // Use timestamp as ID for uniqueness across deletions
+    const id = Date.now().toString();
     sheet.appendRow([id, subject || "", title || "", description || "", deadline || "", linkWork || "", linkImage || "", note || "", new Date()]);
     return id;
 }
@@ -171,7 +167,7 @@ function addUser(email, displayName, photoUrl) {
     }
 }
 
-function updateProgress(email, homeworkId, status, imageUrl) {
+function updateProgress(email, homeworkId, status, imageUrl, append = false) {
     if (!email) throw new Error("Email is required");
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     let sheet = ss.getSheetByName(SHEETS.PROGRESS) || ss.insertSheet(SHEETS.PROGRESS);
@@ -190,9 +186,19 @@ function updateProgress(email, homeworkId, status, imageUrl) {
         sheet.appendRow([email, homeworkId, status || "pending", imageUrl || "", new Date()]);
     } else {
         const targetRow = rowIndex + 2;
-        sheet.getRange(targetRow, 3).setValue(status);
+        if (status !== undefined) sheet.getRange(targetRow, 3).setValue(status);
+
         if (imageUrl !== undefined) {
-            sheet.getRange(targetRow, 4).setValue(imageUrl || "");
+            let finalUrl = imageUrl;
+            if (append) {
+                const currentVal = String(sheet.getRange(targetRow, 4).getValue() || "");
+                const currentUrls = currentVal ? currentVal.split(',') : [];
+                if (imageUrl && !currentUrls.includes(imageUrl)) {
+                    currentUrls.push(imageUrl);
+                }
+                finalUrl = currentUrls.join(',');
+            }
+            sheet.getRange(targetRow, 4).setValue(finalUrl || "");
         }
         sheet.getRange(targetRow, 5).setValue(new Date());
     }
