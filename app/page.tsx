@@ -472,7 +472,8 @@ export default function StudyFlow() {
           position: 'fixed',
           inset: 0,
           backgroundColor: 'rgba(15, 23, 42, 0.85)',
-          backdropFilter: 'blur(16px)',
+          backdropFilter: 'blur(10px)',
+          WebkitBackdropFilter: 'blur(10px)',
           zIndex: 20000,
           display: 'flex',
           flexDirection: 'column',
@@ -1244,6 +1245,8 @@ export default function StudyFlow() {
       )}
 
       <style jsx>{`
+              @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+              @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
               @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
               @keyframes slideInRight { 
                 from { opacity: 0; transform: translateX(30px) scale(0.9); } 

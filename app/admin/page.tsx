@@ -389,7 +389,7 @@ export default function AdminPage() {
 
             {/* MODALS & NOTIFICATIONS */}
             {uploadQueue.length > 0 && (
-                <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(2, 6, 23, 0.85)', backdropFilter: 'blur(16px)', zIndex: 12500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }}>
+                <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(2, 6, 23, 0.85)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', zIndex: 12500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }}>
                     <div className="glass" style={{ width: '100%', maxWidth: '450px', padding: '3rem', borderRadius: '3rem', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(15, 23, 42, 0.95)', boxShadow: '0 50px 100px rgba(0,0,0,0.7)' }}>
                         <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
                             <div style={{ fontSize: '3.5rem', marginBottom: '1rem', animation: uploadQueue.some(f => f.status === 'uploading') ? 'bounce 1s infinite' : 'none' }}>🚀</div>
@@ -455,6 +455,7 @@ export default function AdminPage() {
             )}
 
             <style jsx>{`
+                @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
                 @keyframes loading-bar {
                     0% { transform: translateX(-100%); }
                     100% { transform: translateX(100%); }
