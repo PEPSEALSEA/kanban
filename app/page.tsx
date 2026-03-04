@@ -541,22 +541,24 @@ export default function StudyFlow() {
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem' }}>
                           {activeHomework.link_image.split(',').filter(Boolean).map((item, idx) => {
                             const trimmedItem = item.trim();
-                            const isImage = trimmedItem.includes('googleusercontent.com') || trimmedItem.match(/\.(jpg|jpeg|png|gif|webp)$|^data:image/i);
-                            const driveId = extractDriveId(trimmedItem);
-                            const downloadUrl = driveId ? `https://drive.google.com/uc?export=download&id=${driveId}` : trimmedItem;
-                            const viewUrl = driveId ? `https://drive.google.com/file/d/${driveId}/view` : trimmedItem;
-                            const label = getFileLabel(trimmedItem);
+                            const [rawUrl, hashName] = trimmedItem.split('#');
+                            const realFilename = hashName ? decodeURIComponent(hashName) : getFileLabel(trimmedItem);
+
+                            const isImage = rawUrl.includes('googleusercontent.com') || rawUrl.match(/\.(jpg|jpeg|png|gif|webp)$|^data:image/i);
+                            const driveId = extractDriveId(rawUrl);
+                            const downloadUrl = driveId ? `https://drive.google.com/uc?export=download&id=${driveId}` : rawUrl;
+                            const viewUrl = driveId ? `https://drive.google.com/file/d/${driveId}/view` : rawUrl;
 
                             return (
                               <div key={idx} style={{ borderRadius: '1rem', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.02)', display: 'flex', flexDirection: 'column' }}>
                                 {isImage ? (
                                   <div style={{ position: 'relative' }}>
-                                    <img src={trimmedItem} style={{ width: '100%', height: 'auto', maxHeight: '300px', objectFit: 'contain', background: '#000' }} alt={label} />
+                                    <img src={rawUrl} style={{ width: '100%', height: 'auto', maxHeight: '300px', objectFit: 'contain', background: '#000' }} alt={realFilename} />
                                   </div>
                                 ) : (
                                   <div style={{ padding: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
-                                    <span style={{ fontSize: '2.5rem' }}>{label.includes('PDF') ? '📕' : '📄'}</span>
-                                    <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>{label}</span>
+                                    <span style={{ fontSize: '2.5rem' }}>{rawUrl.toLowerCase().includes('pdf') || realFilename.toLowerCase().endsWith('.pdf') ? '📕' : '📄'}</span>
+                                    <span style={{ fontSize: '0.9rem', fontWeight: 600, textAlign: 'center', padding: '0 1rem' }}>{realFilename}</span>
                                   </div>
                                 )}
                                 <div style={{ padding: '0.75rem', background: 'rgba(0,0,0,0.3)', display: 'flex', gap: '8px' }}>

@@ -282,22 +282,26 @@ export default function AdminPage() {
                         </label>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
                             {formData.link_image.map((url, idx) => {
-                                const isImage = url.includes('googleusercontent.com') || url.match(/\.(jpg|jpeg|png|gif|webp)$|^data:image/i);
-                                const driveId = extractDriveId(url);
-                                const downloadUrl = driveId ? `https://drive.google.com/uc?export=download&id=${driveId}` : url;
-                                const viewUrl = driveId ? `https://drive.google.com/file/d/${driveId}/view` : url;
-                                const label = getFileLabel(url);
+                                const [rawUrl, hashName] = url.split('#');
+                                const realFilename = hashName ? decodeURIComponent(hashName) : getFileLabel(url);
+
+                                const isImage = rawUrl.includes('googleusercontent.com') || rawUrl.match(/\.(jpg|jpeg|png|gif|webp)$|^data:image/i);
+                                const driveId = extractDriveId(rawUrl);
+                                const downloadUrl = driveId ? `https://drive.google.com/uc?export=download&id=${driveId}` : rawUrl;
+                                const viewUrl = driveId ? `https://drive.google.com/file/d/${driveId}/view` : rawUrl;
 
                                 return (
                                     <div key={idx} style={{ position: 'relative', borderRadius: '1rem', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.02)', display: 'flex', flexDirection: 'column' }}>
                                         {isImage ? (
                                             <div style={{ height: '100px', width: '100%', position: 'relative' }}>
-                                                <img src={url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt={label} />
+                                                <img src={rawUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt={realFilename} />
                                             </div>
                                         ) : (
                                             <div style={{ height: '100px', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', color: 'var(--text-muted)' }}>
-                                                <span style={{ fontSize: '1.5rem' }}>{label.includes('PDF') ? '📕' : '📄'}</span>
-                                                <span style={{ fontSize: '0.65rem', fontWeight: 600 }}>{label}</span>
+                                                <span style={{ fontSize: '1.5rem' }}>{rawUrl.toLowerCase().includes('pdf') || realFilename.toLowerCase().endsWith('.pdf') ? '📕' : '📄'}</span>
+                                                <span style={{ fontSize: '0.65rem', fontWeight: 600, textAlign: 'center', padding: '0 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '90%' }}>
+                                                    {realFilename}
+                                                </span>
                                             </div>
                                         )}
 
