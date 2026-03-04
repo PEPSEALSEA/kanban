@@ -71,6 +71,8 @@ export default function StudyFlow() {
   const [confirmModal, setConfirmModal] = useState<{ title: string; message: string; onConfirm: () => void; isDanger?: boolean } | null>(null);
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
   const [uploadQueue, setUploadQueue] = useState<{ name: string; status: 'uploading' | 'done' | 'error'; id: string }[]>([]);
+  const [viewMode, setViewMode] = useState<'kanban' | 'calendar' | 'timeline'>('kanban');
+  const [currentDate, setCurrentDate] = useState(new Date()); // For Calendar month navigation
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -464,6 +466,38 @@ export default function StudyFlow() {
 
   const isAdmin = user && ADMIN_EMAILS.includes(user.email.toLowerCase());
 
+  // --- CALENDAR HELPERS ---
+  const getDaysInMonth = (date: Date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const prevMonthDays = new Date(year, month, 0).getDate();
+
+    const days = [];
+    // Previous month padding
+    for (let i = firstDay - 1; i >= 0; i--) {
+      days.push({ day: prevMonthDays - i, month: month - 1, year, isCurrentMonth: false });
+    }
+    // Current month
+    for (let i = 1; i <= daysInMonth; i++) {
+      days.push({ day: i, month, year, isCurrentMonth: true });
+    }
+    // Next month padding
+    const remaining = 42 - days.length;
+    for (let i = 1; i <= remaining; i++) {
+      days.push({ day: i, month: month + 1, year, isCurrentMonth: false });
+    }
+    return days;
+  };
+
+  const isSameDay = (d1: Date, d2Str: string) => {
+    const d2 = new Date(d2Str);
+    return d1.getFullYear() === d2.getFullYear() &&
+      d1.getMonth() === d2.getMonth() &&
+      d1.getDate() === d2.getDate();
+  };
+
   return (
     <main style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       {/* Global Loading Overlay (for critical actions) */}
@@ -596,6 +630,28 @@ export default function StudyFlow() {
         </div>
         <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'center' }}>
           {isAdmin && <Link href="/admin" className="glass" style={{ padding: '0.5rem 1.25rem', borderRadius: '0.75rem', background: 'rgba(244, 63, 94, 0.15)', color: '#f43f5e', fontSize: '0.8rem', fontWeight: 700, border: '1px solid rgba(244, 63, 94, 0.3)', transition: '0.2s' }}>Console</Link>}
+          <div className="glass" style={{ display: 'flex', gap: '4px', padding: '4px', borderRadius: '14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
+            {(['kanban', 'calendar', 'timeline'] as const).map(mode => (
+              <button
+                key={mode}
+                onClick={() => setViewMode(mode)}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  background: viewMode === mode ? 'var(--primary)' : 'transparent',
+                  color: viewMode === mode ? '#fff' : 'rgba(255,255,255,0.4)',
+                  transition: '0.3s cubic-bezier(0.19, 1, 0.22, 1)',
+                  textTransform: 'capitalize'
+                }}
+              >
+                {mode === 'kanban' ? '📋 Board' : mode === 'calendar' ? '🗓️ Calendar' : '⏳ Timeline'}
+              </button>
+            ))}
+          </div>
           <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
             <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }}></span> Live Cloud
           </div>
@@ -1004,130 +1060,255 @@ export default function StudyFlow() {
         </div>
       )}
 
-      <div className="kanban-container" style={{ padding: '2rem 2.5rem', flex: 1 }}>
-        {[
-          { key: 'soon', title: '🔥 3 วันก่อนส่ง', items: columns.soon, color: '#f43f5e' },
-          { key: 'week', title: '📅 7 วันก่อนส่ง', items: columns.week, color: '#f59e0b' },
-          { key: 'backlog', title: '🐚 งานดองเค็ม', items: columns.backlog, color: '#6366f1' }
-        ].map(col => (
-          <div key={col.key} className="column glass" style={{ minWidth: '360px', borderTop: `4px solid ${col.color}` }}>
-            <div className="column-header" style={{ padding: '0.5rem 0.5rem 1.5rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3 className="column-title" style={{ fontSize: '1.3rem', fontWeight: 700 }}>{col.title}</h3>
-                <span className="badge" style={{ padding: '4px 10px', fontSize: '0.8rem', borderRadius: '8px' }}>{col.items.length}</span>
-              </div>
-            </div>
-            <div className="tasks-container">
-              {!isLoading && col.items.length === 0 && (
-                <div style={{ textAlign: 'center', padding: '3rem', color: 'rgba(255,255,255,0.2)', border: '2px dashed rgba(255,255,255,0.05)', borderRadius: '1.5rem' }}>
-                  No active tasks
+      {/* Helper functions for different view modes */}
+      {/* Kanban View */}
+      {viewMode === 'kanban' && (
+        <div className="kanban-container" style={{ padding: '2rem 2.5rem', flex: 1 }}>
+          {[
+            { key: 'soon', title: '🔥 3 วันก่อนส่ง', items: columns.soon, color: '#f43f5e' },
+            { key: 'week', title: '📅 7 วันก่อนส่ง', items: columns.week, color: '#f59e0b' },
+            { key: 'backlog', title: '🐚 งานดองเค็ม', items: columns.backlog, color: '#6366f1' }
+          ].map(col => (
+            <div key={col.key} className="column glass" style={{ minWidth: '360px', borderTop: `4px solid ${col.color}` }}>
+              <div className="column-header" style={{ padding: '0.5rem 0.5rem 1.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h3 className="column-title" style={{ fontSize: '1.3rem', fontWeight: 700 }}>{col.title}</h3>
+                  <span className="badge" style={{ padding: '4px 10px', fontSize: '0.8rem', borderRadius: '8px' }}>{col.items.length}</span>
                 </div>
-              )}
-              {col.items.map(hw => {
-                const isDone = hw.my_status === 'done';
-                const isExpanded = expandedId === hw.id;
-                const completedBy = getFinishedUsers(hw.id);
+              </div>
+              <div className="tasks-container">
+                {!isLoading && col.items.length === 0 && (
+                  <div style={{ textAlign: 'center', padding: '3rem', color: 'rgba(255,255,255,0.2)', border: '2px dashed rgba(255,255,255,0.05)', borderRadius: '1.5rem' }}>
+                    No active tasks
+                  </div>
+                )}
+                {col.items.map(hw => {
+                  const isDone = hw.my_status === 'done';
+                  const isExpanded = expandedId === hw.id;
+                  const completedBy = getFinishedUsers(hw.id);
 
-                return (
-                  <div
-                    key={hw.id}
-                    className={`card glass ${isExpanded ? 'expanded' : ''}`}
-                    onClick={() => setActiveHomework(hw)}
-                    style={{
-                      opacity: isDone ? 0.45 : 1,
-                      filter: isDone ? 'grayscale(0.3)' : 'none',
-                      transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-                      borderLeft: isDone ? '6px solid #10b981' : `6px solid ${getSubjectColor(hw.subject)}`,
-                      cursor: 'pointer',
-                      transform: isExpanded ? 'scale(1.02)' : 'scale(1)',
-                      zIndex: isExpanded ? 10 : 1
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                          <span className="card-tag" style={{ backgroundColor: `${getSubjectColor(hw.subject)}25`, color: getSubjectColor(hw.subject), border: `1px solid ${getSubjectColor(hw.subject)}40`, fontWeight: 700, fontSize: '0.7rem' }}>
-                            {hw.subject}
-                          </span>
-                          {isDone && <span style={{ color: '#10b981', fontSize: '0.7rem', fontWeight: 800 }}>COMPLETED</span>}
+                  return (
+                    <div
+                      key={hw.id}
+                      className={`card glass ${isExpanded ? 'expanded' : ''}`}
+                      onClick={() => setActiveHomework(hw)}
+                      style={{
+                        opacity: isDone ? 0.45 : 1,
+                        filter: isDone ? 'grayscale(0.3)' : 'none',
+                        transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                        borderLeft: isDone ? '6px solid #10b981' : `6px solid ${getSubjectColor(hw.subject)}`,
+                        cursor: 'pointer',
+                        transform: isExpanded ? 'scale(1.02)' : 'scale(1)',
+                        zIndex: isExpanded ? 10 : 1
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                            <span className="card-tag" style={{ backgroundColor: `${getSubjectColor(hw.subject)}25`, color: getSubjectColor(hw.subject), border: `1px solid ${getSubjectColor(hw.subject)}40`, fontWeight: 700, fontSize: '0.7rem' }}>
+                              {hw.subject}
+                            </span>
+                            {isDone && <span style={{ color: '#10b981', fontSize: '0.7rem', fontWeight: 800 }}>COMPLETED</span>}
+                          </div>
+                          <h4 style={{ margin: '0', textDecoration: isDone ? 'line-through' : 'none', fontSize: '1.15rem', fontWeight: 700, lineHeight: 1.3 }}>{hw.title}</h4>
                         </div>
-                        <h4 style={{ margin: '0', textDecoration: isDone ? 'line-through' : 'none', fontSize: '1.15rem', fontWeight: 700, lineHeight: 1.3 }}>{hw.title}</h4>
-                      </div>
-                      {user && (
-                        <div
-                          onClick={(e) => toggleComplete(e, hw.id, hw.my_status)}
-                          style={{ width: '28px', height: '28px', borderRadius: '8px', border: '2px solid var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', background: isDone ? 'var(--primary)' : 'rgba(255,255,255,0.05)', transition: '0.3s', flexShrink: 0, marginLeft: '1rem' }}
-                        >
-                          {isDone && <span style={{ color: '#fff', fontSize: '1rem', fontWeight: 900 }}>✓</span>}
-                        </div>
-                      )}
-                    </div>
-
-                    <div style={{
-                      maxHeight: '45px',
-                      overflow: 'hidden',
-                      fontSize: '0.9rem',
-                      lineHeight: 1.5,
-                      color: 'rgba(255,255,255,0.6)',
-                      marginTop: '1rem',
-                      display: '-webkit-box',
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: 'vertical'
-                    }}>
-                      {hw.description}
-                    </div>
-
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '1rem' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <span style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Deadline</span>
-                        <div style={{ color: hw.deadline === new Date().toISOString().split('T')[0] ? '#f43f5e' : '#fff', fontWeight: 800, fontSize: '0.8rem' }}>{new Date(hw.deadline).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
+                        {user && (
+                          <div
+                            onClick={(e) => toggleComplete(e, hw.id, hw.my_status)}
+                            style={{ width: '28px', height: '28px', borderRadius: '8px', border: '2px solid var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', background: isDone ? 'var(--primary)' : 'rgba(255,255,255,0.05)', transition: '0.3s', flexShrink: 0, marginLeft: '1rem' }}
+                          >
+                            {isDone && <span style={{ color: '#fff', fontSize: '1rem', fontWeight: 900 }}>✓</span>}
+                          </div>
+                        )}
                       </div>
 
-                      {/* Facepile Section */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center' }}>
-                          {completedBy.slice(0, 4).map((u, i) => (
-                            <div key={u.email} style={{ position: 'relative' }} className="avatar-group">
-                              <div
-                                style={{ position: 'relative' }}
-                                onMouseEnter={(e) => {
-                                  const target = e.currentTarget.querySelector('.proof-preview') as HTMLElement;
-                                  if (target) target.style.opacity = '1';
-                                }}
-                                onMouseLeave={(e) => {
-                                  const target = e.currentTarget.querySelector('.proof-preview') as HTMLElement;
-                                  if (target) target.style.opacity = '0';
-                                }}
-                              >
-                                <img
-                                  src={u.picture}
-                                  style={{ width: '26px', height: '26px', borderRadius: '50%', border: '2px solid #1e293b', marginLeft: i === 0 ? 0 : '-10px', boxShadow: '0 4px 6px rgba(0,0,0,0.3)', cursor: 'help', transition: '0.2s' }}
-                                  title={u.name}
-                                />
-                                {u.proof && (
-                                  <div className="proof-preview" style={{
-                                    position: 'absolute', bottom: '35px', left: '50%', transform: 'translateX(-50%)',
-                                    width: '120px', height: '120px', background: '#1e293b', border: '2px solid var(--primary)',
-                                    borderRadius: '8px', overflow: 'hidden', opacity: 0, pointerEvents: 'none', transition: '0.3s', zIndex: 1000,
-                                    boxShadow: '0 10px 20px rgba(0,0,0,0.5)'
-                                  }}>
-                                    <img src={u.proof} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Proof" />
-                                    <div style={{ position: 'absolute', bottom: 0, width: '100%', background: 'rgba(0,0,0,0.7)', color: '#fff', fontSize: '0.5rem', padding: '2px', textAlign: 'center' }}>Proof of completion</div>
-                                  </div>
-                                )}
+                      <div style={{
+                        maxHeight: '45px',
+                        overflow: 'hidden',
+                        fontSize: '0.9rem',
+                        lineHeight: 1.5,
+                        color: 'rgba(255,255,255,0.6)',
+                        marginTop: '1rem',
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical'
+                      }}>
+                        {hw.description}
+                      </div>
+
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '1rem' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <span style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Deadline</span>
+                          <div style={{ color: hw.deadline === new Date().toISOString().split('T')[0] ? '#f43f5e' : '#fff', fontWeight: 800, fontSize: '0.8rem' }}>{new Date(hw.deadline).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
+                        </div>
+
+                        {/* Facepile Section */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center' }}>
+                            {completedBy.slice(0, 4).map((u, i) => (
+                              <div key={u.email} style={{ position: 'relative' }} className="avatar-group">
+                                <div
+                                  style={{ position: 'relative' }}
+                                  onMouseEnter={(e) => {
+                                    const target = e.currentTarget.querySelector('.proof-preview') as HTMLElement;
+                                    if (target) target.style.opacity = '1';
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    const target = e.currentTarget.querySelector('.proof-preview') as HTMLElement;
+                                    if (target) target.style.opacity = '0';
+                                  }}
+                                >
+                                  <img
+                                    src={u.picture}
+                                    style={{ width: '26px', height: '26px', borderRadius: '50%', border: '2px solid #1e293b', marginLeft: i === 0 ? 0 : '-10px', boxShadow: '0 4px 6px rgba(0,0,0,0.3)', cursor: 'help', transition: '0.2s' }}
+                                    title={u.name}
+                                  />
+                                  {u.proof && (
+                                    <div className="proof-preview" style={{
+                                      position: 'absolute', bottom: '35px', left: '50%', transform: 'translateX(-50%)',
+                                      width: '120px', height: '120px', background: '#1e293b', border: '2px solid var(--primary)',
+                                      borderRadius: '8px', overflow: 'hidden', opacity: 0, pointerEvents: 'none', transition: '0.3s', zIndex: 1000,
+                                      boxShadow: '0 10px 20px rgba(0,0,0,0.5)'
+                                    }}>
+                                      <img src={u.proof} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Proof" />
+                                      <div style={{ position: 'absolute', bottom: 0, width: '100%', background: 'rgba(0,0,0,0.7)', color: '#fff', fontSize: '0.5rem', padding: '2px', textAlign: 'center' }}>Proof of completion</div>
+                                    </div>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          ))}
-                          {completedBy.length > 4 && (
-                            <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: '#334155', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', fontWeight: 800, marginLeft: '-10px', border: '2px solid #1e293b' }}>
-                              +{completedBy.length - 4}
-                            </div>
+                            ))}
+                            {completedBy.length > 4 && (
+                              <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: '#334155', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', fontWeight: 800, marginLeft: '-10px', border: '2px solid #1e293b' }}>
+                                +{completedBy.length - 4}
+                              </div>
+                            )}
+                          </div>
+                          {completedBy.length > 0 && (
+                            <span style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>
+                              {completedBy.length} {completedBy.length === 1 ? 'student' : 'students'}
+                            </span>
                           )}
                         </div>
-                        {completedBy.length > 0 && (
-                          <span style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>
-                            {completedBy.length} {completedBy.length === 1 ? 'student' : 'students'}
-                          </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Calendar View */}
+      {viewMode === 'calendar' && (
+        <div style={{ padding: '2rem 2.5rem', flex: 1, display: 'flex', flexDirection: 'column', gap: '2rem', overflowY: 'auto' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h2 style={{ fontSize: '2rem', fontWeight: 900 }}>{currentDate.toLocaleDateString('th-TH', { month: 'long', year: 'numeric' })}</h2>
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <button onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))} className="glass" style={{ width: '40px', height: '40px', borderRadius: '50%', border: 'none', cursor: 'pointer', color: '#fff' }}>←</button>
+              <button onClick={() => setCurrentDate(new Date())} className="glass" style={{ padding: '0 1.5rem', borderRadius: '1rem', border: 'none', cursor: 'pointer', color: '#fff', fontWeight: 700 }}>Today</button>
+              <button onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))} className="glass" style={{ width: '40px', height: '40px', borderRadius: '50%', border: 'none', cursor: 'pointer', color: '#fff' }}>→</button>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '1px', background: 'rgba(255,255,255,0.05)', borderRadius: '1.5rem', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)' }}>
+            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
+              <div key={d} style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', textAlign: 'center', fontSize: '0.75rem', fontWeight: 900, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase' }}>{d}</div>
+            ))}
+            {getDaysInMonth(currentDate).map((dayObj, i) => {
+              const d = new Date(dayObj.year, dayObj.month, dayObj.day);
+              const dayHomework = homeworkWithStatus.filter(hw => isSameDay(d, hw.deadline));
+              const isToday = isSameDay(new Date(), d.toISOString());
+
+              return (
+                <div key={i} style={{ minHeight: '140px', background: dayObj.isCurrentMonth ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.4)', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '8px', border: isToday ? '2px solid var(--primary)' : 'none' }}>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 900, opacity: dayObj.isCurrentMonth ? 1 : 0.2 }}>{dayObj.day}</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    {dayHomework.map(hw => (
+                      <button
+                        key={hw.id}
+                        onClick={() => setActiveHomework(hw)}
+                        style={{
+                          width: '100%',
+                          textAlign: 'left',
+                          padding: '4px 8px',
+                          borderRadius: '6px',
+                          background: hw.my_status === 'done' ? 'rgba(16, 185, 129, 0.15)' : `${getSubjectColor(hw.subject)}25`,
+                          border: `1px solid ${hw.my_status === 'done' ? '#10b98140' : getSubjectColor(hw.subject) + '40'}`,
+                          fontSize: '0.65rem',
+                          fontWeight: 700,
+                          color: hw.my_status === 'done' ? '#10b981' : '#fff',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}
+                      >
+                        {hw.my_status === 'done' ? '✓' : '•'} {hw.title}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Timeline View */}
+      {viewMode === 'timeline' && (
+        <div style={{ padding: '2rem 2.5rem', flex: 1, display: 'flex', flexDirection: 'column', gap: '2rem', overflowY: 'auto' }}>
+          <div style={{ maxWidth: '800px', margin: '0 auto', width: '100%', position: 'relative', paddingLeft: '4rem' }}>
+            <div style={{ position: 'absolute', top: 0, bottom: 0, left: '2rem', width: '2px', background: 'linear-gradient(to bottom, var(--primary), #f43f5e)', opacity: 0.3 }}></div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '3rem' }}>
+              {[...homeworkWithStatus].sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime()).map(hw => {
+                const isDone = hw.my_status === 'done';
+                const deadline = new Date(hw.deadline);
+                return (
+                  <div key={hw.id} style={{ position: 'relative' }}>
+                    <div style={{
+                      position: 'absolute',
+                      left: '-2.5rem',
+                      top: '1rem',
+                      width: '24px',
+                      height: '24px',
+                      borderRadius: '50%',
+                      background: isDone ? '#10b981' : 'var(--primary)',
+                      border: '4px solid #0f172a',
+                      zIndex: 2,
+                      boxShadow: `0 0 20px ${isDone ? '#10b981' : 'var(--primary)'}40`
+                    }}></div>
+
+                    <div
+                      className="glass"
+                      onClick={() => setActiveHomework(hw)}
+                      style={{
+                        padding: '1.5rem',
+                        borderRadius: '1.5rem',
+                        cursor: 'pointer',
+                        borderLeft: `6px solid ${getSubjectColor(hw.subject)}`,
+                        opacity: isDone ? 0.6 : 1,
+                        transition: '0.3s cubic-bezier(0.19, 1, 0.22, 1)'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                        <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                          {deadline.toLocaleDateString('th-TH', { day: 'numeric', month: 'long' })}
+                        </div>
+                        <span style={{ fontSize: '0.7rem', fontWeight: 800, padding: '4px 10px', borderRadius: '8px', background: `${getSubjectColor(hw.subject)}20`, color: getSubjectColor(hw.subject) }}>{hw.subject}</span>
+                      </div>
+                      <h3 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '0.5rem', textDecoration: isDone ? 'line-through' : 'none' }}>{hw.title}</h3>
+                      <p style={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.6)', lineHeight: 1.6, marginBottom: '1.5rem' }}>{hw.description}</p>
+
+                      <div style={{ display: 'flex', gap: '1rem' }}>
+                        {isDone ? (
+                          <span style={{ color: '#10b981', fontSize: '0.8rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '6px' }}>✓ Completed</span>
+                        ) : (
+                          <span style={{ color: 'var(--primary)', fontSize: '0.8rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '6px' }}>🕒 Pending</span>
                         )}
                       </div>
                     </div>
@@ -1136,8 +1317,8 @@ export default function StudyFlow() {
               })}
             </div>
           </div>
-        ))}
-      </div>
+        </div>
+      )}
 
       {/* Modern Attachment Preview Modal */}
       {
