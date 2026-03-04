@@ -68,6 +68,8 @@ export default function StudyFlow() {
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState<Partial<Homework>>({});
   const [previewItem, setPreviewItem] = useState<{ url: string; type: 'image' | 'pdf' | 'other'; filename: string; driveId?: string | null } | null>(null);
+  const [confirmModal, setConfirmModal] = useState<{ title: string; message: string; onConfirm: () => void; isDanger?: boolean } | null>(null);
+  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -93,6 +95,13 @@ export default function StudyFlow() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => setNotification(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
 
   // Derived state: Homework with computed status based on current user's progress
   const homeworkWithStatus = useMemo(() => {
@@ -239,75 +248,93 @@ export default function StudyFlow() {
   };
 
   const handleDeleteHomework = async (id: string) => {
-    if (!confirm("Are you sure? This will delete the homework and all associated files from Google Drive and student activity feed.")) return;
-    setLoadingAction("Deleting Homework & Files...");
-    try {
-      // 1. Collect all associated file Drive IDs (Assignment Media + Activity Feed)
-      const hw = allHomework.find(h => String(h.id) === String(id));
-      const assignmentFiles = hw?.link_image ? hw.link_image.split(',') : [];
-      const activityFiles = allProgress
-        .filter(p => String(p.homework_id) === String(id))
-        .map(p => p.image_url)
-        .filter(Boolean);
-
-      let allUrls: string[] = [...assignmentFiles];
-      activityFiles.forEach(urlStr => {
-        if (urlStr) allUrls.push(...urlStr.split(','));
-      });
-
-      const driveIds = allUrls
-        .map(url => extractDriveId(url.trim()))
-        .filter(Boolean) as string[];
-
-      // 2. Delete from Google Drive if any files exist
-      if (driveIds.length > 0) {
-        const uniqueIds = Array.from(new Set(driveIds)).join(',');
+    setConfirmModal({
+      title: "Confirm Deletion",
+      message: "Are you sure? This will delete the homework and all associated files from Google Drive and student activity feed.",
+      isDanger: true,
+      onConfirm: async () => {
+        setConfirmModal(null);
+        setLoadingAction("Deleting Homework & Files...");
         try {
-          await fetch(`${UPLOAD_WEB_APP_URL}?action=deleteFiles&driveIds=${uniqueIds}`, {
-            method: 'POST',
-            mode: 'no-cors'
+          // 1. Collect all associated file Drive IDs (Assignment Media + Activity Feed)
+          const hw = allHomework.find(h => String(h.id) === String(id));
+          const assignmentFiles = hw?.link_image ? hw.link_image.split(',') : [];
+          const activityFiles = allProgress
+            .filter(p => String(p.homework_id) === String(id))
+            .map(p => p.image_url)
+            .filter(Boolean);
+
+          let allUrls: string[] = [...assignmentFiles];
+          activityFiles.forEach(urlStr => {
+            if (urlStr) allUrls.push(...urlStr.split(','));
           });
+
+          const driveIds = allUrls
+            .map(url => extractDriveId(url.trim()))
+            .filter(Boolean) as string[];
+
+          // 2. Delete from Google Drive if any files exist
+          if (driveIds.length > 0) {
+            const uniqueIds = Array.from(new Set(driveIds)).join(',');
+            try {
+              await fetch(`${UPLOAD_WEB_APP_URL}?action=deleteFiles&driveIds=${uniqueIds}`, {
+                method: 'POST',
+                mode: 'no-cors'
+              });
+            } catch (e) {
+              console.error("Drive file deletion error (non-critical):", e);
+            }
+          }
+
+          // 3. Delete homework record from Spreadsheet
+          await fetch(GAS_WEB_APP_URL, {
+            method: 'POST',
+            body: new URLSearchParams({ action: 'deleteHomework', id })
+          });
+
+          fetchData();
+          setActiveHomework(null);
+          setNotification({ message: "Assignment deleted successfully.", type: 'success' });
         } catch (e) {
-          console.error("Drive file deletion error (non-critical):", e);
+          console.error("Delete operation failed:", e);
+          setNotification({ message: "Failed to delete assignment.", type: 'error' });
+        } finally {
+          setLoadingAction(null);
         }
       }
-
-      // 3. Delete homework record from Spreadsheet
-      await fetch(GAS_WEB_APP_URL, {
-        method: 'POST',
-        body: new URLSearchParams({ action: 'deleteHomework', id })
-      });
-
-      fetchData();
-      setActiveHomework(null);
-    } catch (e) {
-      console.error("Delete operation failed:", e);
-    } finally {
-      setLoadingAction(null);
-    }
+    });
   };
 
   const handleEditHomework = async () => {
     if (!activeHomework) return;
-    setLoadingAction("Saving Changes...");
-    try {
-      await fetch(GAS_WEB_APP_URL, {
-        method: 'POST',
-        body: new URLSearchParams({
-          action: 'editHomework',
-          id: activeHomework.id,
-          ...editForm as any
-        })
-      });
-      setIsEditing(false);
-      fetchData();
-      // Update local modal data
-      setActiveHomework(prev => prev ? { ...prev, ...editForm } : null);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoadingAction(null);
-    }
+    setConfirmModal({
+      title: "Update Information",
+      message: "Are you sure you want to save these changes to the assignment?",
+      onConfirm: async () => {
+        setConfirmModal(null);
+        setLoadingAction("Saving Changes...");
+        try {
+          await fetch(GAS_WEB_APP_URL, {
+            method: 'POST',
+            body: new URLSearchParams({
+              action: 'editHomework',
+              id: activeHomework.id,
+              ...editForm as any
+            })
+          });
+          setIsEditing(false);
+          fetchData();
+          // Update local modal data
+          setActiveHomework(prev => prev ? { ...prev, ...editForm } : null);
+          setNotification({ message: "Changes saved successfully.", type: 'success' });
+        } catch (e) {
+          console.error(e);
+          setNotification({ message: "Failed to save changes.", type: 'error' });
+        } finally {
+          setLoadingAction(null);
+        }
+      }
+    });
   };
 
   const extractDriveId = (url: string) => {
@@ -769,11 +796,29 @@ export default function StudyFlow() {
                                     {user?.email === student.email && (
                                       <button onClick={async (e) => {
                                         e.stopPropagation();
-                                        if (!confirm("Remove?")) return;
-                                        setLoadingAction("Deleting...");
-                                        const driveId = extractDriveId(rawUrl);
-                                        if (driveId) { try { await fetch(`${UPLOAD_WEB_APP_URL}?action=deleteFiles&driveIds=${driveId}`, { method: 'POST', mode: 'no-cors' }); } catch (e) { } }
-                                        try { await fetch(GAS_WEB_APP_URL, { method: 'POST', body: new URLSearchParams({ action: 'updateProgress', email: user.email, homework_id: String(activeHomework.id), status: 'done', image_url: student.proof?.split(',').filter(u => u !== item).join(',') || " " }) }); fetchData(); } catch (e) { } finally { setLoadingAction(null); }
+                                        setConfirmModal({
+                                          title: "Remove Attachment",
+                                          message: "Proceeding will permanently delete this file from the feed and Google Drive.",
+                                          isDanger: true,
+                                          onConfirm: async () => {
+                                            setConfirmModal(null);
+                                            setLoadingAction("Removing...");
+                                            try {
+                                              const driveId = extractDriveId(rawUrl);
+                                              if (driveId) { try { await fetch(`${UPLOAD_WEB_APP_URL}?action=deleteFiles&driveIds=${driveId}`, { method: 'POST', mode: 'no-cors' }); } catch (e) { } }
+                                              await fetch(GAS_WEB_APP_URL, {
+                                                method: 'POST',
+                                                body: new URLSearchParams({ action: 'updateProgress', email: user.email, homework_id: String(activeHomework.id), status: 'done', image_url: student.proof?.split(',').filter(u => u !== item).join(',') || " " })
+                                              });
+                                              fetchData();
+                                              setNotification({ message: "Attachment removed.", type: 'success' });
+                                            } catch (e) {
+                                              setNotification({ message: "Action failed.", type: 'error' });
+                                            } finally {
+                                              setLoadingAction(null);
+                                            }
+                                          }
+                                        });
                                       }} style={{ position: 'absolute', top: '2px', right: '2px', width: '16px', height: '16px', borderRadius: '4px', background: 'rgba(244, 63, 94, 0.8)', color: '#fff', border: 'none', fontSize: '8px', cursor: 'pointer' }}>✕</button>
                                     )}
                                   </div>
@@ -1000,6 +1045,37 @@ export default function StudyFlow() {
             </div>
           </div>
         )}
+
+      {notification && (
+        <div style={{ position: 'fixed', bottom: '2rem', right: '2rem', zIndex: 12000, animation: 'slideInRight 0.3s ease-out' }}>
+          <div className="glass" style={{ padding: '1rem 2rem', borderRadius: '1rem', background: notification.type === 'success' ? '#10b981' : (notification.type === 'error' ? '#f43f5e' : '#6366f1'), color: '#fff', fontWeight: 700, boxShadow: '0 10px 30px rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span style={{ fontSize: '1.2rem' }}>{notification.type === 'success' ? '✅' : (notification.type === 'error' ? '❌' : 'ℹ️')}</span>
+            {notification.message}
+          </div>
+        </div>
+      )}
+
+      {confirmModal && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)', zIndex: 11500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem', animation: 'fadeIn 0.2s ease-out' }}>
+          <div className="glass" style={{ width: '100%', maxWidth: '420px', padding: '2.5rem', borderRadius: '2.5rem', textAlign: 'center', border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(15, 23, 42, 0.98)', boxShadow: '0 30px 60px rgba(0,0,0,0.5)' }}>
+            <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: confirmModal.isDanger ? 'rgba(244, 63, 94, 0.1)' : 'rgba(99, 102, 241, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem', fontSize: '1.8rem' }}>
+              {confirmModal.isDanger ? '⚠️' : '❓'}
+            </div>
+            <h3 style={{ fontSize: '1.6rem', fontWeight: 900, marginBottom: '0.75rem', color: confirmModal.isDanger ? '#f43f5e' : '#fff', letterSpacing: '-0.02em' }}>{confirmModal.title}</h3>
+            <p style={{ color: 'rgba(255,255,255,0.6)', marginBottom: '2.5rem', lineHeight: 1.6, fontSize: '0.95rem' }}>{confirmModal.message}</p>
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <button
+                onClick={() => setConfirmModal(null)}
+                style={{ flex: 1, padding: '1rem', borderRadius: '1.1rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.8)', fontWeight: 700, cursor: 'pointer', transition: '0.2s' }}
+              >Cancel</button>
+              <button
+                onClick={confirmModal.onConfirm}
+                style={{ flex: 1, padding: '1rem', borderRadius: '1.1rem', background: confirmModal.isDanger ? '#f43f5e' : 'var(--primary)', border: 'none', color: '#fff', fontWeight: 800, cursor: 'pointer', transition: '0.2s', boxShadow: confirmModal.isDanger ? '0 8px 20px rgba(244, 63, 94, 0.3)' : '0 8px 20px rgba(99, 102, 241, 0.3)' }}
+              >Confirm</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style jsx>{`
               @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
