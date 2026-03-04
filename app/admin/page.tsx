@@ -51,17 +51,24 @@ export default function AdminPage() {
 
     const extractDriveId = (url: string) => {
         if (!url || !url.includes('http')) return null;
-        // Standard view link: drive.google.com/file/d/ID/view
         if (url.includes('drive.google.com/file/d/')) {
             const parts = url.split('/d/');
             if (parts[1]) return parts[1].split('/')[0];
         }
-        // Thumbnail/Direct link: googleusercontent.com/u/0/d/ID
         if (url.includes('/d/')) {
             const parts = url.split('/d/');
             if (parts[1]) return parts[1].split(/[/?#]/)[0];
         }
         return null;
+    };
+
+    const getFileLabel = (url: string) => {
+        const lower = url.toLowerCase();
+        if (lower.includes('googleusercontent.com') || lower.match(/\.(jpg|jpeg|png|gif|webp|svg)$|^data:image/i)) return 'Image Resource';
+        if (lower.includes('.pdf') || lower.includes('pdf')) return 'PDF Document';
+        if (lower.includes('.doc') || lower.includes('msword')) return 'Word Document';
+        if (lower.includes('.xls') || lower.includes('excel')) return 'Excel Spreadsheet';
+        return 'Attached Document';
     };
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -275,21 +282,22 @@ export default function AdminPage() {
                         </label>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
                             {formData.link_image.map((url, idx) => {
-                                const isImage = url.includes('googleusercontent.com/u/d/') || url.match(/\.(jpg|jpeg|png|gif|webp)$|^data:image/i);
+                                const isImage = url.includes('googleusercontent.com') || url.match(/\.(jpg|jpeg|png|gif|webp)$|^data:image/i);
                                 const driveId = extractDriveId(url);
                                 const downloadUrl = driveId ? `https://drive.google.com/uc?export=download&id=${driveId}` : url;
                                 const viewUrl = driveId ? `https://drive.google.com/file/d/${driveId}/view` : url;
+                                const label = getFileLabel(url);
 
                                 return (
                                     <div key={idx} style={{ position: 'relative', borderRadius: '1rem', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.02)', display: 'flex', flexDirection: 'column' }}>
                                         {isImage ? (
                                             <div style={{ height: '100px', width: '100%', position: 'relative' }}>
-                                                <img src={url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Preview" />
+                                                <img src={url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt={label} />
                                             </div>
                                         ) : (
                                             <div style={{ height: '100px', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', color: 'var(--text-muted)' }}>
-                                                <span style={{ fontSize: '1.5rem' }}>📄</span>
-                                                <span style={{ fontSize: '0.65rem' }}>Document</span>
+                                                <span style={{ fontSize: '1.5rem' }}>{label.includes('PDF') ? '📕' : '📄'}</span>
+                                                <span style={{ fontSize: '0.65rem', fontWeight: 600 }}>{label}</span>
                                             </div>
                                         )}
 

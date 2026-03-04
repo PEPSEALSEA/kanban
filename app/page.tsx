@@ -260,11 +260,24 @@ export default function StudyFlow() {
 
   const extractDriveId = (url: string) => {
     if (!url || !url.includes('http')) return null;
-    // Handles lh3.googleusercontent.com/u/d/ID or drive.google.com/file/d/ID/view
-    const parts = url.split('/');
-    const dIdx = parts.indexOf('d');
-    if (dIdx !== -1 && parts[dIdx + 1]) return parts[dIdx + 1];
+    if (url.includes('drive.google.com/file/d/')) {
+      const parts = url.split('/d/');
+      if (parts[1]) return parts[1].split('/')[0];
+    }
+    if (url.includes('/d/')) {
+      const parts = url.split('/d/');
+      if (parts[1]) return parts[1].split(/[/?#]/)[0];
+    }
     return null;
+  };
+
+  const getFileLabel = (url: string) => {
+    const lower = url.toLowerCase();
+    if (lower.includes('googleusercontent.com') || lower.match(/\.(jpg|jpeg|png|gif|webp|svg)$|^data:image/i)) return 'Image Resource';
+    if (lower.includes('.pdf') || lower.includes('pdf')) return 'PDF Document';
+    if (lower.includes('.doc') || lower.includes('msword')) return 'Word Document';
+    if (lower.includes('.xls') || lower.includes('excel')) return 'Excel Spreadsheet';
+    return 'Attached Document';
   };
 
   const columns = useMemo(() => {
@@ -528,21 +541,22 @@ export default function StudyFlow() {
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem' }}>
                           {activeHomework.link_image.split(',').filter(Boolean).map((item, idx) => {
                             const trimmedItem = item.trim();
-                            const isImage = trimmedItem.includes('googleusercontent.com/u/d/') || trimmedItem.match(/\.(jpg|jpeg|png|gif|webp)$|^data:image/i);
+                            const isImage = trimmedItem.includes('googleusercontent.com') || trimmedItem.match(/\.(jpg|jpeg|png|gif|webp)$|^data:image/i);
                             const driveId = extractDriveId(trimmedItem);
                             const downloadUrl = driveId ? `https://drive.google.com/uc?export=download&id=${driveId}` : trimmedItem;
                             const viewUrl = driveId ? `https://drive.google.com/file/d/${driveId}/view` : trimmedItem;
+                            const label = getFileLabel(trimmedItem);
 
                             return (
                               <div key={idx} style={{ borderRadius: '1rem', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.02)', display: 'flex', flexDirection: 'column' }}>
                                 {isImage ? (
                                   <div style={{ position: 'relative' }}>
-                                    <img src={trimmedItem} style={{ width: '100%', height: 'auto', maxHeight: '300px', objectFit: 'contain', background: '#000' }} alt="Assignment Resource" />
+                                    <img src={trimmedItem} style={{ width: '100%', height: 'auto', maxHeight: '300px', objectFit: 'contain', background: '#000' }} alt={label} />
                                   </div>
                                 ) : (
                                   <div style={{ padding: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
-                                    <span style={{ fontSize: '2.5rem' }}>📄</span>
-                                    <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>Document Attachment</span>
+                                    <span style={{ fontSize: '2.5rem' }}>{label.includes('PDF') ? '📕' : '📄'}</span>
+                                    <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>{label}</span>
                                   </div>
                                 )}
                                 <div style={{ padding: '0.75rem', background: 'rgba(0,0,0,0.3)', display: 'flex', gap: '8px' }}>
@@ -653,13 +667,13 @@ export default function StudyFlow() {
 
                               return (
                                 <div key={idx} style={{ position: 'relative', background: 'rgba(0,0,0,0.2)', borderRadius: '0.75rem', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)' }}>
-                                  {isImageThumbnail ? (
-                                    <img src={item} style={{ width: '100%', maxHeight: '250px', objectFit: 'contain', background: '#000' }} alt="Shared Attachment" />
+                                  {isImageThumbnail || item.match(/\.(jpg|jpeg|png|gif|webp)$|^data:image/i) ? (
+                                    <img src={item} style={{ width: '100%', maxHeight: '400px', objectFit: 'contain', background: '#000' }} alt="Attached Image" />
                                   ) : (
                                     <div style={{ padding: '1.25rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                      <span style={{ fontSize: '1.5rem' }}>📄</span>
+                                      <span style={{ fontSize: '1.5rem' }}>{item.toLowerCase().includes('pdf') ? '📕' : '📄'}</span>
                                       <div style={{ flex: 1 }}>
-                                        <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#fff' }}>Document Attachment</div>
+                                        <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#fff' }}>{item.toLowerCase().includes('pdf') ? 'PDF Document' : 'Document Attachment'}</div>
                                         <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Google Drive File</div>
                                       </div>
                                     </div>
