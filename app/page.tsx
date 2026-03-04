@@ -70,6 +70,7 @@ export default function StudyFlow() {
   const [previewItem, setPreviewItem] = useState<{ url: string; type: 'image' | 'pdf' | 'other'; filename: string; driveId?: string | null } | null>(null);
   const [confirmModal, setConfirmModal] = useState<{ title: string; message: string; onConfirm: () => void; isDanger?: boolean } | null>(null);
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [uploadQueue, setUploadQueue] = useState<{ name: string; status: 'uploading' | 'done' | 'error'; id: string }[]>([]);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -150,10 +151,10 @@ export default function StudyFlow() {
     fetchData();
   };
 
-  const handleFileUpload = async (file: File, homeworkId: string, status: string): Promise<boolean> => {
-    setIsUploading(true);
-    setLoadingAction(`Uploading ${file.name}...`);
+  const handleFileUpload = async (file: File, homeworkId: string, status: string, fileId: string): Promise<boolean> => {
     try {
+      setUploadQueue(prev => prev.map(f => f.id === fileId ? { ...f, status: 'uploading' } : f));
+
       const reader = new FileReader();
       const base64Promise = new Promise<string>((resolve) => {
         reader.onload = () => {
@@ -165,7 +166,6 @@ export default function StudyFlow() {
 
       const base64Data = await base64Promise;
 
-      // Text-only base64 body + simple request (avoid preflight). We don't need to read response.
       await fetch(
         `${UPLOAD_WEB_APP_URL}?action=uploadProof&email=${encodeURIComponent(user?.email || '')}&homework_id=${encodeURIComponent(String(homeworkId))}&status=${encodeURIComponent(status)}&filename=${encodeURIComponent(file.name)}&contentType=${encodeURIComponent(file.type)}`,
         {
@@ -174,13 +174,13 @@ export default function StudyFlow() {
           body: base64Data
         }
       );
+
+      setUploadQueue(prev => prev.map(f => f.id === fileId ? { ...f, status: 'done' } : f));
       return true;
     } catch (error) {
       console.error("Upload failed:", error);
+      setUploadQueue(prev => prev.map(f => f.id === fileId ? { ...f, status: 'error' } : f));
       return false;
-    } finally {
-      setIsUploading(false);
-      setLoadingAction(null);
     }
   };
 
@@ -243,7 +243,7 @@ export default function StudyFlow() {
     const file = await filePromise;
     if (!file) return;
 
-    const ok = await handleFileUpload(file, hwId, currentStatus);
+    const ok = await handleFileUpload(file, hwId, currentStatus, Math.random().toString(36).substr(2, 9));
     if (ok) await fetchData();
   };
 
@@ -337,6 +337,72 @@ export default function StudyFlow() {
     });
   };
 
+  const handleEditFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    const newItems = files.map(f => ({ name: f.name, status: 'uploading' as const, id: Math.random().toString(36).substr(2, 9) }));
+    setUploadQueue(newItems);
+    setIsUploading(true);
+
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const fileId = newItems[i].id;
+
+        const reader = new FileReader();
+        const base64Promise = new Promise<string>((resolve) => {
+          reader.onload = () => {
+            const base64 = (reader.result as string).split(',')[1];
+            resolve(base64);
+          };
+          reader.readAsDataURL(file);
+        });
+
+        const base64Data = await base64Promise;
+        const cType = file.type || 'application/octet-stream';
+
+        const response = await fetch(`${UPLOAD_WEB_APP_URL}?action=upload&filename=${encodeURIComponent(file.name)}&contentType=${encodeURIComponent(cType)}`, {
+          method: 'POST',
+          body: base64Data
+        });
+
+        const result = await response.json();
+        if (result.success) {
+          setEditForm(prev => {
+            const currentLinks = prev.link_image ? prev.link_image.split(',').filter(Boolean) : [];
+            const newLink = `${result.url}#${encodeURIComponent(file.name)}`;
+            return { ...prev, link_image: [...currentLinks, newLink].join(',') };
+          });
+          setUploadQueue(prev => prev.map(f => f.id === fileId ? { ...f, status: 'done' } : f));
+        } else {
+          setUploadQueue(prev => prev.map(f => f.id === fileId ? { ...f, status: 'error' } : f));
+        }
+      }
+    } catch (error) {
+      console.error("Upload failed:", error);
+      setNotification({ message: "Failed to upload files.", type: 'error' });
+    } finally {
+      if (e.target) e.target.value = '';
+    }
+  };
+
+  const removeInstructionFile = (idx: number) => {
+    setEditForm(prev => {
+      const currentLinks = prev.link_image ? prev.link_image.split(',').filter(Boolean) : [];
+      const updatedLinks = currentLinks.filter((_, i) => i !== idx);
+      return { ...prev, link_image: updatedLinks.join(',') };
+    });
+  };
+
+  const removeExternalLink = (idx: number) => {
+    setEditForm(prev => {
+      const currentLinks = prev.link_work ? prev.link_work.split(',').filter(Boolean) : [];
+      const updatedLinks = currentLinks.filter((_, i) => i !== idx);
+      return { ...prev, link_work: updatedLinks.join(',') };
+    });
+  };
+
   const extractDriveId = (url: string) => {
     if (!url || !url.includes('http')) return null;
     if (url.includes('drive.google.com/file/d/')) {
@@ -401,41 +467,75 @@ export default function StudyFlow() {
   return (
     <main style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       {/* Global Loading Overlay (for critical actions) */}
-      {loadingAction && loadingAction !== "Synchronizing with Cloud..." && (
+      {(loadingAction || uploadQueue.length > 0) && (
         <div style={{
           position: 'fixed',
           inset: 0,
-          backgroundColor: 'rgba(15, 23, 42, 0.7)',
-          backdropFilter: 'blur(12px)',
-          zIndex: 9999,
+          backgroundColor: 'rgba(15, 23, 42, 0.85)',
+          backdropFilter: 'blur(16px)',
+          zIndex: 20000,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: '1.5rem',
-          cursor: 'wait'
+          gap: '2rem'
         }}>
-          <div className="loader" style={{
-            width: '64px',
-            height: '64px',
-            border: '5px solid rgba(99, 102, 241, 0.2)',
-            borderTop: '5px solid var(--primary)',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite'
-          }}></div>
-          <div style={{
-            color: '#fff',
-            fontSize: '1.25rem',
-            fontWeight: 700,
-            letterSpacing: '0.05em',
-            background: 'linear-gradient(to right, #818cf8, #f43f5e)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            textAlign: 'center'
-          }}>
-            {loadingAction}
-          </div>
-          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.8rem', fontWeight: 500 }}>Please wait while we handle the cloud transfer.</p>
+          {uploadQueue.length > 0 ? (
+            <div className="glass" style={{ width: '100%', maxWidth: '450px', padding: '2.5rem', borderRadius: '2.5rem', border: '1px solid rgba(255,255,255,0.1)' }}>
+              <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
+                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🚀</div>
+                <h3 style={{ fontSize: '1.5rem', fontWeight: 900, marginBottom: '0.5rem' }}>Uploading Files</h3>
+                <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.9rem' }}>Please wait while we sync your work...</p>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '300px', overflowY: 'auto', paddingRight: '8px' }}>
+                {uploadQueue.map(f => (
+                  <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: '15px', padding: '12px 15px', background: 'rgba(255,255,255,0.03)', borderRadius: '1rem', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    {f.status === 'uploading' ? (
+                      <div className="loader" style={{ width: '18px', height: '18px', border: '2px solid rgba(99, 102, 241, 0.2)', borderTop: '2px solid #6366f1', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }}></div>
+                    ) : f.status === 'done' ? (
+                      <span style={{ fontSize: '1.2rem', color: '#10b981' }}>✅</span>
+                    ) : (
+                      <span style={{ fontSize: '1.2rem', color: '#f43f5e' }}>❌</span>
+                    )}
+                    <span style={{ flex: 1, fontSize: '0.9rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: f.status === 'done' ? 0.5 : 1 }}>{f.name}</span>
+                    {f.status === 'done' && <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', padding: '2px 8px', borderRadius: '6px' }}>FINISHED</span>}
+                  </div>
+                ))}
+              </div>
+
+              {uploadQueue.every(f => f.status !== 'uploading') && (
+                <button
+                  onClick={() => { setUploadQueue([]); setIsUploading(false); }}
+                  style={{ width: '100%', marginTop: '2rem', padding: '1.1rem', borderRadius: '1.25rem', background: 'var(--primary)', border: 'none', color: '#fff', fontWeight: 800, cursor: 'pointer', boxShadow: '0 10px 30px rgba(99, 102, 241, 0.2)' }}
+                >Done</button>
+              )}
+            </div>
+          ) : (
+            <>
+              <div className="loader" style={{
+                width: '64px',
+                height: '64px',
+                border: '5px solid rgba(99, 102, 241, 0.2)',
+                borderTop: '5px solid var(--primary)',
+                borderRadius: '50%',
+                animation: 'spin 1s linear infinite'
+              }}></div>
+              <div style={{
+                color: '#fff',
+                fontSize: '1.25rem',
+                fontWeight: 700,
+                letterSpacing: '0.05em',
+                background: 'linear-gradient(to right, #818cf8, #f43f5e)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                textAlign: 'center'
+              }}>
+                {loadingAction}
+              </div>
+              <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.8rem', fontWeight: 500 }}>Please wait while we handle the cloud transfer.</p>
+            </>
+          )}
         </div>
       )}
 
@@ -583,26 +683,89 @@ export default function StudyFlow() {
                         onChange={e => setEditForm(prev => ({ ...prev, description: e.target.value }))}
                         placeholder="Detailed instructions..."
                       />
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                         <div>
-                          <label style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)', marginBottom: '8px', display: 'block', fontWeight: 700 }}>GOOGLE DRIVE CONTENT</label>
-                          <input
-                            className="glass"
-                            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '0.75rem', borderRadius: '0.75rem', width: '100%', outline: 'none' }}
-                            value={editForm.link_image}
-                            onChange={e => setEditForm(prev => ({ ...prev, link_image: e.target.value }))}
-                            placeholder="URLs..."
-                          />
+                          <label style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)', marginBottom: '8px', display: 'block', fontWeight: 700, textTransform: 'uppercase' }}>Google Drive Content (Files)</label>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+                            {editForm.link_image?.split(',').filter(Boolean).map((item, idx) => {
+                              const trimmedItem = item.trim();
+                              const [rawUrl, hashName] = trimmedItem.split('#');
+                              const realFilename = hashName ? decodeURIComponent(hashName) : getFileLabel(trimmedItem);
+                              const isImage = rawUrl.includes('googleusercontent.com') || rawUrl.match(/\.(jpg|jpeg|png|gif|webp)$|^data:image/i);
+
+                              return (
+                                <div key={idx} className="glass" style={{ borderRadius: '1rem', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)', position: 'relative' }}>
+                                  <div style={{ height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.2)' }}>
+                                    {isImage ? (
+                                      <img src={rawUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                                    ) : (
+                                      <span style={{ fontSize: '1.5rem' }}>{rawUrl.toLowerCase().includes('pdf') ? '📕' : '📄'}</span>
+                                    )}
+                                  </div>
+                                  <div style={{ padding: '6px', fontSize: '0.6rem', fontWeight: 700, textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {realFilename}
+                                  </div>
+                                  <button
+                                    onClick={() => removeInstructionFile(idx)}
+                                    style={{ position: 'absolute', top: '4px', right: '4px', background: 'rgba(244, 63, 94, 0.9)', border: 'none', color: '#fff', borderRadius: '50%', width: '20px', height: '20px', fontSize: '9px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                  >✕</button>
+                                </div>
+                              );
+                            })}
+                            <label className="glass" style={{ border: '2px dashed rgba(255,255,255,0.1)', borderRadius: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '110px', cursor: 'pointer', transition: '0.2s', background: 'rgba(255,255,255,0.01)' }}>
+                              <span style={{ fontSize: '1.5rem', marginBottom: '4px' }}>➕</span>
+                              <span style={{ fontSize: '0.65rem', fontWeight: 700, color: 'rgba(255,255,255,0.4)' }}>Add File</span>
+                              <input type="file" multiple hidden onChange={handleEditFileUpload} />
+                            </label>
+                          </div>
                         </div>
+
                         <div>
-                          <label style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)', marginBottom: '8px', display: 'block', fontWeight: 700 }}>EXTERNAL LINKS</label>
-                          <input
-                            className="glass"
-                            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '0.75rem', borderRadius: '0.75rem', width: '100%', outline: 'none' }}
-                            value={editForm.link_work}
-                            onChange={e => setEditForm(prev => ({ ...prev, link_work: e.target.value }))}
-                            placeholder="Resource URLs..."
-                          />
+                          <label style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)', marginBottom: '8px', display: 'block', fontWeight: 700, textTransform: 'uppercase' }}>External Links (URLs)</label>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '1rem' }}>
+                            {editForm.link_work?.split(',').filter(Boolean).map((link, idx) => (
+                              <div key={idx} style={{ display: 'flex', gap: '10px', alignItems: 'center', padding: '10px 14px', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                                <span style={{ flex: 1, fontSize: '0.8rem', color: 'rgba(255,255,255,0.6)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>🔗 {link.trim()}</span>
+                                <button
+                                  onClick={() => removeExternalLink(idx)}
+                                  style={{ background: 'none', border: 'none', color: '#f43f5e', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}
+                                >Remove</button>
+                              </div>
+                            ))}
+                          </div>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <input
+                              id="new-external-link"
+                              className="glass"
+                              style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '0.75rem', borderRadius: '0.75rem', outline: 'none', fontSize: '0.85rem' }}
+                              placeholder="https://..."
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  const target = e.target as HTMLInputElement;
+                                  if (target.value) {
+                                    setEditForm(prev => {
+                                      const current = prev.link_work ? prev.link_work.split(',').filter(Boolean) : [];
+                                      return { ...prev, link_work: [...current, target.value].join(',') };
+                                    });
+                                    target.value = '';
+                                  }
+                                }
+                              }}
+                            />
+                            <button
+                              onClick={() => {
+                                const input = document.getElementById('new-external-link') as HTMLInputElement;
+                                if (input && input.value) {
+                                  setEditForm(prev => {
+                                    const current = prev.link_work ? prev.link_work.split(',').filter(Boolean) : [];
+                                    return { ...prev, link_work: [...current, input.value].join(',') };
+                                  });
+                                  input.value = '';
+                                }
+                              }}
+                              style={{ padding: '0 1rem', borderRadius: '0.75rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontWeight: 700, fontSize: '0.75rem', cursor: 'pointer' }}
+                            >Add Link</button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -719,11 +882,14 @@ export default function StudyFlow() {
                           <label key={btn.label} className="glass" style={{ padding: '8px 14px', borderRadius: '10px', fontSize: '0.75rem', cursor: 'pointer', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', gap: '6px', transition: '0.2s', fontWeight: 600 }}>
                             {btn.icon} {btn.label}
                             <input type="file" multiple hidden accept={btn.type} onChange={async (e) => {
-                              const files = e.target.files;
-                              if (files && files.length > 0 && user) {
+                              const files = Array.from(e.target.files || []);
+                              if (files.length > 0 && user && activeHomework) {
+                                const newQueueItems = files.map(f => ({ name: f.name, status: 'uploading' as const, id: Math.random().toString(36).substr(2, 9) }));
+                                setUploadQueue(newQueueItems);
                                 setIsUploading(true);
+
                                 for (let i = 0; i < files.length; i++) {
-                                  await handleFileUpload(files[i], activeHomework.id, 'done');
+                                  await handleFileUpload(files[i], activeHomework.id, 'done', newQueueItems[i].id);
                                 }
                                 fetchData();
                               }

@@ -33,6 +33,7 @@ export default function AdminPage() {
     const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
     const [isUploading, setIsUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState('');
+    const [uploadQueue, setUploadQueue] = useState<{ name: string; status: 'uploading' | 'done' | 'error'; id: string }[]>([]);
 
     // --- UI STATES ---
     const [confirmModal, setConfirmModal] = useState<{ title: string; message: string; onConfirm: () => void; isDanger?: boolean } | null>(null);
@@ -80,16 +81,17 @@ export default function AdminPage() {
     };
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const files = e.target.files;
-        if (!files || files.length === 0) return;
+        const files = Array.from(e.target.files || []);
+        if (files.length === 0) return;
 
+        const newItems = files.map(f => ({ name: f.name, status: 'uploading' as const, id: Math.random().toString(36).substr(2, 9) }));
+        setUploadQueue(newItems);
         setIsUploading(true);
-        setNotification({ message: `กำลังอัปโหลด ${files.length} ไฟล์...`, type: 'info' });
 
         try {
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
-                setUploadProgress(`กำลังอัปโหลด: ${file.name}`);
+                const fileId = newItems[i].id;
 
                 const reader = new FileReader();
                 const base64Promise = new Promise<string>((resolve) => {
@@ -111,14 +113,14 @@ export default function AdminPage() {
                 const result = await response.json();
                 if (result.success) {
                     setFormData(prev => ({ ...prev, link_image: [...prev.link_image, result.url] }));
+                    setUploadQueue(prev => prev.map(f => f.id === fileId ? { ...f, status: 'done' } : f));
+                } else {
+                    setUploadQueue(prev => prev.map(f => f.id === fileId ? { ...f, status: 'error' } : f));
                 }
             }
-            setNotification({ message: "อัปโหลดไฟล์เสร็จสมบูรณ์", type: 'success' });
         } catch (error) {
             setNotification({ message: "การอัปโหลดล้มเหลว", type: 'error' });
         } finally {
-            setIsUploading(false);
-            setUploadProgress('');
             e.target.value = '';
         }
     };
@@ -386,6 +388,41 @@ export default function AdminPage() {
             </div>
 
             {/* MODALS & NOTIFICATIONS */}
+            {uploadQueue.length > 0 && (
+                <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(2, 6, 23, 0.85)', backdropFilter: 'blur(16px)', zIndex: 12500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }}>
+                    <div className="glass" style={{ width: '100%', maxWidth: '450px', padding: '3rem', borderRadius: '3rem', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(15, 23, 42, 0.95)', boxShadow: '0 50px 100px rgba(0,0,0,0.7)' }}>
+                        <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
+                            <div style={{ fontSize: '3.5rem', marginBottom: '1rem', animation: uploadQueue.some(f => f.status === 'uploading') ? 'bounce 1s infinite' : 'none' }}>🚀</div>
+                            <h3 style={{ fontSize: '1.8rem', fontWeight: 900, marginBottom: '0.5rem', letterSpacing: '-0.03em' }}>กำลังอัปโหลดไฟล์</h3>
+                            <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.95rem' }}>โปรดรอสักครู่ ระบบกำลังจัดเก็บข้อมูลของคุณ...</p>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '300px', overflowY: 'auto' }}>
+                            {uploadQueue.map(f => (
+                                <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: '15px', padding: '14px 18px', background: 'rgba(255,255,255,0.03)', borderRadius: '1.25rem', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                    {f.status === 'uploading' ? (
+                                        <div className="loader" style={{ width: '20px', height: '20px', border: '2px solid rgba(99, 102, 241, 0.2)', borderTop: '2px solid #6366f1', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }}></div>
+                                    ) : f.status === 'done' ? (
+                                        <span style={{ fontSize: '1.2rem', color: '#10b981' }}>✅</span>
+                                    ) : (
+                                        <span style={{ fontSize: '1.2rem', color: '#f43f5e' }}>❌</span>
+                                    )}
+                                    <span style={{ flex: 1, fontSize: '0.95rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: f.status === 'done' ? 0.5 : 1 }}>{f.name}</span>
+                                    {f.status === 'done' && <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', padding: '2px 8px', borderRadius: '6px' }}>อัปโหลดเสร็จแล้ว</span>}
+                                </div>
+                            ))}
+                        </div>
+
+                        {uploadQueue.every(f => f.status !== 'uploading') && (
+                            <button
+                                onClick={() => { setUploadQueue([]); setIsUploading(false); }}
+                                style={{ width: '100%', marginTop: '2.5rem', padding: '1.25rem', borderRadius: '1.5rem', background: 'var(--primary)', border: 'none', color: '#fff', fontWeight: 900, cursor: 'pointer', boxShadow: '0 15px 35px rgba(99, 102, 241, 0.3)', transition: '0.3s' }}
+                            >ตกลง</button>
+                        )}
+                    </div>
+                </div>
+            )}
+
             {notification && (
                 <div style={{ position: 'fixed', bottom: '2rem', right: '2rem', zIndex: 12000, animation: 'slideInRight 0.3s ease-out' }}>
                     <div className="glass" style={{ padding: '1rem 2rem', borderRadius: '1.25rem', background: notification.type === 'success' ? '#10b981' : (notification.type === 'error' ? '#f43f5e' : '#6366f1'), color: '#fff', fontWeight: 800, boxShadow: '0 10px 40px rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', gap: '12px', border: 'none' }}>
