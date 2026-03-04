@@ -92,14 +92,17 @@ function doPost(e) {
 
             logUploadToSheet(driveId, viewUrl, filename, contentType);
 
+            // Create a URL that includes the filename in the hash so we can recover it later
+            const finalUrl = (thumbnail || viewUrl) + "#" + encodeURIComponent(filename);
+
             if (action === 'uploadProof' && email && homeworkId) {
-                _updateProgressProof(email, homeworkId, status, thumbnail || viewUrl);
+                _updateProgressProof(email, homeworkId, status, finalUrl);
             }
 
             return createResponse(true, 'Upload successful', {
                 driveId: driveId,
                 // If it's an image, we want the embeddable thumbnail. Otherwise, the view link.
-                url: thumbnail || viewUrl,
+                url: finalUrl,
                 thumbnail: thumbnail,
                 directUrl: viewUrl,
                 downloadUrl: file.getDownloadUrl(),

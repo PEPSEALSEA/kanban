@@ -655,53 +655,48 @@ export default function StudyFlow() {
                           <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Finished</span>
                         </div>
                         {student.proof && (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.5rem' }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginTop: '0.75rem' }}>
                             {student.proof.split(',').map((item, idx) => {
-                              const isDriveFile = item.includes('drive.google.com/file/d/');
-                              const isImageThumbnail = item.includes('googleusercontent.com/u/d/');
-                              const isPlainText = !item.startsWith('http');
+                              const [rawUrl, hashName] = item.split('#');
+                              const realFilename = hashName ? decodeURIComponent(hashName) : 'Attachment';
 
-                              if (isPlainText) {
-                                return <p key={idx} style={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.7)', padding: '0.5rem', background: 'rgba(255,255,255,0.02)', borderRadius: '0.5rem' }}>{item}</p>;
-                              }
+                              const isImage = rawUrl.includes('googleusercontent.com') || rawUrl.match(/\.(jpg|jpeg|png|gif|webp)$|^data:image/i);
+                              const driveId = extractDriveId(rawUrl);
+                              const downloadUrl = driveId ? `https://drive.google.com/uc?export=download&id=${driveId}` : rawUrl;
+                              const viewUrl = driveId ? `https://drive.google.com/file/d/${driveId}/view` : rawUrl;
+                              const label = getFileLabel(rawUrl);
 
                               return (
-                                <div key={idx} style={{ position: 'relative', background: 'rgba(0,0,0,0.2)', borderRadius: '0.75rem', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)' }}>
-                                  {isImageThumbnail || item.match(/\.(jpg|jpeg|png|gif|webp)$|^data:image/i) ? (
-                                    <img src={item} style={{ width: '100%', maxHeight: '400px', objectFit: 'contain', background: '#000' }} alt="Attached Image" />
+                                <div key={idx} style={{ position: 'relative', background: 'rgba(255,255,255,0.02)', borderRadius: '1rem', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', flexDirection: 'column' }}>
+                                  {isImage ? (
+                                    <img src={rawUrl} style={{ width: '100%', height: '120px', objectFit: 'cover', background: '#000' }} alt={realFilename} />
                                   ) : (
-                                    <div style={{ padding: '1.25rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                      <span style={{ fontSize: '1.5rem' }}>{item.toLowerCase().includes('pdf') ? '📕' : '📄'}</span>
-                                      <div style={{ flex: 1 }}>
-                                        <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#fff' }}>{item.toLowerCase().includes('pdf') ? 'PDF Document' : 'Document Attachment'}</div>
-                                        <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Google Drive File</div>
-                                      </div>
+                                    <div style={{ height: '120px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                      <span style={{ fontSize: '2rem' }}>{rawUrl.toLowerCase().includes('pdf') || realFilename.toLowerCase().endsWith('.pdf') ? '📕' : '📄'}</span>
+                                      <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)', textAlign: 'center', padding: '0 0.5rem', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                                        {realFilename}
+                                      </span>
                                     </div>
                                   )}
-                                  <div style={{ padding: '0.5rem', background: 'rgba(0,0,0,0.4)', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-                                    <a
-                                      href={isImageThumbnail ? item.replace('googleusercontent.com/u/d/', 'drive.google.com/file/d/') + '/view' : item}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      style={{ fontSize: '0.7rem', color: '#fff', background: 'rgba(255,255,255,0.1)', padding: '4px 8px', borderRadius: '4px', textDecoration: 'none' }}
-                                    >
-                                      {isImageThumbnail ? 'Open Original ↗' : 'View File ↗'}
+
+                                  <div style={{ padding: '0.5rem', background: 'rgba(0,0,0,0.4)', display: 'flex', gap: '6px' }}>
+                                    <a href={viewUrl} target="_blank" rel="noreferrer" title={`Open ${realFilename}`} style={{ flex: 1, textAlign: 'center', fontSize: '0.65rem', color: '#fff', background: 'rgba(255,255,255,0.1)', padding: '6px 0', borderRadius: '4px', textDecoration: 'none' }}>
+                                      Open ↗
+                                    </a>
+                                    <a href={downloadUrl} target="_blank" rel="noreferrer" title={`Download ${realFilename}`} style={{ flex: 1, textAlign: 'center', fontSize: '0.65rem', color: '#fff', background: 'rgba(255,255,255,0.1)', padding: '6px 0', borderRadius: '4px', textDecoration: 'none' }}>
+                                      Down ↓
                                     </a>
                                     {user?.email === student.email && (
                                       <button
                                         onClick={async () => {
-                                          if (!confirm("Remove this attachment? This will also delete it from Drive.")) return;
-                                          setLoadingAction("Deleting from Drive & Syncing...");
-
-                                          // 1. Physically delete from Drive
-                                          const driveId = extractDriveId(item);
+                                          if (!confirm("Remove this attachment?")) return;
+                                          setLoadingAction("Deleting...");
+                                          const driveId = extractDriveId(rawUrl);
                                           if (driveId) {
                                             try {
                                               await fetch(`${UPLOAD_WEB_APP_URL}?action=deleteFiles&driveIds=${driveId}`, { method: 'POST', mode: 'no-cors' });
-                                            } catch (e) { console.error("Drive delete failed", e); }
+                                            } catch (e) { }
                                           }
-
-                                          // 2. Remove from Spreadsheet
                                           const remaining = student.proof?.split(',').filter(u => u !== item).join(',') || "";
                                           try {
                                             await fetch(GAS_WEB_APP_URL, {
@@ -715,10 +710,10 @@ export default function StudyFlow() {
                                               })
                                             });
                                             fetchData();
-                                          } catch (e) { console.error(e); } finally { setLoadingAction(null); }
+                                          } catch (e) { } finally { setLoadingAction(null); }
                                         }}
-                                        style={{ fontSize: '0.7rem', color: '#ff4d4d', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px' }}
-                                      >Remove</button>
+                                        style={{ width: '24px', background: 'rgba(244, 63, 94, 0.2)', border: 'none', color: '#f43f5e', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                      >✕</button>
                                     )}
                                   </div>
                                 </div>
