@@ -75,6 +75,16 @@ export default function StudyFlow() {
   const [currentDate, setCurrentDate] = useState(new Date()); // For Calendar month navigation
   const [comments, setComments] = useState<any[]>([]);
   const [commentText, setCommentText] = useState<{ [key: string]: string }>({}); // email -> text
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -649,42 +659,60 @@ export default function StudyFlow() {
         </div>
       )}
 
-      <header style={{ padding: '1rem 2.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.05)', backgroundColor: 'rgba(15, 23, 42, 0.8)', position: 'sticky', top: 0, backdropFilter: 'blur(10px)', zIndex: 100 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+      <header style={{
+        padding: isMobile ? '0.75rem 1rem' : '1rem 2.5rem',
+        display: 'flex',
+        flexDirection: isMobile ? 'column' : 'row',
+        gap: isMobile ? '1rem' : '2.5rem',
+        justifyContent: 'space-between',
+        alignItems: isMobile ? 'stretch' : 'center',
+        borderBottom: '1px solid rgba(255,255,255,0.05)',
+        backgroundColor: 'rgba(15, 23, 42, 0.8)',
+        position: 'sticky',
+        top: 0,
+        backdropFilter: 'blur(10px)',
+        zIndex: 100
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <div style={{ fontSize: isMobile ? '1.4rem' : '1.75rem', animation: 'bounce 2s infinite' }}>🎓</div>
+            <h1 style={{ fontSize: isMobile ? '1.2rem' : '1.6rem', fontWeight: 900, background: 'linear-gradient(to right, #818cf8, #f43f5e)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: '-0.02em' }}>การบ้าน 603</h1>
+          </div>
+
           {!user ? (
             <div className="login-trigger">
               <GoogleLogin
                 onSuccess={handleLoginSuccess}
                 onError={() => console.log('Login Failed')}
-                theme="filled_blue" shape="pill" size="medium" text="signin_with"
+                theme="filled_blue" shape="pill" size={isMobile ? "small" : "medium"} text="signin_with"
               />
             </div>
           ) : (
-            <div className="glass" style={{ padding: '0.4rem 0.8rem', borderRadius: '1rem', display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-              <img src={user.picture} style={{ width: '32px', height: '32px', borderRadius: '50%', border: '2px solid var(--primary)' }} alt="user" />
-              <div style={{ lineHeight: 1.2 }}>
-                <div style={{ fontSize: '0.8rem', fontWeight: 600 }}>{user.name}</div>
-                <button onClick={handleLogout} style={{ fontSize: '0.65rem', color: 'var(--accent)', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>Logout</button>
-              </div>
+            <div className="glass" style={{ padding: '0.3rem 0.6rem', borderRadius: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <img src={user.picture} style={{ width: isMobile ? '24px' : '32px', height: isMobile ? '24px' : '32px', borderRadius: '50%', border: '2px solid var(--primary)' }} alt="user" />
+              {!isMobile && (
+                <div style={{ lineHeight: 1.2 }}>
+                  <div style={{ fontSize: '0.8rem', fontWeight: 600 }}>{user.name}</div>
+                  <button onClick={handleLogout} style={{ fontSize: '0.65rem', color: 'var(--accent)', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>Logout</button>
+                </div>
+              )}
+              {isMobile && <button onClick={handleLogout} style={{ fontSize: '0.65rem', color: 'var(--accent)', background: 'none', border: 'none', padding: '2px 4px', cursor: 'pointer' }}>Exit</button>}
             </div>
           )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <div style={{ fontSize: '1.75rem', animation: 'bounce 2s infinite' }}>🎓</div>
-            <h1 style={{ fontSize: '1.6rem', fontWeight: 900, background: 'linear-gradient(to right, #818cf8, #f43f5e)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: '-0.02em' }}>การบ้าน 603</h1>
-          </div>
         </div>
-        <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'center' }}>
-          {isAdmin && <Link href="/admin" className="glass" style={{ padding: '0.5rem 1.25rem', borderRadius: '0.75rem', background: 'rgba(244, 63, 94, 0.15)', color: '#f43f5e', fontSize: '0.8rem', fontWeight: 700, border: '1px solid rgba(244, 63, 94, 0.3)', transition: '0.2s' }}>Console</Link>}
-          <div className="glass" style={{ display: 'flex', gap: '4px', padding: '4px', borderRadius: '14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
+
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', justifyContent: isMobile ? 'center' : 'flex-end', flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
+          {isAdmin && <Link href="/admin" className="glass" style={{ padding: '0.4rem 0.8rem', borderRadius: '0.75rem', background: 'rgba(244, 63, 94, 0.15)', color: '#f43f5e', fontSize: '0.7rem', fontWeight: 700, border: '1px solid rgba(244, 63, 94, 0.3)', transition: '0.2s' }}>Console</Link>}
+          <div className="glass" style={{ display: 'flex', gap: '2px', padding: '3px', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
             {(['kanban', 'calendar', 'timeline'] as const).map(mode => (
               <button
                 key={mode}
                 onClick={() => setViewMode(mode)}
                 style={{
-                  padding: '8px 16px',
-                  borderRadius: '10px',
+                  padding: isMobile ? '6px 10px' : '8px 16px',
+                  borderRadius: '9px',
                   border: 'none',
-                  fontSize: '0.75rem',
+                  fontSize: isMobile ? '0.65rem' : '0.75rem',
                   fontWeight: 700,
                   cursor: 'pointer',
                   background: viewMode === mode ? 'var(--primary)' : 'transparent',
@@ -697,47 +725,62 @@ export default function StudyFlow() {
               </button>
             ))}
           </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }}></span> Live Cloud
-          </div>
+          {!isMobile && (
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }}></span> Live Cloud
+            </div>
+          )}
         </div>
       </header>
 
       {/* Premium Homework Detail Modal */}
       {activeHomework && (
         <div
-          style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(15px)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}
+          style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(15px)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: isMobile ? '0' : '1rem' }}
           onClick={() => { setActiveHomework(null); setIsEditing(false); }}
         >
-          <div className="glass" style={{ width: '100%', maxWidth: '1100px', maxHeight: '94vh', overflow: 'hidden', borderRadius: '2.5rem', display: 'flex', flexDirection: 'column', position: 'relative', border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 50px 100px rgba(0,0,0,0.8)', animation: 'slideInRight 0.4s cubic-bezier(0.19, 1, 0.22, 1)' }}
+          <div className="glass" style={{
+            width: '100%',
+            maxWidth: isMobile ? '100vw' : '1100px',
+            height: isMobile ? '100vh' : 'auto',
+            maxHeight: isMobile ? '100vh' : '94vh',
+            overflow: 'hidden',
+            borderRadius: isMobile ? '0' : '2.5rem',
+            display: 'flex',
+            flexDirection: 'column',
+            position: 'relative',
+            border: isMobile ? 'none' : '1px solid rgba(255,255,255,0.12)',
+            boxShadow: '0 50px 100px rgba(0,0,0,0.8)',
+            animation: isMobile ? 'fadeIn 0.3s ease-out' : 'slideInRight 0.4s cubic-bezier(0.19, 1, 0.22, 1)'
+          }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Dynamic Modal Header */}
-            <div style={{ padding: '2.5rem', borderBottom: '1px solid rgba(255,255,255,0.08)', background: `linear-gradient(135deg, ${getSubjectColor(activeHomework.subject)}15 0%, rgba(0,0,0,0) 100%)`, position: 'relative' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '2rem' }}>
+            <div style={{ padding: isMobile ? '1.5rem' : '2.5rem', borderBottom: '1px solid rgba(255,255,255,0.08)', background: `linear-gradient(135deg, ${getSubjectColor(activeHomework.subject)}15 0%, rgba(0,0,0,0) 100%)`, position: 'relative' }}>
+              <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'stretch' : 'flex-start', gap: isMobile ? '1rem' : '2rem' }}>
                 <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '1rem' }}>
-                    <span style={{ padding: '6px 14px', borderRadius: '10px', background: `${getSubjectColor(activeHomework.subject)}25`, color: getSubjectColor(activeHomework.subject), fontSize: '0.75rem', fontWeight: 800, border: `1px solid ${getSubjectColor(activeHomework.subject)}40`, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: isMobile ? '0.5rem' : '1rem' }}>
+                    <span style={{ padding: '4px 10px', borderRadius: '8px', background: `${getSubjectColor(activeHomework.subject)}25`, color: getSubjectColor(activeHomework.subject), fontSize: '0.65rem', fontWeight: 800, border: `1px solid ${getSubjectColor(activeHomework.subject)}40`, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
                       {activeHomework.subject}
                     </span>
-                    <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      🗓️ Due: <b style={{ color: '#fff' }}>{new Date(activeHomework.deadline).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}</b>
+                    <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: isMobile ? '0.7rem' : '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      🗓️ <b style={{ color: '#fff' }}>{new Date(activeHomework.deadline).toLocaleDateString('th-TH', { day: 'numeric', month: 'long' })}</b>
                     </span>
                   </div>
                   {isEditing ? (
                     <input
                       className="glass"
-                      style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '1.8rem', fontWeight: 800, padding: '0.5rem 1rem', borderRadius: '1rem', width: '100%', outline: 'none' }}
+                      style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: isMobile ? '1.2rem' : '1.8rem', fontWeight: 800, padding: '0.5rem 1rem', borderRadius: '1rem', width: '100%', outline: 'none' }}
                       value={editForm.title}
                       onChange={e => setEditForm(prev => ({ ...prev, title: e.target.value }))}
                       placeholder="Homework Title"
                     />
                   ) : (
-                    <h2 style={{ fontSize: '2.2rem', fontWeight: 900, margin: 0, lineHeight: 1.1, color: '#fff', letterSpacing: '-0.02em' }}>{activeHomework.title}</h2>
+                    <h2 style={{ fontSize: isMobile ? '1.5rem' : '2.2rem', fontWeight: 900, margin: 0, lineHeight: 1.1, color: '#fff', letterSpacing: '-0.02em' }}>{activeHomework.title}</h2>
                   )}
                 </div>
 
-                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center', justifyContent: isMobile ? 'space-between' : 'flex-end' }}>
                   {isAdmin && (
                     <div style={{ display: 'flex', gap: '8px', background: 'rgba(0,0,0,0.2)', padding: '6px', borderRadius: '1rem' }}>
                       {!isEditing ? (
@@ -746,36 +789,36 @@ export default function StudyFlow() {
                             setIsEditing(true);
                             setEditForm({ ...activeHomework, link_work: activeHomework.link_work || "", link_image: activeHomework.link_image || "" });
                           }}
-                          style={{ background: 'rgba(255,255,255,0.05)', border: 'none', color: 'rgba(255,255,255,0.7)', padding: '0.6rem 1.25rem', borderRadius: '0.75rem', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', transition: '0.2s' }}
-                        >Edit Info</button>
+                          style={{ background: 'rgba(255,255,255,0.05)', border: 'none', color: 'rgba(255,255,255,0.7)', padding: '0.4rem 0.8rem', borderRadius: '0.75rem', fontSize: '0.7rem', fontWeight: 600, cursor: 'pointer', transition: '0.2s' }}
+                        >Edit</button>
                       ) : (
                         <button
                           onClick={handleEditHomework}
-                          style={{ background: 'var(--primary)', border: 'none', color: '#fff', padding: '0.6rem 1.25rem', borderRadius: '0.75rem', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}
-                        >Save Update</button>
+                          style={{ background: 'var(--primary)', border: 'none', color: '#fff', padding: '0.4rem 0.8rem', borderRadius: '0.75rem', fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer' }}
+                        >Save</button>
                       )}
                       <button
                         onClick={() => handleDeleteHomework(activeHomework.id)}
-                        style={{ background: 'rgba(244, 63, 94, 0.1)', border: 'none', color: '#f43f5e', padding: '0.6rem 1.25rem', borderRadius: '0.75rem', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}
-                      >Delete</button>
+                        style={{ background: 'rgba(244, 63, 94, 0.1)', border: 'none', color: '#f43f5e', padding: '0.4rem 0.8rem', borderRadius: '0.75rem', fontSize: '0.7rem', fontWeight: 600, cursor: 'pointer' }}
+                      >Del</button>
                     </div>
                   )}
                   <button
                     onClick={() => { setActiveHomework(null); setIsEditing(false); }}
-                    style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', width: '48px', height: '48px', borderRadius: '1rem', cursor: 'pointer', fontSize: '1.2rem', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: '0.2s' }}
+                    style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', width: isMobile ? '36px' : '48px', height: isMobile ? '36px' : '48px', borderRadius: '1rem', cursor: 'pointer', fontSize: '1.2rem', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: '0.2s' }}
                   >✕</button>
                 </div>
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.4fr) 1fr', flex: 1, overflow: 'hidden' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'minmax(0, 1.4fr) 1fr', flex: 1, overflowY: isMobile ? 'auto' : 'hidden' }}>
               {/* Left Side: Body & Content */}
-              <div style={{ overflowY: 'auto', padding: '2.5rem', borderRight: '1px solid rgba(255,255,255,0.06)' }}>
-                <h3 style={{ fontSize: '1.1rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '10px', color: 'rgba(255,255,255,0.9)' }}>
+              <div style={{ overflowY: isMobile ? 'visible' : 'auto', padding: isMobile ? '1.5rem' : '2.5rem', borderRight: isMobile ? 'none' : '1px solid rgba(255,255,255,0.06)', borderBottom: isMobile ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
+                <h3 style={{ fontSize: isMobile ? '1rem' : '1.1rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '10px', color: 'rgba(255,255,255,0.9)' }}>
                   <span style={{ background: 'rgba(255,255,255,0.05)', padding: '6px', borderRadius: '8px' }}>📝</span> Instructions
                 </h3>
 
-                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1.5rem', borderRadius: '1.5rem', border: '1px solid rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.8)', lineHeight: 1.8, marginBottom: '2.5rem', whiteSpace: 'pre-wrap' }}>
+                <div style={{ background: 'rgba(255,255,255,0.02)', padding: isMobile ? '1rem' : '1.5rem', borderRadius: '1.5rem', border: '1px solid rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.8)', lineHeight: 1.8, marginBottom: '2rem', whiteSpace: 'pre-wrap', fontSize: isMobile ? '0.85rem' : '1rem' }}>
                   {isEditing ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                       <textarea
@@ -937,7 +980,13 @@ export default function StudyFlow() {
                 </div>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', background: 'rgba(0,0,0,0.15)', overflow: 'hidden' }}>
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                background: 'rgba(0,0,0,0.15)',
+                overflow: isMobile ? 'visible' : 'hidden',
+                height: isMobile ? 'auto' : '100%'
+              }}>
                 <div style={{ padding: '2rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                   <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1.5rem' }}>
                     {user && (
@@ -1182,13 +1231,24 @@ export default function StudyFlow() {
       {/* Helper functions for different view modes */}
       {/* Kanban View */}
       {viewMode === 'kanban' && (
-        <div className="kanban-container" style={{ padding: '2rem 2.5rem', flex: 1 }}>
+        <div className="kanban-container" style={{
+          padding: isMobile ? '1rem' : '2rem 2.5rem',
+          flex: 1,
+          flexDirection: isMobile ? 'column' : 'row',
+          overflowX: isMobile ? 'hidden' : 'auto',
+          gap: isMobile ? '1.5rem' : '2rem'
+        }}>
           {[
             { key: 'soon', title: '🔥 3 วันก่อนส่ง', items: columns.soon, color: '#f43f5e' },
             { key: 'week', title: '📅 7 วันก่อนส่ง', items: columns.week, color: '#f59e0b' },
             { key: 'backlog', title: '🐚 งานดองเค็ม', items: columns.backlog, color: '#6366f1' }
           ].map(col => (
-            <div key={col.key} className="column glass" style={{ minWidth: '360px', borderTop: `4px solid ${col.color}` }}>
+            <div key={col.key} className="column glass" style={{
+              minWidth: isMobile ? '100%' : '360px',
+              width: isMobile ? '100%' : '360px',
+              borderTop: `4px solid ${col.color}`,
+              padding: isMobile ? '1rem' : '1.5rem'
+            }}>
               <div className="column-header" style={{ padding: '0.5rem 0.5rem 1.5rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <h3 className="column-title" style={{ fontSize: '1.3rem', fontWeight: 700 }}>{col.title}</h3>
@@ -1218,18 +1278,19 @@ export default function StudyFlow() {
                         borderLeft: isDone ? '6px solid #10b981' : `6px solid ${getSubjectColor(hw.subject)}`,
                         cursor: 'pointer',
                         transform: isExpanded ? 'scale(1.02)' : 'scale(1)',
-                        zIndex: isExpanded ? 10 : 1
+                        zIndex: isExpanded ? 10 : 1,
+                        padding: isMobile ? '1rem' : '1.25rem'
                       }}
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <div style={{ flex: 1 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                            <span className="card-tag" style={{ backgroundColor: `${getSubjectColor(hw.subject)}25`, color: getSubjectColor(hw.subject), border: `1px solid ${getSubjectColor(hw.subject)}40`, fontWeight: 700, fontSize: '0.7rem' }}>
+                            <span className="card-tag" style={{ backgroundColor: `${getSubjectColor(hw.subject)}25`, color: getSubjectColor(hw.subject), border: `1px solid ${getSubjectColor(hw.subject)}40`, fontWeight: 700, fontSize: isMobile ? '0.6rem' : '0.7rem' }}>
                               {hw.subject}
                             </span>
                             {isDone && <span style={{ color: '#10b981', fontSize: '0.7rem', fontWeight: 800 }}>COMPLETED</span>}
                           </div>
-                          <h4 style={{ margin: '0', textDecoration: isDone ? 'line-through' : 'none', fontSize: '1.15rem', fontWeight: 700, lineHeight: 1.3 }}>{hw.title}</h4>
+                          <h4 style={{ margin: '0', textDecoration: isDone ? 'line-through' : 'none', fontSize: isMobile ? '1rem' : '1.15rem', fontWeight: 700, lineHeight: 1.3 }}>{hw.title}</h4>
                         </div>
                         {user && (
                           <div
@@ -1320,9 +1381,22 @@ export default function StudyFlow() {
 
       {/* Calendar View */}
       {viewMode === 'calendar' && (
-        <div style={{ padding: '2rem 2.5rem', flex: 1, display: 'flex', flexDirection: 'column', gap: '2rem', overflowY: 'auto' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h2 style={{ fontSize: '2rem', fontWeight: 900 }}>{currentDate.toLocaleDateString('th-TH', { month: 'long', year: 'numeric' })}</h2>
+        <div style={{
+          padding: isMobile ? '1rem' : '2rem 2.5rem',
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: isMobile ? '1rem' : '2rem',
+          overflowY: 'auto'
+        }}>
+          <div style={{
+            display: 'flex',
+            flexDirection: isMobile ? 'column' : 'row',
+            justifyContent: 'space-between',
+            alignItems: isMobile ? 'flex-start' : 'center',
+            gap: '1rem'
+          }}>
+            <h2 style={{ fontSize: isMobile ? '1.5rem' : '2rem', fontWeight: 900 }}>{currentDate.toLocaleDateString('th-TH', { month: 'long', year: 'numeric' })}</h2>
             <div style={{ display: 'flex', gap: '1rem' }}>
               <button onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))} className="glass" style={{ width: '40px', height: '40px', borderRadius: '50%', border: 'none', cursor: 'pointer', color: '#fff' }}>←</button>
               <button onClick={() => setCurrentDate(new Date())} className="glass" style={{ padding: '0 1.5rem', borderRadius: '1rem', border: 'none', cursor: 'pointer', color: '#fff', fontWeight: 700 }}>Today</button>
@@ -1379,9 +1453,9 @@ export default function StudyFlow() {
 
       {/* Timeline View */}
       {viewMode === 'timeline' && (
-        <div style={{ padding: '2rem 2.5rem', flex: 1, display: 'flex', flexDirection: 'column', gap: '2rem', overflowY: 'auto' }}>
-          <div style={{ maxWidth: '800px', margin: '0 auto', width: '100%', position: 'relative', paddingLeft: '4rem' }}>
-            <div style={{ position: 'absolute', top: 0, bottom: 0, left: '2rem', width: '2px', background: 'linear-gradient(to bottom, var(--primary), #f43f5e)', opacity: 0.3 }}></div>
+        <div style={{ padding: isMobile ? '1rem' : '2rem 2.5rem', flex: 1, display: 'flex', flexDirection: 'column', gap: '2rem', overflowY: 'auto' }}>
+          <div style={{ maxWidth: '800px', margin: isMobile ? '0' : '0 auto', width: '100%', position: 'relative', paddingLeft: isMobile ? '3rem' : '4rem' }}>
+            <div style={{ position: 'absolute', top: 0, bottom: 0, left: isMobile ? '1.5rem' : '2rem', width: '2px', background: 'linear-gradient(to bottom, var(--primary), #f43f5e)', opacity: 0.3 }}></div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '3rem' }}>
               {[...homeworkWithStatus].sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime()).map(hw => {
@@ -1391,7 +1465,7 @@ export default function StudyFlow() {
                   <div key={hw.id} style={{ position: 'relative' }}>
                     <div style={{
                       position: 'absolute',
-                      left: '-2.5rem',
+                      left: isMobile ? '-2rem' : '-2.5rem',
                       top: '1rem',
                       width: '24px',
                       height: '24px',
@@ -1443,10 +1517,10 @@ export default function StudyFlow() {
       {
         previewItem && (
           <div
-            style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.95)', backdropFilter: 'blur(15px)', zIndex: 11000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '1rem', animation: 'fadeIn 0.3s ease-out' }}
+            style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.95)', backdropFilter: 'blur(15px)', zIndex: 11000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: isMobile ? '0.5rem' : '1rem', animation: 'fadeIn 0.3s ease-out' }}
             onClick={() => setPreviewItem(null)}
           >
-            <header style={{ width: '100%', maxWidth: '1200px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.5rem', position: 'absolute', top: 0 }}>
+            <header style={{ width: '100%', maxWidth: '1200px', display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'stretch' : 'center', padding: isMobile ? '1rem' : '1.5rem', position: 'absolute', top: 0, gap: isMobile ? '1rem' : '0' }}>
               <div style={{ animation: 'slideInRight 0.4s ease-out' }}>
                 <h4 style={{ color: '#fff', margin: 0, fontSize: '1.2rem', fontWeight: 700 }}>{previewItem.filename}</h4>
                 <p style={{ color: 'rgba(255,255,255,0.5)', margin: 0, fontSize: '0.85rem', letterSpacing: '1px' }}>{previewItem.type.toUpperCase()} PREVIEW</p>
