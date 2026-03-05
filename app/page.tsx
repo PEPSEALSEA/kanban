@@ -1007,7 +1007,14 @@ export default function StudyFlow() {
                           try {
                             await fetch(GAS_WEB_APP_URL, {
                               method: 'POST',
-                              body: new URLSearchParams({ action: 'updateProgress', email: user.email, homework_id: String(activeHomework.id), status: 'done', image_url: shareText })
+                              body: new URLSearchParams({
+                                action: 'updateProgress',
+                                email: user.email,
+                                homework_id: String(activeHomework.id),
+                                status: 'done',
+                                image_url: shareText,
+                                append: 'true'
+                              })
                             });
                             setShareText("");
                             fetchData();
@@ -1039,59 +1046,85 @@ export default function StudyFlow() {
                           </div>
 
                           {student.proof && (
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '8px', marginTop: '10px' }}>
-                              {student.proof.split(',').filter(s => s && s.trim()).map((item, idx) => {
-                                const [rawUrl, hashName] = item.split('#');
-                                const realFilename = hashName ? decodeURIComponent(hashName) : 'Attachment';
-                                const isImage = rawUrl.includes('googleusercontent.com') || rawUrl.match(/\.(jpg|jpeg|png|gif|webp)$|^data:image/i);
-                                const isPdf = rawUrl.toLowerCase().includes('pdf') || realFilename.toLowerCase().endsWith('.pdf');
-                                const driveId = extractDriveId(rawUrl);
+                            <div style={{ marginTop: '10px' }}>
+                              {/* Separate text comments and file attachments */}
+                              {(() => {
+                                const parts = student.proof.split(',').filter(s => s && s.trim());
+                                const textParts = parts.filter(p => !p.trim().startsWith('http'));
+                                const fileParts = parts.filter(p => p.trim().startsWith('http'));
 
                                 return (
-                                  <div
-                                    key={idx}
-                                    className="glass"
-                                    style={{ position: 'relative', background: 'rgba(0,0,0,0.2)', borderRadius: '10px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)', cursor: 'pointer', transition: '0.2s' }}
-                                    onClick={() => setPreviewItem({ url: rawUrl, type: isImage ? 'image' : (isPdf ? 'pdf' : 'other'), filename: realFilename, driveId })}
-                                  >
-                                    {isImage ? (
-                                      <img src={rawUrl} style={{ width: '100%', height: '70px', objectFit: 'cover' }} alt="" />
-                                    ) : (
-                                      <div style={{ height: '70px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                                        <span style={{ fontSize: '1.2rem' }}>{isPdf ? '📕' : '📄'}</span>
+                                  <>
+                                    {textParts.length > 0 && (
+                                      <div style={{ marginBottom: fileParts.length > 0 ? '12px' : '0' }}>
+                                        {textParts.map((t, idx) => (
+                                          <p key={idx} style={{ margin: '0 0 6px 0', fontSize: '0.9rem', color: 'rgba(255,255,255,0.85)', lineHeight: 1.5, background: 'rgba(255,255,255,0.03)', padding: '8px 12px', borderRadius: '10px' }}>
+                                            {t}
+                                          </p>
+                                        ))}
                                       </div>
                                     )}
-                                    {user?.email === student.email && (
-                                      <button onClick={async (e) => {
-                                        e.stopPropagation();
-                                        setConfirmModal({
-                                          title: "Remove Attachment",
-                                          message: "Proceeding will permanently delete this file from the feed and Google Drive.",
-                                          isDanger: true,
-                                          onConfirm: async () => {
-                                            setConfirmModal(null);
-                                            setLoadingAction("Removing...");
-                                            try {
-                                              const driveId = extractDriveId(rawUrl);
-                                              if (driveId) { try { await fetch(`${UPLOAD_WEB_APP_URL}?action=deleteFiles&driveIds=${driveId}`, { method: 'POST', mode: 'no-cors' }); } catch (e) { } }
-                                              await fetch(GAS_WEB_APP_URL, {
-                                                method: 'POST',
-                                                body: new URLSearchParams({ action: 'updateProgress', email: user.email, homework_id: String(activeHomework.id), status: 'done', image_url: student.proof?.split(',').filter(u => u !== item).join(',') || "" })
-                                              });
-                                              fetchData();
-                                              setNotification({ message: "Attachment removed.", type: 'success' });
-                                            } catch (e) {
-                                              setNotification({ message: "Action failed.", type: 'error' });
-                                            } finally {
-                                              setLoadingAction(null);
-                                            }
-                                          }
-                                        });
-                                      }} style={{ position: 'absolute', top: '2px', right: '2px', width: '16px', height: '16px', borderRadius: '4px', background: 'rgba(244, 63, 94, 0.8)', color: '#fff', border: 'none', fontSize: '8px', cursor: 'pointer' }}>✕</button>
+
+                                    {fileParts.length > 0 && (
+                                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '8px' }}>
+                                        {fileParts.map((item, idx) => {
+                                          const [rawUrl, hashName] = item.split('#');
+                                          const realFilename = hashName ? decodeURIComponent(hashName) : 'Attachment';
+                                          const isImage = rawUrl.includes('googleusercontent.com') || rawUrl.match(/\.(jpg|jpeg|png|gif|webp)$|^data:image/i);
+                                          const isPdf = rawUrl.toLowerCase().includes('pdf') || realFilename.toLowerCase().endsWith('.pdf');
+                                          const driveId = extractDriveId(rawUrl);
+
+                                          return (
+                                            <div
+                                              key={idx}
+                                              className="glass"
+                                              style={{ position: 'relative', background: 'rgba(0,0,0,0.2)', borderRadius: '10px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)', cursor: 'pointer', transition: '0.2s' }}
+                                              onClick={() => setPreviewItem({ url: rawUrl, type: isImage ? 'image' : (isPdf ? 'pdf' : 'other'), filename: realFilename, driveId })}
+                                            >
+                                              {isImage ? (
+                                                <img src={rawUrl} style={{ width: '100%', height: '70px', objectFit: 'cover' }} alt="" />
+                                              ) : (
+                                                <div style={{ height: '70px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                                                  <span style={{ fontSize: '1.2rem' }}>{isPdf ? '📕' : '📄'}</span>
+                                                  <span style={{ fontSize: '0.5rem', opacity: 0.5, padding: '0 4px', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>{realFilename}</span>
+                                                </div>
+                                              )}
+                                              {user?.email === student.email && (
+                                                <button onClick={async (e) => {
+                                                  e.stopPropagation();
+                                                  setConfirmModal({
+                                                    title: "Remove Attachment",
+                                                    message: "Proceeding will permanently delete this file from the feed and Google Drive.",
+                                                    isDanger: true,
+                                                    onConfirm: async () => {
+                                                      setConfirmModal(null);
+                                                      setLoadingAction("Removing...");
+                                                      try {
+                                                        const driveId = extractDriveId(rawUrl);
+                                                        if (driveId) { try { await fetch(`${UPLOAD_WEB_APP_URL}?action=deleteFiles&driveIds=${driveId}`, { method: 'POST', mode: 'no-cors' }); } catch (e) { } }
+                                                        await fetch(GAS_WEB_APP_URL, {
+                                                          method: 'POST',
+                                                          body: new URLSearchParams({ action: 'updateProgress', email: user.email, homework_id: String(activeHomework.id), status: 'done', image_url: student.proof?.split(',').filter(u => u !== item).join(',') || "" })
+                                                        });
+                                                        fetchData();
+                                                        setNotification({ message: "Attachment removed.", type: 'success' });
+                                                      } catch (e) {
+                                                        setNotification({ message: "Action failed.", type: 'error' });
+                                                      } finally {
+                                                        setLoadingAction(null);
+                                                      }
+                                                    }
+                                                  });
+                                                }} style={{ position: 'absolute', top: '2px', right: '2px', width: '16px', height: '16px', borderRadius: '4px', background: 'rgba(244, 63, 94, 0.8)', color: '#fff', border: 'none', fontSize: '8px', cursor: 'pointer' }}>✕</button>
+                                              )}
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
                                     )}
-                                  </div>
+                                  </>
                                 );
-                              })}
+                              })()}
                             </div>
                           )}
 
