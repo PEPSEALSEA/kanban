@@ -14,6 +14,7 @@ const SHEETS = {
 };
 
 const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1478774323874500640/3jwe9TnrxPJNCOJkPFln6OP1Ts1zxYhDaMC1FnIt5CzBhJwFDn-ogkMw-XYWtYr5eNVl"; // USER: Please fill your Discord Webhook URL here
+const SUMMARY_WEBHOOK_URL = "https://discord.com/api/webhooks/1478970697471754277/iXaANL47rTjQHUlTd-oa-Tvr4VDV22kWZ73LViN8l6brQKpOOs-zkahf8PsEmoS1O_YS";
 
 function doGet(e) {
     const params = e.parameter || {};
@@ -467,4 +468,129 @@ function sendSubmissionNotification(studentName, homeworkTitle, status, content)
         payload: JSON.stringify(payload),
         muteHttpExceptions: true
     });
+}
+
+/**
+ * Sends a daily summary of homework to Discord.
+ * This can be triggered manually or via a Time-driven trigger.
+ */
+function sendDailySummaryToDiscord() {
+    if (!SUMMARY_WEBHOOK_URL) return;
+
+    const summaryText = generateDailySummary();
+
+    const payload = {
+        content: summaryText
+    };
+
+    UrlFetchApp.fetch(SUMMARY_WEBHOOK_URL, {
+        method: "post",
+        contentType: "application/json",
+        payload: JSON.stringify(payload),
+        muteHttpExceptions: true
+    });
+}
+
+function generateDailySummary() {
+    const homework = getHomeworkList();
+    const now = new Date();
+
+    // Format Header Date: DD/MM/YY (Buddhist Era)
+    const dStr = String(now.getDate()).padStart(2, '0');
+    const mStr = String(now.getMonth() + 1).padStart(2, '0');
+    const yearBE = (now.getFullYear() + 543).toString().slice(-2);
+    const headerDate = `# ${dStr}/${mStr}/${yearBE}`;
+
+    // Thai Day Names
+    const thaiDays = ["วันอาทิตย์", "วันจันทร์", "วันอังคาร", "วันพุธ", "วันพฤหัสบดี", "วันศุกร์", "วันเสาร์"];
+
+    // Categorize homework
+    const groupings = {}; // groupings[dateStr] = []
+    const longTerm = [];
+
+    const sortedHw = homework.sort((a, b) => {
+        const dateA = new Date(a.deadline);
+        const dateB = new Date(b.deadline);
+        return dateA - dateB;
+    });
+
+    const oneWeekInMs = 7 * 24 * 60 * 60 * 1000;
+    const threshold = new Date(now.getTime() + oneWeekInMs);
+
+    sortedHw.forEach(hw => {
+        if (!hw.deadline) {
+            longTerm.push(hw);
+            return;
+        }
+
+        const deadlineDate = new Date(hw.deadline);
+        if (isNaN(deadlineDate.getTime())) {
+            longTerm.push(hw);
+            return;
+        }
+
+        // Only include future or "very recent" past (e.g. today)
+        // Set both to midnight for better comparison
+        const todayReset = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const deadlineReset = new Date(deadlineDate.getFullYear(), deadlineDate.getMonth(), deadlineDate.getDate());
+
+        if (deadlineReset < todayReset) {
+            longTerm.push(hw);
+            return;
+        }
+
+        if (deadlineDate <= threshold) {
+            const dateStr = `${String(deadlineDate.getDate()).padStart(2, '0')}/${String(deadlineDate.getMonth() + 1).padStart(2, '0')}`;
+            const dayName = thaiDays[deadlineDate.getDay()];
+            const groupKey = `## ${dayName} (${dateStr})`;
+
+            if (!groupings[groupKey]) groupings[groupKey] = [];
+            groupings[groupKey].push(hw);
+        } else {
+            longTerm.push(hw);
+        }
+    });
+
+    let message = headerDate + "\n";
+
+    // Find unique keys for daily groups in order of dates
+    const keys = [];
+    sortedHw.forEach(hw => {
+        if (!hw.deadline) return;
+        const deadlineDate = new Date(hw.deadline);
+        if (deadlineDate <= threshold && deadlineDate >= new Date(now.getFullYear(), now.getMonth(), now.getDate())) {
+            const dateStr = `${String(deadlineDate.getDate()).padStart(2, '0')}/${String(deadlineDate.getMonth() + 1).padStart(2, '0')}`;
+            const dayName = thaiDays[deadlineDate.getDay()];
+            const groupKey = `## ${dayName} (${dateStr})`;
+            if (!keys.includes(groupKey)) keys.push(groupKey);
+        }
+    });
+
+    keys.forEach(key => {
+        message += `${key}\n`;
+        groupings[key].forEach(hw => {
+            message += `- ${hw.subject} : ${hw.title}${hw.note ? ' ' + hw.note : ''}\n`;
+        });
+    });
+
+    // Add "งานดองเค็ม" (Long term / Unscheduled)
+    if (longTerm.length > 0) {
+        message += "\n## งานดองเค็ม\n";
+        longTerm.forEach(hw => {
+            let dateSuffix = "";
+            if (hw.deadline) {
+                const date = new Date(hw.deadline);
+                if (!isNaN(date.getTime())) {
+                    dateSuffix = ` (${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')})`;
+                }
+            }
+            message += `- ${hw.subject} : ${hw.title}${dateSuffix}\n`;
+        });
+    }
+
+    message += "\nเนื้อหาทั้งหมดอยู่ใน link นี้\n";
+    message += "```https://pepsealsea.github.io/kanban/```\n\n";
+    message += "> Have question **Reply** to this Bot. || <@&1162383289575817326> ||";
+
+    return message;
 }
