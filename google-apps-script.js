@@ -11,6 +11,7 @@ const SHEETS = {
     PROGRESS: "Progress",
     URLS: "URLs",
     COMMENTS: "Comments",
+    LEARNING_CONTENT: "LearningContent",
 };
 
 const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1478774323874500640/3jwe9TnrxPJNCOJkPFln6OP1Ts1zxYhDaMC1FnIt5CzBhJwFDn-ogkMw-XYWtYr5eNVl"; // USER: Please fill your Discord Webhook URL here
@@ -29,6 +30,7 @@ function doGet(e) {
         else if (action === "allProgress") result = getAllProgress();
         else if (action === "users") result = getUserList();
         else if (action === "comments") result = getComments(params.homework_id, params.owner_email);
+        else if (action === "learningContent") result = getLearningContent(params.date, params.id);
         else if (action === "setup") { setupSheet(); result = "setup complete"; }
         else throw new Error("unknown action: " + action);
 
@@ -106,6 +108,18 @@ function doPost(e) {
             result = addComment(
                 getVal('homework_id'), getVal('owner_email'), getVal('commenter_email'), getVal('text')
             );
+        } else if (action === "addLearningContent") {
+            result = addLearningContent(
+                getVal('date'), getVal('subject'), getVal('title'), getVal('description'),
+                getVal('audio_file_id'), getVal('audio_url'), getVal('attachments'), getVal('links')
+            );
+        } else if (action === "editLearningContent") {
+            result = editLearningContent(
+                getVal('id'), getVal('date'), getVal('subject'), getVal('title'), getVal('description'),
+                getVal('audio_file_id'), getVal('audio_url'), getVal('attachments'), getVal('links')
+            );
+        } else if (action === "deleteLearningContent") {
+            result = deleteLearningContent(getVal('id'));
         } else {
             throw new Error("unknown action: " + action);
         }
@@ -129,6 +143,15 @@ function setupSheet() {
     _setupProgress(ss);
     _setupUrls(ss);
     _setupComments(ss);
+    _setupLearningContent(ss);
+}
+
+function _setupLearningContent(ss) {
+    let sheet = ss.getSheetByName(SHEETS.LEARNING_CONTENT) || ss.insertSheet(SHEETS.LEARNING_CONTENT);
+    if (sheet.getLastRow() === 0) {
+        sheet.appendRow(["id", "date", "subject", "title", "description", "audio_file_id", "audio_url", "attachments", "links", "created_at"]);
+        sheet.setFrozenRows(1);
+    }
 }
 
 function _setupHomework(ss) {
@@ -593,4 +616,100 @@ function generateDailySummary() {
     message += "> Have question **Reply** to this Bot. || <@&1162383289575817326> ||";
 
     return message;
+}
+
+// --- LEARNING CONTENT SYSTEM FUNCTIONS ---
+
+/**
+ * Fetch learning content, optionally filtered by date or id
+ */
+function getLearningContent(date, id) {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const sheet = ss.getSheetByName(SHEETS.LEARNING_CONTENT);
+    if (!sheet || sheet.getLastRow() < 2) return [];
+
+    let rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 10).getValues();
+    let data = _toObjects(rows, ["id", "date", "subject", "title", "description", "audio_file_id", "audio_url", "attachments", "links", "created_at"]);
+
+    if (id) {
+        return data.filter(item => String(item.id) === String(id));
+    }
+    if (date) {
+        return data.filter(item => {
+            const itemDate = new Date(item.date);
+            const filterDate = new Date(date);
+            return itemDate.getFullYear() === filterDate.getFullYear() &&
+                   itemDate.getMonth() === filterDate.getMonth() &&
+                   itemDate.getDate() === filterDate.getDate();
+        });
+    }
+    return data;
+}
+
+/**
+ * Add new learning content
+ */
+function addLearningContent(date, subject, title, description, audioFileId, audioUrl, attachments, links) {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const sheet = ss.getSheetByName(SHEETS.LEARNING_CONTENT);
+    const id = "LC-" + Date.now().toString();
+    
+    sheet.appendRow([
+        id, 
+        date || new Date(), 
+        subject || "", 
+        title || "", 
+        description || "", 
+        audioFileId || "", 
+        audioUrl || "", 
+        attachments || "", 
+        links || "", 
+        new Date()
+    ]);
+    
+    return id;
+}
+
+/**
+ * Edit existing learning content
+ */
+function editLearningContent(id, date, subject, title, description, audioFileId, audioUrl, attachments, links) {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const sheet = ss.getSheetByName(SHEETS.LEARNING_CONTENT);
+    if (!sheet) return false;
+
+    const data = sheet.getDataRange().getValues();
+    for (let i = 1; i < data.length; i++) {
+        if (String(data[i][0]) === String(id)) {
+            const row = i + 1;
+            if (date !== undefined) sheet.getRange(row, 2).setValue(date);
+            if (subject !== undefined) sheet.getRange(row, 3).setValue(subject);
+            if (title !== undefined) sheet.getRange(row, 4).setValue(title);
+            if (description !== undefined) sheet.getRange(row, 5).setValue(description);
+            if (audioFileId !== undefined) sheet.getRange(row, 6).setValue(audioFileId);
+            if (audioUrl !== undefined) sheet.getRange(row, 7).setValue(audioUrl);
+            if (attachments !== undefined) sheet.getRange(row, 8).setValue(attachments);
+            if (links !== undefined) sheet.getRange(row, 9).setValue(links);
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * Delete learning content
+ */
+function deleteLearningContent(id) {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const sheet = ss.getSheetByName(SHEETS.LEARNING_CONTENT);
+    if (!sheet) return false;
+
+    const data = sheet.getDataRange().getValues();
+    for (let i = 1; i < data.length; i++) {
+        if (String(data[i][0]) === String(id)) {
+            sheet.deleteRow(i + 1);
+            return true;
+        }
+    }
+    return false;
 }

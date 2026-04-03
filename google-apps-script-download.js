@@ -114,6 +114,46 @@ function doPost(e) {
             });
         };
 
+        // --- NEW AUDIO UPLOAD ACTION ---
+        if (action === 'uploadAudio') {
+            const folder = DriveApp.getFolderById(folderId);
+            let fileBlob = null;
+            let filename = params.filename || ("Audio_" + new Date().getTime() + ".mp3");
+            let contentType = params.contentType || "audio/mpeg";
+
+            if (e.parameters && e.parameters.myFile) {
+                fileBlob = Array.isArray(e.parameters.myFile) ? e.parameters.myFile[0] : e.parameters.myFile;
+            } else if (e.postData && e.postData.contents) {
+                if (typeof e.postData.contents === 'string') {
+                    const decoded = Utilities.base64Decode(e.postData.contents.split('base64,').pop());
+                    fileBlob = Utilities.newBlob(decoded, contentType, filename);
+                } else {
+                    fileBlob = e.postData.contents;
+                }
+            }
+
+            if (fileBlob) {
+                const file = folder.createFile(fileBlob);
+                if (filename) file.setName(filename);
+                // Set sharing to anyone with link can view
+                file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+                
+                const driveId = file.getId();
+                const viewUrl = 'https://drive.google.com/file/d/' + driveId + '/view';
+                const streamUrl = 'https://drive.google.com/uc?export=download&id=' + driveId;
+
+                logUploadToSheet(driveId, viewUrl, filename, contentType);
+
+                return createResponse(true, 'Audio upload successful', {
+                    driveId: driveId,
+                    url: viewUrl,
+                    streamUrl: streamUrl,
+                    filename: filename
+                });
+            }
+            return createResponse(false, 'No audio file provided');
+        }
+
         // --- NEW DELETE ACTION ---
         if (action === 'deleteFiles' || action === 'archiveFiles') {
             var driveIds = params.driveIds || postData.driveIds;
