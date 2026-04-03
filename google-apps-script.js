@@ -31,6 +31,7 @@ function doGet(e) {
         else if (action === "users") result = getUserList();
         else if (action === "comments") result = getComments(params.homework_id, params.owner_email);
         else if (action === "learningContent") result = getLearningContent(params.date, params.id);
+        else if (action === "batchData") result = getBatchData();
         else if (action === "setup") { setupSheet(); result = "setup complete"; }
         else throw new Error("unknown action: " + action);
 
@@ -712,4 +713,15 @@ function deleteLearningContent(id) {
         }
     }
     return false;
+}
+/**
+ * Fetch all essential data collections in one batch for optimized initial load.
+ */
+function getBatchData() {
+    return {
+        homework: getHomeworkList(),
+        users: getUserList(),
+        progress: getAllProgress(),
+        learningContent: getLearningContent()
+    };
 }

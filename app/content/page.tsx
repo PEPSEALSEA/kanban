@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
+import { useData } from '@/components/DataProvider';
 
 // --- CONFIGURATION ---
 const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwcxlw11xxkbmWFiVZUX4jRgA0Xugbwl7lnSdMi9gO0BhXY4TAgfIjqqTX_xyvwwbfwsA/exec";
@@ -28,13 +29,18 @@ type LearningContent = {
 };
 
 export default function LearningContentPage() {
+  const { 
+    learningContent, 
+    isLoading, 
+    error, 
+    refreshData 
+  } = useData();
+
   const [view, setView] = useState<'calendar' | 'detail'>('calendar');
-  const [contents, setContents] = useState<LearningContent[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [activeContent, setActiveContent] = useState<LearningContent | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [mounted, setMounted] = useState(false);
 
   // --- HASH ROUTING ---
   const handleHashChange = useCallback(() => {
@@ -43,7 +49,7 @@ export default function LearningContentPage() {
       const params = new URLSearchParams(hash.split('?')[1]);
       const id = params.get('id');
       if (id) {
-        const found = contents.find(c => c.id === id);
+        const found = learningContent.find((c: LearningContent) => c.id === id);
         if (found) {
           setActiveContent(found);
           setView('detail');
@@ -53,39 +59,17 @@ export default function LearningContentPage() {
     }
     setView('calendar');
     setActiveContent(null);
-  }, [contents]);
+  }, [learningContent]);
 
-  // Initial Data Fetch
   useEffect(() => {
-    fetchContents();
-  }, []); // Run only once on mount
+    setMounted(true);
+  }, []); 
 
-  // Handle Hash Changes
   useEffect(() => {
     handleHashChange();
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
-  }, [handleHashChange]); // Run when handleHashChange (and thus contents) changes
-
-  const fetchContents = async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(`${GAS_WEB_APP_URL}?action=learningContent`);
-      if (!res.ok) throw new Error("Failed to reach server");
-      const data = await res.json();
-      if (data.success) {
-        setContents(data.data);
-      } else {
-        throw new Error(data.error || "Failed to load content");
-      }
-    } catch (e: any) {
-      console.error(e);
-      setError(e.message || "Network Error");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  }, [handleHashChange]);
 
   // --- CALENDAR LOGIC ---
   const daysInMonth = useMemo(() => {
@@ -112,7 +96,7 @@ export default function LearningContentPage() {
 
   const getContentsForDate = (day: number, month: number, year: number) => {
     const d = new Date(year, month, day);
-    return contents.filter(c => {
+    return learningContent.filter((c: LearningContent) => {
       const itemDate = new Date(c.date);
       return itemDate.getFullYear() === d.getFullYear() &&
              itemDate.getMonth() === d.getMonth() &&
@@ -156,7 +140,7 @@ export default function LearningContentPage() {
               {activeContent.subject}
             </span>
             <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-              {new Date(activeContent.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}
+              {mounted && new Date(activeContent.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}
             </span>
           </div>
 
@@ -233,16 +217,13 @@ export default function LearningContentPage() {
           </h1>
           <p style={{ color: 'var(--text-muted)' }}>Learning Content Archive</p>
         </div>
-        <Link href="/" className="glass" style={{ padding: '0.75rem 1.5rem', borderRadius: '1rem', textDecoration: 'none', color: '#fff', fontSize: '0.9rem' }}>
-          Back to Kanban
-        </Link>
       </header>
 
       <div className="glass" style={{ padding: '2rem', borderRadius: '2rem' }}>
         {/* Calendar Nav */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
           <h2 style={{ fontSize: '1.25rem', fontWeight: 800 }}>
-            {currentMonth.toLocaleDateString('th-TH', { month: 'long', year: 'numeric' })}
+            {mounted && currentMonth.toLocaleDateString('th-TH', { month: 'long', year: 'numeric' })}
           </h2>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <button onClick={() => setCurrentMonth(new Date(currentMonth.setMonth(currentMonth.getMonth() - 1)))} className="glass" style={{ width: '40px', height: '40px', borderRadius: '10px', border: 'none', color: '#fff', cursor: 'pointer' }}>←</button>
@@ -258,7 +239,7 @@ export default function LearningContentPage() {
           ))}
           {daysInMonth.map((d, i) => {
             const dateContents = getContentsForDate(d.day, d.month, d.year);
-            const isToday = new Date().toDateString() === new Date(d.year, d.month, d.day).toDateString();
+            const isToday = mounted && new Date().toDateString() === new Date(d.year, d.month, d.day).toDateString();
             
             return (
               <div 
@@ -268,7 +249,7 @@ export default function LearningContentPage() {
               >
                 <div style={{ fontSize: '0.85rem', fontWeight: d.isCurrent ? 700 : 400 }}>{d.day}</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                  {dateContents.map((c, ci) => (
+                  {dateContents.map((c: LearningContent, ci: number) => (
                     <div key={ci} style={{ width: '6px', height: '6px', borderRadius: '50%', background: SUBJECT_COLORS[c.subject] || '#6366f1' }} title={c.title} />
                   ))}
                 </div>
@@ -290,10 +271,10 @@ export default function LearningContentPage() {
             onClick={e => e.stopPropagation()}
           >
             <h3 style={{ marginBottom: '1.5rem', fontWeight: 800 }}>
-              {new Date(selectedDate).toLocaleDateString('th-TH', { day: 'numeric', month: 'long' })}
+              {mounted && new Date(selectedDate).toLocaleDateString('th-TH', { day: 'numeric', month: 'long' })}
             </h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {getContentsForDate(new Date(selectedDate).getDate(), new Date(selectedDate).getMonth(), new Date(selectedDate).getFullYear()).map(c => (
+              {getContentsForDate(new Date(selectedDate).getDate(), new Date(selectedDate).getMonth(), new Date(selectedDate).getFullYear()).map((c: LearningContent) => (
                 <button 
                   key={c.id} 
                   onClick={() => { window.location.hash = `#/view?id=${c.id}`; setSelectedDate(null); }}
@@ -324,20 +305,19 @@ export default function LearningContentPage() {
         </div>
       )}
 
-      {error && !isLoading && (
+      {error && (
         <div style={{ padding: '2rem', marginTop: '2rem', background: 'rgba(244, 63, 94, 0.1)', border: '1px solid var(--accent)', borderRadius: '1.5rem', textAlign: 'center' }}>
           <p style={{ color: 'var(--accent)', fontWeight: 700, marginBottom: '1rem' }}>⚠️ {error}</p>
-          <button onClick={fetchContents} className="glass" style={{ padding: '0.5rem 1rem', borderRadius: '0.75rem', border: 'none', color: '#fff', cursor: 'pointer' }}>
+          <button onClick={refreshData} className="glass" style={{ padding: '0.5rem 1rem', borderRadius: '0.75rem', border: 'none', color: '#fff', cursor: 'pointer' }}>
             Retry Loading
           </button>
         </div>
       )}
 
       {isLoading && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.9)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 2000 }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.9)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 2000, backdropFilter: 'blur(10px)' }}>
           <div className="loader" style={{ marginBottom: '1rem' }}></div>
-          <p style={{ fontWeight: 600 }}>Loading Content Archive...</p>
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>Synchronizing with Google Sheets</p>
+          <p style={{ fontWeight: 600 }}>Loading Archive...</p>
         </div>
       )}
     </div>
