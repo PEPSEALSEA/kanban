@@ -33,6 +33,7 @@ export default function LearningContentPage() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [activeContent, setActiveContent] = useState<LearningContent | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
   // --- HASH ROUTING ---
@@ -54,22 +55,33 @@ export default function LearningContentPage() {
     setActiveContent(null);
   }, [contents]);
 
+  // Initial Data Fetch
   useEffect(() => {
     fetchContents();
+  }, []); // Run only once on mount
+
+  // Handle Hash Changes
+  useEffect(() => {
+    handleHashChange();
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
-  }, [handleHashChange]);
+  }, [handleHashChange]); // Run when handleHashChange (and thus contents) changes
 
   const fetchContents = async () => {
     setIsLoading(true);
+    setError(null);
     try {
       const res = await fetch(`${GAS_WEB_APP_URL}?action=learningContent`);
+      if (!res.ok) throw new Error("Failed to reach server");
       const data = await res.json();
       if (data.success) {
         setContents(data.data);
+      } else {
+        throw new Error(data.error || "Failed to load content");
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      setError(e.message || "Network Error");
     } finally {
       setIsLoading(false);
     }
@@ -312,10 +324,20 @@ export default function LearningContentPage() {
         </div>
       )}
 
+      {error && !isLoading && (
+        <div style={{ padding: '2rem', marginTop: '2rem', background: 'rgba(244, 63, 94, 0.1)', border: '1px solid var(--accent)', borderRadius: '1.5rem', textAlign: 'center' }}>
+          <p style={{ color: 'var(--accent)', fontWeight: 700, marginBottom: '1rem' }}>⚠️ {error}</p>
+          <button onClick={fetchContents} className="glass" style={{ padding: '0.5rem 1rem', borderRadius: '0.75rem', border: 'none', color: '#fff', cursor: 'pointer' }}>
+            Retry Loading
+          </button>
+        </div>
+      )}
+
       {isLoading && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.9)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 2000 }}>
           <div className="loader" style={{ marginBottom: '1rem' }}></div>
-          <p>Loading Content Archive...</p>
+          <p style={{ fontWeight: 600 }}>Loading Content Archive...</p>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>Synchronizing with Google Sheets</p>
         </div>
       )}
     </div>
