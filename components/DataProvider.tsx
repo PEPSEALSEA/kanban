@@ -15,6 +15,7 @@ type ProgressItem = {
   homework_id: string;
   status: string;
   image_url?: string;
+  updated_at?: string;
 };
 
 type Homework = {
