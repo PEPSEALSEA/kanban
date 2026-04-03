@@ -9,7 +9,7 @@ import { useData } from '@/components/DataProvider';
 // --- CONFIGURATION ---
 const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwcxlw11xxkbmWFiVZUX4jRgA0Xugbwl7lnSdMi9gO0BhXY4TAgfIjqqTX_xyvwwbfwsA/exec";
 const UPLOAD_WEB_APP_URL = "https://script.google.com/macros/s/AKfycby7FOqHLZN24sWCwl7XP4maUSi_iCxEFcg6REG-F8qp2C33aJL0US1Ye8XTZ7qUBDC8fw/exec";
-const ADMIN_EMAILS = ['pepsealsea@gmail.com', 'iampep2009@gmail.com'];
+const ADMIN_EMAILS = ['pepsealsea@gmail.com', 'iampep2009@gmail.com', 'sealseapep@gmail.com'];
 
 function getSubjectColor(subject: string): string {
   const colors: Record<string, string> = {
