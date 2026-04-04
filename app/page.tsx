@@ -601,60 +601,61 @@ export default function StudyFlow() {
 
         {viewMode === 'timeline' && (
           <div style={{ padding: '0 2.5rem 2.5rem', overflowX: 'auto' }}>
-            <div className="glass" style={{ borderRadius: '2rem', padding: '2rem', minWidth: '1000px' }}>
-            <div className="timeline-grid">
-                <div style={{ borderRight: '1px solid var(--card-border)' }}></div>
-                <div style={{ display: 'flex', borderBottom: '1px solid var(--card-border)', paddingBottom: '1rem', overflowX: 'auto' }}>
-                   {Array.from({ length: 30 }).map((_, i) => {
-                     const d = new Date(focusDate);
-                     d.setDate(d.getDate() + i - 7);
-                     const isToday = new Date().toDateString() === d.toDateString();
-                     return (
-                       <div key={i} className="timeline-header-cell" style={{ color: isToday ? 'var(--primary)' : 'var(--text-muted)' }}>
-                         <div style={{ fontWeight: 800 }}>{d.getDate()}</div>
-                         <div>{d.toLocaleDateString('en-US', { weekday: 'short' })}</div>
-                         {isToday && <div className="timeline-today-marker" />}
-                       </div>
-                     );
-                   })}
-                </div>
-              </div>
+            <div className="glass" style={{ borderRadius: '2rem', padding: '2rem', minWidth: 'fit-content' }}>
+              <div style={{ display: 'flex' }}>
+                {Array.from({ length: 30 }).map((_, i) => {
+                  const d = new Date(focusDate);
+                  d.setDate(d.getDate() + i - 14); // Start from 2 weeks ago
+                  const isToday = new Date().toDateString() === d.toDateString();
+                  
+                  // Filter and sort tasks for this day
+                  const dayTasks = homeworkWithStatus
+                    .filter(hw => {
+                      const hwDate = new Date(hw.deadline);
+                      return hwDate.getDate() === d.getDate() && 
+                             hwDate.getMonth() === d.getMonth() && 
+                             hwDate.getFullYear() === d.getFullYear();
+                    })
+                    .sort((a, b) => {
+                      if (a.my_status === 'done' && b.my_status !== 'done') return 1;
+                      if (a.my_status !== 'done' && b.my_status === 'done') return -1;
+                      return 0;
+                    });
 
-              {Array.from(new Set(homeworkWithStatus.map(h => h.subject))).map(subj => (
-                <div key={subj} className="timeline-row">
-                  <div className="timeline-subject-label" style={{ color: getSubjectColor(subj) }}>
-                    {subj}
-                  </div>
-                  <div style={{ position: 'relative', display: 'flex', width: '100%', height: '100%' }}>
-                    {homeworkWithStatus.filter(h => h.subject === subj).map(task => {
-                      const taskDate = new Date(task.deadline);
-                      const startDate = new Date(focusDate);
-                      startDate.setDate(startDate.getDate() - 7);
-                      const diff = Math.floor((taskDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-                      if (diff < 0 || diff >= 30) return null;
-                      
-                      return (
-                        <div 
-                          key={task.id} 
-                          onClick={() => setActiveHomework(task)}
-                          className="timeline-milestone"
-                          style={{ 
-                            left: `${diff * 60}px`, 
-                            top: '50%', transform: 'translateY(-50%)',
-                            width: '120px', 
-                            background: getSubjectColor(task.subject),
-                            opacity: task.my_status === 'done' ? 0.6 : 1,
-                            borderLeft: `4px solid rgba(0,0,0,0.2)`
-                          }} 
-                          title={`${task.title} (${task.deadline})`}
-                        >
-                          {task.title}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
+                  return (
+                    <div key={i} className="timeline-day-stack">
+                      {/* Header for the Day */}
+                      <div className="timeline-header-cell" style={{ borderRight: 'none', color: isToday ? 'var(--primary)' : 'var(--text-muted)' }}>
+                        <div style={{ fontWeight: 800, fontSize: '1.2rem' }}>{d.getDate()}</div>
+                        <div>{d.toLocaleDateString('en-US', { weekday: 'short' })}</div>
+                        {isToday && <div className="timeline-today-marker" />}
+                      </div>
+
+                      {/* Task Stack */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {dayTasks.map(task => (
+                          <div 
+                            key={task.id} 
+                            onClick={() => setActiveHomework(task)}
+                            className="timeline-milestone"
+                            style={{ 
+                              background: getSubjectColor(task.subject),
+                              opacity: task.my_status === 'done' ? 0.4 : 1,
+                              borderLeft: `5px solid rgba(0,0,0,0.3)`,
+                              boxShadow: task.my_status === 'done' ? 'none' : `0 4px 12px ${getSubjectColor(task.subject)}20`,
+                              textDecoration: task.my_status === 'done' ? 'line-through' : 'none'
+                            }} 
+                            title={`${task.title} (${task.deadline})`}
+                          >
+                            <div style={{ fontSize: '0.65rem', opacity: 0.8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{task.subject}</div>
+                            <div style={{ lineHeight: 1.3 }}>{task.title}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         )}
