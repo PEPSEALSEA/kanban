@@ -600,62 +600,80 @@ export default function StudyFlow() {
         )}
 
         {viewMode === 'timeline' && (
-          <div style={{ padding: '0 2.5rem 2.5rem', overflowX: 'auto' }}>
-            <div className="glass" style={{ borderRadius: '2rem', padding: '2rem', minWidth: 'fit-content' }}>
-              <div style={{ display: 'flex' }}>
-                {Array.from({ length: 30 }).map((_, i) => {
-                  const d = new Date(focusDate);
-                  d.setDate(d.getDate() + i - 14); // Start from 2 weeks ago
-                  const isToday = new Date().toDateString() === d.toDateString();
-                  
-                  // Filter and sort tasks for this day
-                  const dayTasks = homeworkWithStatus
-                    .filter(hw => {
-                      const hwDate = new Date(hw.deadline);
-                      return hwDate.getDate() === d.getDate() && 
-                             hwDate.getMonth() === d.getMonth() && 
-                             hwDate.getFullYear() === d.getFullYear();
-                    })
-                    .sort((a, b) => {
-                      if (a.my_status === 'done' && b.my_status !== 'done') return 1;
-                      if (a.my_status !== 'done' && b.my_status === 'done') return -1;
-                      return 0;
-                    });
+          <div style={{ padding: '0 1rem 2.5rem' }}>
+            <div className="timeline-v-container">
+              {Array.from({ length: 30 }).map((_, i) => {
+                const d = new Date(focusDate);
+                d.setDate(d.getDate() + i - 14); // Start from 2 weeks ago
+                const isToday = new Date().toDateString() === d.toDateString();
+                
+                // Filter and sort tasks for this day
+                const dayTasks = homeworkWithStatus
+                  .filter(hw => {
+                    const hwDate = new Date(hw.deadline);
+                    return hwDate.getDate() === d.getDate() && 
+                           hwDate.getMonth() === d.getMonth() && 
+                           hwDate.getFullYear() === d.getFullYear();
+                  })
+                  .sort((a, b) => {
+                    if (a.my_status === 'done' && b.my_status !== 'done') return 1;
+                    if (a.my_status !== 'done' && b.my_status === 'done') return -1;
+                    return 0;
+                  });
 
-                  return (
-                    <div key={i} className="timeline-day-stack">
-                      {/* Header for the Day */}
-                      <div className="timeline-header-cell" style={{ borderRight: 'none', color: isToday ? 'var(--primary)' : 'var(--text-muted)' }}>
-                        <div style={{ fontWeight: 800, fontSize: '1.2rem' }}>{d.getDate()}</div>
-                        <div>{d.toLocaleDateString('en-US', { weekday: 'short' })}</div>
-                        {isToday && <div className="timeline-today-marker" />}
+                // Only render days that have tasks to keep the timeline concise, 
+                // OR render all days if we want a continuous line. 
+                // Given the sketch has a line, let's render all but emphasize those with tasks.
+                
+                return (
+                  <div key={i} className="timeline-v-item">
+                    <div className="timeline-v-left">
+                      <div className="timeline-v-date">
+                        <div className="timeline-v-date-day" style={{ color: isToday ? 'var(--primary)' : 'inherit' }}>
+                          {d.getDate()}
+                        </div>
+                        <div className="timeline-v-date-month">
+                          {d.toLocaleDateString('th-TH', { month: 'short' })}
+                        </div>
                       </div>
-
-                      {/* Task Stack */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        {dayTasks.map(task => (
-                          <div 
-                            key={task.id} 
-                            onClick={() => setActiveHomework(task)}
-                            className="timeline-milestone"
-                            style={{ 
-                              background: getSubjectColor(task.subject),
-                              opacity: task.my_status === 'done' ? 0.4 : 1,
-                              borderLeft: `5px solid rgba(0,0,0,0.3)`,
-                              boxShadow: task.my_status === 'done' ? 'none' : `0 4px 12px ${getSubjectColor(task.subject)}20`,
-                              textDecoration: task.my_status === 'done' ? 'line-through' : 'none'
-                            }} 
-                            title={`${task.title} (${task.deadline})`}
-                          >
-                            <div style={{ fontSize: '0.65rem', opacity: 0.8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{task.subject}</div>
-                            <div style={{ lineHeight: 1.3 }}>{task.title}</div>
-                          </div>
-                        ))}
+                      <div className="timeline-v-path">
+                        <div className={`timeline-v-dot ${isToday ? 'active' : ''}`} style={{ background: isToday ? 'var(--primary)' : 'rgba(255,255,255,0.2)', boxShadow: isToday ? '0 0 15px var(--primary)' : 'none' }} />
                       </div>
                     </div>
-                  );
-                })}
-              </div>
+
+                    <div className="timeline-v-right">
+                      {dayTasks.length > 0 ? (
+                        <div className="timeline-v-cards">
+                          {dayTasks.map(task => {
+                            const isDone = task.my_status === 'done';
+                            return (
+                              <div 
+                                key={task.id} 
+                                onClick={() => setActiveHomework(task)}
+                                className={`timeline-card-v ${isDone ? 'done' : ''}`}
+                                style={{ 
+                                  borderLeft: `6px solid ${isDone ? '#10b981' : getSubjectColor(task.subject)}`,
+                                }}
+                              >
+                                <div className="timeline-card-v-subject" style={{ color: getSubjectColor(task.subject) }}>
+                                  {task.subject}
+                                </div>
+                                <div className="timeline-card-v-title" style={{ textDecoration: isDone ? 'line-through' : 'none' }}>
+                                  {task.title}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div style={{ color: 'rgba(255,255,255,0.1)', fontSize: '0.8rem', fontStyle: 'italic', padding: '10px 0' }}>
+                          No tasks due
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
