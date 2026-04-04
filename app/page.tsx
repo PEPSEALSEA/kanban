@@ -641,13 +641,15 @@ export default function StudyFlow() {
                           style={{ 
                             left: `${diff * 60}px`, 
                             top: '50%', transform: 'translateY(-50%)',
-                            width: '56px', 
-                            background: getSubjectColor(subj),
-                            boxShadow: `0 0 10px ${getSubjectColor(subj)}40`,
-                            opacity: task.my_status === 'done' ? 0.3 : 1
+                            width: '120px', 
+                            background: getSubjectColor(task.subject),
+                            opacity: task.my_status === 'done' ? 0.6 : 1,
+                            borderLeft: `4px solid rgba(0,0,0,0.2)`
                           }} 
                           title={`${task.title} (${task.deadline})`}
-                        />
+                        >
+                          {task.title}
+                        </div>
                       );
                     })}
                   </div>

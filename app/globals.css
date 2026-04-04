@@ -608,16 +608,26 @@ h3 {
 
 .timeline-milestone {
   position: absolute;
-  height: 12px;
-  border-radius: 20px;
+  height: 28px;
+  border-radius: 6px;
   cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   z-index: 10;
 }
 
 .timeline-milestone:hover {
-  transform: translateY(-50%) scale(1.1);
-  box-shadow: 0 0 15px currentColor;
+  transform: translateY(-50%) scale(1.02);
+  filter: brightness(1.2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   z-index: 20;
 }
 
