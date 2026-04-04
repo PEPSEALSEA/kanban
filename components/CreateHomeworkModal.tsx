@@ -16,6 +16,7 @@ export default function CreateHomeworkModal({ onClose, onRefresh }: { onClose: (
     note: ''
   });
 
+  const [customSubject, setCustomSubject] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
 
@@ -59,6 +60,7 @@ export default function CreateHomeworkModal({ onClose, onRefresh }: { onClose: (
         body: new URLSearchParams({
           action: 'addHomework',
           ...formData,
+          subject: formData.subject === 'Other' ? customSubject : formData.subject,
           link_work: formData.link_work.join(','),
           link_image: formData.link_image.join(',')
         })
@@ -90,6 +92,18 @@ export default function CreateHomeworkModal({ onClose, onRefresh }: { onClose: (
               >
                  {['Math', 'Science', 'History', 'English', 'Arts', 'Computer', 'Other'].map(s => <option key={s} value={s}>{s}</option>)}
               </select>
+              {formData.subject === 'Other' && (
+                <div style={{ marginTop: '0.5rem' }}>
+                  <input 
+                    type="text" 
+                    placeholder="Subject Name"
+                    value={customSubject}
+                    onChange={e => setCustomSubject(e.target.value)}
+                    required
+                    style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid var(--admin-border)', outline: 'none' }}
+                  />
+                </div>
+              )}
             </div>
             <div>
               <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.4rem', color: 'var(--admin-text-muted)' }}>Deadline</label>

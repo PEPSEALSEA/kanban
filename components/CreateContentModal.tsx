@@ -17,6 +17,7 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
     links: [] as string[]
   });
 
+  const [customSubject, setCustomSubject] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
 
@@ -64,6 +65,7 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
         body: new URLSearchParams({
           action: 'addLearningContent',
           ...formData,
+          subject: formData.subject === 'Other' ? customSubject : formData.subject,
           attachments: formData.attachments.join(','),
           links: formData.links.join(',')
         })
@@ -108,6 +110,18 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
               >
                  {['Math', 'Science', 'History', 'English', 'Arts', 'Computer', 'Other'].map(s => <option key={s} value={s}>{s}</option>)}
               </select>
+              {formData.subject === 'Other' && (
+                <div style={{ marginTop: '0.5rem' }}>
+                  <input 
+                    type="text" 
+                    placeholder="Subject Name"
+                    value={customSubject}
+                    onChange={e => setCustomSubject(e.target.value)}
+                    required
+                    style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid var(--admin-border)', outline: 'none' }}
+                  />
+                </div>
+              )}
             </div>
           </div>
 

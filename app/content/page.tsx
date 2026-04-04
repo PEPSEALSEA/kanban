@@ -136,7 +136,7 @@ export default function LearningContentPage() {
 
         <div className="glass" style={{ padding: '3rem', borderRadius: '2.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
-            <span style={{ padding: '4px 12px', borderRadius: '8px', background: `${SUBJECT_COLORS[activeContent.subject] || '#6366f1'}25`, color: SUBJECT_COLORS[activeContent.subject] || '#6366f1', fontSize: '0.7rem', fontWeight: 800, border: '1px solid rgba(255,255,255,0.1)' }}>
+            <span style={{ padding: '4px 12px', borderRadius: '8px', background: `${SUBJECT_COLORS[activeContent.subject] || SUBJECT_COLORS['Other']}25`, color: SUBJECT_COLORS[activeContent.subject] || SUBJECT_COLORS['Other'], fontSize: '0.7rem', fontWeight: 800, border: '1px solid rgba(255,255,255,0.1)' }}>
               {activeContent.subject}
             </span>
             <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
@@ -250,7 +250,7 @@ export default function LearningContentPage() {
                 <div style={{ fontSize: '0.85rem', fontWeight: d.isCurrent ? 700 : 400 }}>{d.day}</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                   {dateContents.map((c: LearningContent, ci: number) => (
-                    <div key={ci} style={{ width: '6px', height: '6px', borderRadius: '50%', background: SUBJECT_COLORS[c.subject] || '#6366f1' }} title={c.title} />
+                  <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: SUBJECT_COLORS[c.subject] || SUBJECT_COLORS['Other'] }} title={c.title} />
                   ))}
                 </div>
               </div>
@@ -292,7 +292,7 @@ export default function LearningContentPage() {
                     gap: '12px'
                   }}
                 >
-                  <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: SUBJECT_COLORS[c.subject] || '#6366f1' }} />
+                  <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: SUBJECT_COLORS[c.subject] || SUBJECT_COLORS['Other'] }} />
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: '0.9rem', fontWeight: 700 }}>{c.title}</div>
                     <div style={{ fontSize: '0.7rem', opacity: 0.5 }}>{c.subject}</div>
