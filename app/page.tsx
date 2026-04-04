@@ -604,7 +604,7 @@ export default function StudyFlow() {
             <div className="timeline-v-container">
               {Array.from({ length: 30 }).map((_, i) => {
                 const d = new Date(focusDate);
-                d.setDate(d.getDate() + i - 14); // Start from 2 weeks ago
+                d.setDate(d.getDate() + i); // Start from focusDate (Today by default)
                 const isToday = new Date().toDateString() === d.toDateString();
                 
                 // Filter and sort tasks for this day
