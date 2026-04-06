@@ -166,7 +166,7 @@ export default function LearningContentPage() {
 
           {/* Intro Text */}
           {intro && (
-            <div style={{ fontSize: '1.1rem', lineHeight: 1.6, color: '#f8fafc', marginBottom: '2.5rem', opacity: 0.9 }}>
+            <div style={{ fontSize: '1.1rem', lineHeight: 1.6, color: '#f8fafc', marginBottom: '2.5rem', opacity: 0.9, whiteSpace: 'pre-wrap' }}>
               {intro}
             </div>
           )}
@@ -177,7 +177,7 @@ export default function LearningContentPage() {
               {cards.map((card, idx) => (
                 <div key={idx} className="split-card animate-scale-in" style={{ animationDelay: `${idx * 0.1}s` }}>
                   <div className="split-number">{card.num}</div>
-                  <div style={{ fontSize: '1rem', lineHeight: 1.7, color: '#cbd5e1' }}>
+                  <div style={{ fontSize: '1rem', lineHeight: 1.7, color: '#cbd5e1', whiteSpace: 'pre-wrap' }}>
                     {card.text}
                   </div>
                 </div>
