@@ -13,7 +13,8 @@ export default function AttachmentList({ attachments }: { attachments: Attachmen
   const [zoomLevel, setZoomLevel] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const isDraggingRef = React.useRef(false);
+  const dragStartRef = React.useRef({ x: 0, y: 0 });
 
   const handleZoomIn = () => setZoomLevel((prev) => Math.min(prev + 0.5, 4));
   const handleZoomOut = () => setZoomLevel((prev) => {
@@ -31,6 +32,8 @@ export default function AttachmentList({ attachments }: { attachments: Attachmen
     setSelectedImage(null);
     setZoomLevel(1);
     setPosition({ x: 0, y: 0 });
+    isDraggingRef.current = false;
+    setIsDragging(false);
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -39,17 +42,19 @@ export default function AttachmentList({ attachments }: { attachments: Attachmen
     if (e.button !== 0) return;
     
     e.preventDefault();
+    isDraggingRef.current = true;
     setIsDragging(true);
-    setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y });
+    dragStartRef.current = { x: e.clientX - position.x, y: e.clientY - position.y };
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging || zoomLevel <= 1) return;
+    if (!isDraggingRef.current || zoomLevel <= 1) return;
     e.preventDefault();
-    setPosition({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
+    setPosition({ x: e.clientX - dragStartRef.current.x, y: e.clientY - dragStartRef.current.y });
   };
 
   const handleMouseUp = () => {
+    isDraggingRef.current = false;
     setIsDragging(false);
   };
 
@@ -187,7 +192,7 @@ export default function AttachmentList({ attachments }: { attachments: Attachmen
               onMouseDown={handleMouseDown}
               className="max-w-full max-h-full object-contain shadow-2xl relative z-10"
               style={{ 
-                transform: \`translate(\${position.x}px, \${position.y}px) scale(\${zoomLevel})\`,
+                transform: `translate(${position.x}px, ${position.y}px) scale(${zoomLevel})`,
                 cursor: zoomLevel > 1 ? (isDragging ? 'grabbing' : 'grab') : 'auto',
                 transition: isDragging ? 'none' : 'transform 0.15s ease-out'
               }}
