@@ -13,7 +13,7 @@ export default function KanbanEditor() {
     let tasks = [...allHomework];
     
     // Sort by created date descending (newest first)
-    tasks.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+    tasks.sort((a, b) => new Date((b as any).created_at || 0).getTime() - new Date((a as any).created_at || 0).getTime());
     
     if (searchTerm) {
       const lowerTerm = searchTerm.toLowerCase();
