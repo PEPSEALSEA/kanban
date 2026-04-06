@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { useData } from '@/components/DataProvider';
+import AttachmentList from '@/components/AttachmentList';
 
 // --- CONFIGURATION ---
 const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwcxlw11xxkbmWFiVZUX4jRgA0Xugbwl7lnSdMi9gO0BhXY4TAgfIjqqTX_xyvwwbfwsA/exec";
@@ -164,6 +165,28 @@ export default function LearningContentPage() {
             </div>
           )}
 
+          {/* Attachments via AttachmentList */}
+          {(activeContent.links || activeContent.attachments) && (
+            <div style={{ marginBottom: '1.5rem' }}>
+              <AttachmentList attachments={[
+                ...(activeContent.links ? activeContent.links.split(',').filter(Boolean).map((link, idx) => ({
+                  type: 'link_work' as const,
+                  url: link.trim(),
+                  title: `External Link ${idx + 1}`
+                })) : []),
+                ...(activeContent.attachments ? activeContent.attachments.split(',').filter(Boolean).map(url => {
+                  const decodedUrl = url.split('#')[0];
+                  const title = url.includes('#') ? decodeURIComponent(url.split('#')[1]) : 'Attachment';
+                  return {
+                    type: title.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp|svg)$/) || decodedUrl.match(/\.(jpg|jpeg|png|gif|webp|svg)($|\?)/) ? 'link_image' as const : 'link_work' as const,
+                    url: decodedUrl,
+                    title
+                  };
+                }) : [])
+              ]} />
+            </div>
+          )}
+
           {/* Intro Text */}
           {intro && (
             <div style={{ fontSize: '1.1rem', lineHeight: 1.6, color: '#f8fafc', marginBottom: '2.5rem', opacity: 0.9, whiteSpace: 'pre-wrap' }}>
@@ -185,24 +208,7 @@ export default function LearningContentPage() {
             </div>
           )}
 
-          {/* Attachments & Links - Reusing logic design */}
-          {(activeContent.links || activeContent.attachments) && (
-            <div style={{ marginTop: '4rem', paddingTop: '2rem', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-              <h3 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '1.5rem' }}>Resources & Links</h3>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
-                {activeContent.links && activeContent.links.split(',').map((link, idx) => (
-                  <a key={idx} href={link.trim()} target="_blank" rel="noreferrer" className="glass" style={{ padding: '0.75rem 1.25rem', borderRadius: '0.75rem', fontSize: '0.8rem', textDecoration: 'none', color: '#fff', border: '1px solid rgba(255,255,255,0.05)', transition: '0.2s' }}>
-                    🔗 External Link {idx + 1}
-                  </a>
-                ))}
-                {activeContent.attachments && activeContent.attachments.split(',').map((att, idx) => (
-                  <a key={idx} href={att.trim()} target="_blank" rel="noreferrer" className="glass" style={{ padding: '0.75rem 1.25rem', borderRadius: '0.75rem', fontSize: '0.8rem', textDecoration: 'none', color: '#fff', border: '1px solid rgba(255,255,255,0.05)', transition: '0.2s' }}>
-                    📎 Attachment {idx + 1}
-                  </a>
-                ))}
-              </div>
-            </div>
-          )}
+          {/* Old Attachments removed as it is now above the description */}
         </div>
       </div>
     );

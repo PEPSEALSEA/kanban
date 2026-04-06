@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { GoogleLogin, googleLogout } from '@react-oauth/google';
 import { jwtDecode } from 'jwt-decode';
 import { useData } from '@/components/DataProvider';
-
+import AttachmentList from '@/components/AttachmentList';
 // --- CONFIGURATION ---
 const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwcxlw11xxkbmWFiVZUX4jRgA0Xugbwl7lnSdMi9gO0BhXY4TAgfIjqqTX_xyvwwbfwsA/exec";
 const UPLOAD_WEB_APP_URL = "https://script.google.com/macros/s/AKfycby7FOqHLZN24sWCwl7XP4maUSi_iCxEFcg6REG-F8qp2C33aJL0US1Ye8XTZ7qUBDC8fw/exec";
@@ -697,6 +697,25 @@ export default function StudyFlow() {
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.5fr 1fr', gap: '2rem' }}>
               <div>
                 <h3 style={{ marginBottom: '1rem' }}>Instructions</h3>
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <AttachmentList attachments={[
+                    ...(activeHomework.link_work ? activeHomework.link_work.split(',').filter(Boolean).map(url => ({
+                      type: 'link_work' as const,
+                      url: url.split('#')[0],
+                      title: decodeURIComponent(url.split('#')[1] || 'Document')
+                    })) : []),
+                    ...(activeHomework.link_image ? activeHomework.link_image.split(',').filter(Boolean).map(url => {
+                      const decodedUrl = url.split('#')[0];
+                      const title = decodeURIComponent(url.split('#')[1] || 'Image');
+                      // Automatically detect if it's an image
+                      return {
+                        type: title.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp|svg)$/) || decodedUrl.match(/\.(jpg|jpeg|png|gif|webp|svg)($|\?)/) ? 'link_image' as const : 'link_work' as const,
+                        url: decodedUrl,
+                        title
+                      };
+                    }) : [])
+                  ]} />
+                </div>
                 <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1.5rem', borderRadius: '1.5rem', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{activeHomework.description}</div>
               </div>
 
