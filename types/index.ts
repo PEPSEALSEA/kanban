@@ -22,6 +22,7 @@ export type Homework = {
   link_image: string;
   note: string;
   my_status?: 'pending' | 'in_progress' | 'done';
+  created_at?: string;
 };
 
 export type LearningContent = {

@@ -9,10 +9,7 @@ export default function AdminSidebar({ collapsed, setCollapsed }: { collapsed: b
 
   const navItems = [
     { name: 'Dashboard', icon: '📊', path: '/admin' },
-    { name: 'Kanban Board', icon: '📋', path: '/' },
-    { name: 'Content Calendar', icon: '📅', path: '/content' },
-    { name: 'User Management', icon: '👥', path: '/admin/users' },
-    { name: 'Settings', icon: '⚙️', path: '/admin/settings' },
+    { name: 'Kanban Editor', icon: '📝', path: '/admin/kanban' },
   ];
 
   return (
