@@ -173,16 +173,28 @@ export default function LearningContentPage() {
                         </a>
                       )}
                     </div>
-                    <audio controls preload="metadata" style={{ width: '100%', height: '40px', borderRadius: '10px' }}>
-                      {cleanId && (
-                        <>
-                          <source src={`https://docs.google.com/uc?id=${cleanId}&export=media`} />
-                          <source src={`https://drive.google.com/uc?id=${cleanId}`} />
-                        </>
+                    <div style={{ 
+                      width: '100%', 
+                      height: '150px', 
+                      borderRadius: '16px', 
+                      overflow: 'hidden', 
+                      background: 'rgba(0,0,0,0.2)',
+                      border: '1px solid rgba(255,255,255,0.1)'
+                    }}>
+                      {cleanId ? (
+                        <iframe 
+                          src={`https://drive.google.com/file/d/${cleanId}/preview`} 
+                          width="100%" 
+                          height="100%" 
+                          style={{ border: 'none' }}
+                          allow="autoplay"
+                        ></iframe>
+                      ) : (
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                          Invalid Audio ID
+                        </div>
                       )}
-                      {cleanUrl && <source src={cleanUrl} />}
-                      Your browser does not support the audio element.
-                    </audio>
+                    </div>
                   </div>
                 </div>
               </div>
