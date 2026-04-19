@@ -1,19 +1,15 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Mali } from "next/font/google";
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { DataProvider } from "@/components/DataProvider";
 import HeaderNav from "@/components/HeaderNav";
 import SyncToast from "@/components/SyncToast";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+const mali = Mali({
+  weight: ['200', '300', '400', '500', '600', '700'],
+  subsets: ["latin", "thai"],
+  variable: "--font-mali",
 });
 
 export const metadata: Metadata = {
@@ -28,7 +24,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable}`}>
+      <body className={mali.variable}>
         <GoogleOAuthProvider clientId="787988651964-gf258mnif89bu6g0jao2mpdsm72j96da.apps.googleusercontent.com">
           <DataProvider>
             <SyncToast />
