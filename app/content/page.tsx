@@ -150,31 +150,44 @@ export default function LearningContentPage() {
           </h1>
 
           {/* Audio Player */}
-          {(activeContent.audio_file_id || activeContent.audio_url) && (
-            <div className="audio-player-container">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-                <div className="animate-float" style={{ fontSize: '2rem' }}>🎵</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '0.8rem', fontWeight: 700, marginBottom: '0.5rem', opacity: 0.6 }}>AUDIO RECORDING</div>
-                  <audio controls style={{ width: '100%', height: '40px', borderRadius: '10px' }}>
-                    {activeContent.audio_file_id && (
-                      <source 
-                        src={`https://drive.google.com/uc?export=download&id=${activeContent.audio_file_id.replace(/[{}]/g, '').trim()}`} 
-                        type="audio/mp4" 
-                      />
-                    )}
-                    {activeContent.audio_url && (
-                      <source 
-                        src={activeContent.audio_url.replace(/[{}]/g, '').trim().split('#')[0]} 
-                        type="audio/mp4" 
-                      />
-                    )}
-                    Your browser does not support the audio element.
-                  </audio>
+          {(activeContent.audio_file_id || activeContent.audio_url) && (() => {
+            const cleanId = activeContent.audio_file_id?.replace(/[{}]/g, '').split('#')[0].trim();
+            const cleanUrl = activeContent.audio_url?.replace(/[{}]/g, '').split('#')[0].trim();
+            const finalUrl = cleanId ? `https://docs.google.com/uc?id=${cleanId}&export=download` : cleanUrl;
+
+            return (
+              <div className="audio-player-container" style={{ marginBottom: '2.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                  <div className="animate-float" style={{ fontSize: '2rem' }}>🎵</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                      <div style={{ fontSize: '0.8rem', fontWeight: 700, opacity: 0.6 }}>AUDIO RECORDING</div>
+                      {finalUrl && (
+                        <a 
+                          href={finalUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          style={{ fontSize: '0.75rem', color: '#818cf8', textDecoration: 'none', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}
+                        >
+                          <span>↗</span> Open in New Tab
+                        </a>
+                      )}
+                    </div>
+                    <audio controls preload="metadata" style={{ width: '100%', height: '40px', borderRadius: '10px' }}>
+                      {cleanId && (
+                        <>
+                          <source src={`https://docs.google.com/uc?id=${cleanId}&export=media`} />
+                          <source src={`https://drive.google.com/uc?id=${cleanId}`} />
+                        </>
+                      )}
+                      {cleanUrl && <source src={cleanUrl} />}
+                      Your browser does not support the audio element.
+                    </audio>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Attachments via AttachmentList */}
           {(activeContent.links || activeContent.attachments) && (

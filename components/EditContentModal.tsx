@@ -92,8 +92,8 @@ export default function EditContentModal({
           action: 'editLearningContent',
           id: content.id,
           ...formData,
-          audio_file_id: formData.audio_file_id?.replace(/[{}]/g, '').trim(),
-          audio_url: formData.audio_url?.replace(/[{}]/g, '').trim(),
+          audio_file_id: formData.audio_file_id?.replace(/[{}]/g, '').split('#')[0].trim(),
+          audio_url: formData.audio_url?.replace(/[{}]/g, '').split('#')[0].trim(),
           subject: formData.subject === 'Other' ? customSubject : formData.subject,
           attachments: formData.attachments.join(','),
           links: formData.links.join(',')
