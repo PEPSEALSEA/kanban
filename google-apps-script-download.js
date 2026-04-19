@@ -87,15 +87,19 @@ function doPost(e) {
             file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
             const driveId = file.getId();
 
-            // Only generate thumbnail URL if it's actually an image
+            // Detect file types
             const isActualImage = contentType && contentType.toLowerCase().indexOf('image/') !== -1;
+            const isAudio = contentType && contentType.toLowerCase().indexOf('audio/') !== -1;
+            
             const thumbnail = isActualImage ? generateImageThumbnailUrl(driveId) : null;
             const viewUrl = 'https://drive.google.com/file/d/' + driveId + '/view';
+            const streamUrl = isAudio ? 'https://drive.google.com/uc?export=download&id=' + driveId : null;
 
             logUploadToSheet(driveId, viewUrl, filename, contentType);
 
-            // Create a URL that includes the filename in the hash so we can recover it later
-            const finalUrl = (thumbnail || viewUrl) + "#" + encodeURIComponent(filename);
+            // Create a URL that includes the filename in the hash
+            // Priority: Stream URL for audio, Thumbnail for images, View URL for others
+            const finalUrl = (streamUrl || thumbnail || viewUrl) + "#" + encodeURIComponent(filename);
 
             if (action === 'uploadProof' && email && homeworkId) {
                 _updateProgressProof(email, homeworkId, status, finalUrl);
@@ -103,10 +107,11 @@ function doPost(e) {
 
             return createResponse(true, 'Upload successful', {
                 driveId: driveId,
-                // If it's an image, we want the embeddable thumbnail. Otherwise, the view link.
+                id: driveId, // Compatibility alias for frontend modal expectations
                 url: finalUrl,
                 thumbnail: thumbnail,
                 directUrl: viewUrl,
+                streamUrl: streamUrl,
                 downloadUrl: file.getDownloadUrl(),
                 viewUrl: viewUrl,
                 contentType: contentType,
@@ -124,8 +129,11 @@ function doPost(e) {
             if (e.parameters && e.parameters.myFile) {
                 fileBlob = Array.isArray(e.parameters.myFile) ? e.parameters.myFile[0] : e.parameters.myFile;
             } else if (e.postData && e.postData.contents) {
-                if (typeof e.postData.contents === 'string') {
-                    const decoded = Utilities.base64Decode(e.postData.contents.split('base64,').pop());
+                let contentStr = e.postData.contents;
+                if (typeof contentStr === 'string') {
+                    // Extract base64 content robustly
+                    const base64Content = contentStr.indexOf('base64,') !== -1 ? contentStr.split('base64,')[1] : contentStr;
+                    const decoded = Utilities.base64Decode(base64Content);
                     fileBlob = Utilities.newBlob(decoded, contentType, filename);
                 } else {
                     fileBlob = e.postData.contents;
@@ -135,21 +143,7 @@ function doPost(e) {
             if (fileBlob) {
                 const file = folder.createFile(fileBlob);
                 if (filename) file.setName(filename);
-                // Set sharing to anyone with link can view
-                file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-                
-                const driveId = file.getId();
-                const viewUrl = 'https://drive.google.com/file/d/' + driveId + '/view';
-                const streamUrl = 'https://drive.google.com/uc?export=download&id=' + driveId;
-
-                logUploadToSheet(driveId, viewUrl, filename, contentType);
-
-                return createResponse(true, 'Audio upload successful', {
-                    driveId: driveId,
-                    url: viewUrl,
-                    streamUrl: streamUrl,
-                    filename: filename
-                });
+                return processFileAndResponse(file, filename, contentType, email, homeworkId, status, action);
             }
             return createResponse(false, 'No audio file provided');
         }
@@ -219,10 +213,15 @@ function doPost(e) {
             var filename = params.filename || postData.filename || ("File_" + new Date().getTime());
             var contentType = params.contentType || postData.contentType || "application/octet-stream";
 
-            // If we have a filename but no extension in the name, try to keep it generic
+            // If we have a filename but no extension in the name, try to add it from contentType
             if (filename.indexOf('.') === -1 && contentType.indexOf('/') !== -1) {
                 var ext = contentType.split('/')[1];
-                if (ext && ext.length < 5) filename += "." + ext;
+                // Support extensions up to 6 characters (e.g. tar.gz, webp, m4a, mp3)
+                if (ext && ext.length <= 6) {
+                    // Normalize some common mime-type extensions
+                    if (ext === 'x-m4a') ext = 'm4a';
+                    filename += "." + ext;
+                }
             }
 
             try {

@@ -52,9 +52,6 @@ export default function EditContentModal({
         const base64Data = await base64Promise;
         const response = await fetch(`${UPLOAD_WEB_APP_URL}?action=upload&filename=${encodeURIComponent(file.name)}&contentType=${encodeURIComponent(file.type || 'application/octet-stream')}`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'text/plain;charset=utf-8',
-          },
           body: base64Data
         });
 
