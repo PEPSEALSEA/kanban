@@ -150,14 +150,25 @@ export default function LearningContentPage() {
           </h1>
 
           {/* Audio Player */}
-          {activeContent.audio_file_id && (
+          {(activeContent.audio_file_id || activeContent.audio_url) && (
             <div className="audio-player-container">
               <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
                 <div className="animate-float" style={{ fontSize: '2rem' }}>🎵</div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: '0.8rem', fontWeight: 700, marginBottom: '0.5rem', opacity: 0.6 }}>AUDIO RECORDING</div>
                   <audio controls style={{ width: '100%', height: '40px', borderRadius: '10px' }}>
-                    <source src={`https://drive.google.com/uc?export=download&id=${activeContent.audio_file_id}`} type="audio/mpeg" />
+                    {activeContent.audio_file_id && (
+                      <source 
+                        src={`https://drive.google.com/uc?export=download&id=${activeContent.audio_file_id.replace(/[{}]/g, '').trim()}`} 
+                        type="audio/mp4" 
+                      />
+                    )}
+                    {activeContent.audio_url && (
+                      <source 
+                        src={activeContent.audio_url.replace(/[{}]/g, '').trim().split('#')[0]} 
+                        type="audio/mp4" 
+                      />
+                    )}
                     Your browser does not support the audio element.
                   </audio>
                 </div>

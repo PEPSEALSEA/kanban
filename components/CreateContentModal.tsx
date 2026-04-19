@@ -65,6 +65,8 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
         body: new URLSearchParams({
           action: 'addLearningContent',
           ...formData,
+          audio_file_id: formData.audio_file_id?.replace(/[{}]/g, '').trim(),
+          audio_url: formData.audio_url?.replace(/[{}]/g, '').trim(),
           subject: formData.subject === 'Other' ? customSubject : formData.subject,
           attachments: formData.attachments.join(','),
           links: formData.links.join(',')
