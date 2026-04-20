@@ -38,15 +38,16 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
         
         // Audio Compression Step
         if (type === 'audio' && file.size > 20 * 1024 * 1024) {
-          setUploadProgress('✂️ Large file detected. Compressing to fit Telegram...');
+          setUploadProgress('✂️ Large file. Optimizing...');
           try {
-            const compressionResult = await compressAudioIfNeeded(file);
+            const compressionResult = await compressAudioIfNeeded(file, (p) => {
+              setUploadProgress(`✂️ Compressing: ${p}%`);
+            });
             if (compressionResult.compressed) {
               fileToUpload = compressionResult.file;
-              console.log(`Compressed from ${compressionResult.originalSize} to ${compressionResult.newSize}`);
             }
           } catch (compressErr) {
-            console.error('Compression failed, trying original file:', compressErr);
+            console.error('Compression failed:', compressErr);
           }
         }
 
