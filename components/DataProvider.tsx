@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
-const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwcxlw11xxkbmWFiVZUX4jRgA0Xugbwl7lnSdMi9gO0BhXY4TAgfIjqqTX_xyvwwbfwsA/exec";
+const GAS_WEB_APP_URL = process.env.NEXT_PUBLIC_GAS_WEB_APP_URL as string;
 
 type UserInfo = {
   email: string;
@@ -94,6 +94,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setIsSyncing(true);
     setError(null);
     try {
+      if (!GAS_WEB_APP_URL) {
+        throw new Error("GAS_WEB_APP_URL is not defined");
+      }
       const res = await fetch(`${GAS_WEB_APP_URL}?action=batchData`);
       if (!res.ok) throw new Error("Cloud synchronization failed");
       const data = await res.json();

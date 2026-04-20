@@ -2,8 +2,8 @@
 
 import React, { useState } from 'react';
 
-const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwcxlw11xxkbmWFiVZUX4jRgA0Xugbwl7lnSdMi9gO0BhXY4TAgfIjqqTX_xyvwwbfwsA/exec";
-const UPLOAD_WEB_APP_URL = "https://script.google.com/macros/s/AKfycby7FOqHLZN24sWCwl7XP4maUSi_iCxEFcg6REG-F8qp2C33aJL0US1Ye8XTZ7qUBDC8fw/exec";
+const GAS_WEB_APP_URL = process.env.NEXT_PUBLIC_GAS_WEB_APP_URL as string;
+const UPLOAD_WEB_APP_URL = process.env.NEXT_PUBLIC_UPLOAD_WEB_APP_URL as string;
 
 export default function CreateContentModal({ onClose, onRefresh }: { onClose: () => void; onRefresh: () => void }) {
   const [formData, setFormData] = useState({
@@ -25,6 +25,12 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
     setIsUploading(true);
+
+    if (!UPLOAD_WEB_APP_URL) {
+      console.error("UPLOAD_WEB_APP_URL is not defined in environment variables");
+      setIsUploading(false);
+      return;
+    }
 
     try {
       for (const file of files) {
@@ -59,6 +65,12 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatus('submitting');
+    if (!GAS_WEB_APP_URL) {
+      console.error("GAS_WEB_APP_URL is not defined in environment variables");
+      setStatus('error');
+      return;
+    }
+
     try {
       await fetch(GAS_WEB_APP_URL, {
         method: 'POST',
@@ -92,30 +104,30 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
         </div>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
-           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div>
               <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.4rem', color: 'var(--admin-text-muted)' }}>Date</label>
-              <input 
-                type="date" 
-                required 
-                value={formData.date} 
+              <input
+                type="date"
+                required
+                value={formData.date}
                 onChange={e => setFormData({ ...formData, date: e.target.value })}
                 style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid var(--admin-border)', outline: 'none' }}
               />
             </div>
             <div>
               <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.4rem', color: 'var(--admin-text-muted)' }}>Subject</label>
-              <select 
-                value={formData.subject} 
+              <select
+                value={formData.subject}
                 onChange={e => setFormData({ ...formData, subject: e.target.value })}
                 style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid var(--admin-border)', outline: 'none' }}
               >
-                 {['Math', 'Science', 'History', 'English', 'Arts', 'Computer', 'Other'].map(s => <option key={s} value={s}>{s}</option>)}
+                {['Math', 'Science', 'History', 'English', 'Arts', 'Computer', 'Other'].map(s => <option key={s} value={s}>{s}</option>)}
               </select>
               {formData.subject === 'Other' && (
                 <div style={{ marginTop: '0.5rem' }}>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     placeholder="Subject Name"
                     value={customSubject}
                     onChange={e => setCustomSubject(e.target.value)}
@@ -128,12 +140,12 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
           </div>
 
           <div>
-             <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.4rem', color: 'var(--admin-text-muted)' }}>Topic Title</label>
-            <input 
-              type="text" 
-              required 
+            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.4rem', color: 'var(--admin-text-muted)' }}>Topic Title</label>
+            <input
+              type="text"
+              required
               placeholder="e.g. Introduction to Calculus"
-              value={formData.title} 
+              value={formData.title}
               onChange={e => setFormData({ ...formData, title: e.target.value })}
               style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid var(--admin-border)', outline: 'none' }}
             />
@@ -141,10 +153,10 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
 
           <div>
             <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.4rem', color: 'var(--admin-text-muted)' }}>Content / Lesson Description</label>
-            <textarea 
-              rows={5} 
+            <textarea
+              rows={5}
               placeholder="Enter lesson notes..."
-              value={formData.description} 
+              value={formData.description}
               onChange={e => setFormData({ ...formData, description: e.target.value })}
               style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid var(--admin-border)', outline: 'none', resize: 'none', fontSize: '0.9rem' }}
             />
@@ -153,10 +165,10 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
             <div>
               <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.4rem', color: 'var(--admin-text-muted)' }}>Audio Lecture (MP3)</label>
-              <input 
-                type="file" 
-                accept="audio/*" 
-                onChange={e => handleFileUpload(e, 'audio')} 
+              <input
+                type="file"
+                accept="audio/*"
+                onChange={e => handleFileUpload(e, 'audio')}
                 disabled={isUploading}
                 style={{ fontSize: '0.8rem' }}
               />
@@ -164,10 +176,10 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
             </div>
             <div>
               <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.4rem', color: 'var(--admin-text-muted)' }}>PDF / Attachments</label>
-              <input 
-                type="file" 
-                multiple 
-                onChange={e => handleFileUpload(e, 'attachment')} 
+              <input
+                type="file"
+                multiple
+                onChange={e => handleFileUpload(e, 'attachment')}
                 disabled={isUploading}
                 style={{ fontSize: '0.8rem' }}
               />
@@ -182,20 +194,20 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
           </div>
 
           <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem', borderTop: '1px solid var(--admin-border)', paddingTop: '1.5rem' }}>
-            <button 
-              type="button" 
+            <button
+              type="button"
               onClick={onClose}
               style={{ flex: 1, padding: '0.8rem', borderRadius: '0.75rem', border: '1px solid var(--admin-border)', background: 'none', cursor: 'pointer' }}
             >
               Cancel
             </button>
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               disabled={status === 'submitting' || isUploading}
-              style={{ 
-                flex: 1, padding: '0.8rem', borderRadius: '0.75rem', border: 'none', 
-                background: status === 'success' ? '#10b981' : 'var(--admin-accent)', 
-                color: 'white', fontWeight: 600, cursor: 'pointer' 
+              style={{
+                flex: 1, padding: '0.8rem', borderRadius: '0.75rem', border: 'none',
+                background: status === 'success' ? '#10b981' : 'var(--admin-accent)',
+                color: 'white', fontWeight: 600, cursor: 'pointer'
               }}
             >
               {status === 'idle' && 'Save Learning Content'}
