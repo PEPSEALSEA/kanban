@@ -20,12 +20,14 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
 
   const [customSubject, setCustomSubject] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<string>('');
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'audio' | 'attachment') => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
     setIsUploading(true);
+    setUploadProgress('⚡ High-Speed Direct Uploading...');
 
     try {
       for (const file of files) {
@@ -49,8 +51,10 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
           } else {
             setFormData(prev => ({ ...prev, attachments: [...prev.attachments, `${result.url}#${encodeURIComponent(file.name)}`] }));
           }
+          setUploadProgress('');
         } else {
           // Fallback to GAS (Slow)
+          setUploadProgress('🐢 Slow Fallback (Google Processing)...');
           const reader = new FileReader();
           const base64Promise = new Promise<string>((resolve) => {
             reader.onload = () => resolve((reader.result as string).split(',')[1]);
@@ -71,10 +75,12 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
               setFormData(prev => ({ ...prev, attachments: [...prev.attachments, `${res.url}#${encodeURIComponent(file.name)}`] }));
             }
           }
+          setUploadProgress('');
         }
       }
     } catch (error) {
       console.error('Upload process failed:', error);
+      setUploadProgress('❌ Upload Failed');
     } finally {
       setIsUploading(false);
     }
@@ -184,7 +190,12 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
                 disabled={isUploading}
                 style={{ fontSize: '0.8rem' }}
               />
-              {formData.audio_url && <p style={{ fontSize: '0.7rem', color: '#10b981', marginTop: '0.5rem' }}>✓ Audio file ready</p>}
+              {isUploading && uploadProgress && activeUploadType === 'audio' && (
+                <p style={{ fontSize: '0.7rem', color: uploadProgress.includes('⚡') ? '#10b981' : '#f59e0b', marginTop: '0.4rem', fontWeight: 600 }}>
+                  {uploadProgress}
+                </p>
+              )}
+              {formData.audio_url && !isUploading && <p style={{ fontSize: '0.7rem', color: '#10b981', marginTop: '0.5rem' }}>✓ Audio file ready</p>}
             </div>
             <div>
               <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.4rem', color: 'var(--admin-text-muted)' }}>PDF / Attachments</label>
@@ -195,6 +206,11 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
                 disabled={isUploading}
                 style={{ fontSize: '0.8rem' }}
               />
+              {isUploading && uploadProgress && activeUploadType === 'attachment' && (
+                <p style={{ fontSize: '0.7rem', color: uploadProgress.includes('⚡') ? '#10b981' : '#f59e0b', marginTop: '0.4rem', fontWeight: 600 }}>
+                  {uploadProgress}
+                </p>
+              )}
               <div style={{ marginTop: '0.5rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
                 {formData.attachments.map((url, i) => (
                   <div key={i} style={{ background: '#f1f5f9', padding: '4px 8px', borderRadius: '4px', fontSize: '0.7rem' }}>

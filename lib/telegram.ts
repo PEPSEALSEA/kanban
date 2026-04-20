@@ -39,14 +39,27 @@ export async function uploadToTelegramDirect(
       field = 'audio';
     }
 
-    formData.append(field, file);
-
     const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/${method}`, {
       method: 'POST',
       body: formData,
     });
 
-    const result = await response.json();
+    let result = await response.json();
+
+    // If sendAudio/sendPhoto fails, retry as a generic document (more reliable for large files)
+    if (!result.ok && method !== 'sendDocument') {
+      console.warn(`Telegram ${method} failed, retrying as sendDocument...`);
+      const retryFormData = new FormData();
+      retryFormData.append('chat_id', CHAT_ID);
+      retryFormData.append('document', file);
+      
+      const retryRes = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendDocument`, {
+        method: 'POST',
+        body: retryFormData,
+      });
+      result = await retryRes.json();
+      method = 'sendDocument';
+    }
 
     if (!result.ok) {
       throw new Error(result.description || 'Telegram API error');
@@ -54,12 +67,12 @@ export async function uploadToTelegramDirect(
 
     // Extract file_id
     let fileId = '';
-    if (method === 'sendPhoto') {
+    if (method === 'sendPhoto' && result.result.photo) {
       fileId = result.result.photo[result.result.photo.length - 1].file_id;
-    } else if (method === 'sendAudio') {
+    } else if (method === 'sendAudio' && result.result.audio) {
       fileId = result.result.audio.file_id;
     } else {
-      fileId = result.result.document.file_id;
+      fileId = result.result.document?.file_id || result.result.file_id;
     }
 
     // Get file path for the temporary URL
