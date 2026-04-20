@@ -100,6 +100,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       
       if (data.success) {
         const payload = data.data;
+        if (!payload) throw new Error("API returned success but no data payload");
+        
         setAllHomework(payload.homework || []);
         setAllUsers(payload.users || []);
         setAllProgress(payload.progress || []);
