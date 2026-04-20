@@ -35,6 +35,8 @@ export default function EditContentModal({
 
   const [customSubject, setCustomSubject] = useState(isPredefinedSubject ? '' : content.subject);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<string>('');
+  const [activeUploadType, setActiveUploadType] = useState<'audio' | 'attachment' | null>(null);
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error' | 'deleting'>('idle');
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'audio' | 'attachment') => {

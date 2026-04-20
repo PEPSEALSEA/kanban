@@ -20,6 +20,7 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
 
   const [customSubject, setCustomSubject] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [activeUploadType, setActiveUploadType] = useState<'audio' | 'attachment' | null>(null);
   const [uploadProgress, setUploadProgress] = useState<string>('');
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
 
@@ -27,6 +28,7 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
     setIsUploading(true);
+    setActiveUploadType(type);
     setUploadProgress('⚡ High-Speed Direct Uploading...');
 
     try {
@@ -83,6 +85,7 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
       setUploadProgress('❌ Upload Failed');
     } finally {
       setIsUploading(false);
+      setActiveUploadType(null);
     }
   };
 
