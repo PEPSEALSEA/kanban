@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { uploadToTelegramDirect } from '@/lib/telegram';
+import { compressAudioIfNeeded } from '@/lib/audio-compressor';
 
 const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwcxlw11xxkbmWFiVZUX4jRgA0Xugbwl7lnSdMi9gO0BhXY4TAgfIjqqTX_xyvwwbfwsA/exec";
 const UPLOAD_WEB_APP_URL = "https://script.google.com/macros/s/AKfycby7FOqHLZN24sWCwl7XP4maUSi_iCxEFcg6REG-F8qp2C33aJL0US1Ye8XTZ7qUBDC8fw/exec";
@@ -33,8 +34,26 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
 
     try {
       for (const file of files) {
+        let fileToUpload = file;
+        
+        // Audio Compression Step
+        if (type === 'audio' && file.size > 20 * 1024 * 1024) {
+          setUploadProgress('✂️ Large file detected. Compressing to fit Telegram...');
+          try {
+            const compressionResult = await compressAudioIfNeeded(file);
+            if (compressionResult.compressed) {
+              fileToUpload = compressionResult.file;
+              console.log(`Compressed from ${compressionResult.originalSize} to ${compressionResult.newSize}`);
+            }
+          } catch (compressErr) {
+            console.error('Compression failed, trying original file:', compressErr);
+          }
+        }
+
+        setUploadProgress('⚡ High-Speed Direct Uploading...');
+
         // Try Direct Upload (High Speed)
-        const result = await uploadToTelegramDirect(file, type === 'audio' ? 'audio' : 'document');
+        const result = await uploadToTelegramDirect(fileToUpload, type === 'audio' ? 'audio' : 'document');
         
         if (result.success) {
           // Register in database sheet (background)

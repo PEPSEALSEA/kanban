@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { uploadToTelegramDirect } from '@/lib/telegram';
+import { compressAudioIfNeeded } from '@/lib/audio-compressor';
 
 const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwcxlw11xxkbmWFiVZUX4jRgA0Xugbwl7lnSdMi9gO0BhXY4TAgfIjqqTX_xyvwwbfwsA/exec";
 const UPLOAD_WEB_APP_URL = "https://script.google.com/macros/s/AKfycby7FOqHLZN24sWCwl7XP4maUSi_iCxEFcg6REG-F8qp2C33aJL0US1Ye8XTZ7qUBDC8fw/exec";
@@ -43,11 +44,30 @@ export default function EditContentModal({
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
     setIsUploading(true);
+    setActiveUploadType(type);
+    setUploadProgress('✂️ Checking file size...');
 
     try {
       for (const file of files) {
+        let fileToUpload = file;
+        
+        // Audio Compression Step
+        if (type === 'audio' && file.size > 20 * 1024 * 1024) {
+          setUploadProgress('✂️ Large file. Compressing to fit Telegram...');
+          try {
+            const compressionResult = await compressAudioIfNeeded(file);
+            if (compressionResult.compressed) {
+              fileToUpload = compressionResult.file;
+            }
+          } catch (compressErr) {
+            console.error('Compression failed:', compressErr);
+          }
+        }
+
+        setUploadProgress('⚡ High-Speed Direct Uploading...');
+
         // Try Direct Upload (High Speed)
-        const result = await uploadToTelegramDirect(file, type === 'audio' ? 'audio' : 'document');
+        const result = await uploadToTelegramDirect(fileToUpload, type === 'audio' ? 'audio' : 'document');
         
         if (result.success) {
           // Register in database sheet (background)
@@ -92,8 +112,11 @@ export default function EditContentModal({
       }
     } catch (error) {
       console.error('Upload process failed:', error);
+      setUploadProgress('❌ Upload Failed');
     } finally {
       setIsUploading(false);
+      setActiveUploadType(null);
+      setUploadProgress('');
     }
   };
 
@@ -233,9 +256,13 @@ export default function EditContentModal({
                 accept="audio/*" 
                 onChange={e => handleFileUpload(e, 'audio')} 
                 disabled={isUploading}
-                style={{ fontSize: '0.8rem' }}
               />
-              {formData.audio_url && (
+              {isUploading && uploadProgress && activeUploadType === 'audio' && (
+                <p style={{ fontSize: '0.7rem', color: uploadProgress.includes('⚡') ? '#10b981' : '#f59e0b', marginTop: '0.4rem', fontWeight: 600 }}>
+                  {uploadProgress}
+                </p>
+              )}
+              {formData.audio_url && !isUploading && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
                   <span style={{ fontSize: '0.7rem', color: '#10b981' }}>✓ Audio file ready</span>
                   <button type="button" onClick={removeAudio} style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '0.7rem', cursor: 'pointer' }}>Remove</button>
@@ -251,6 +278,11 @@ export default function EditContentModal({
                 disabled={isUploading}
                 style={{ fontSize: '0.8rem' }}
               />
+              {isUploading && uploadProgress && activeUploadType === 'attachment' && (
+                <p style={{ fontSize: '0.7rem', color: uploadProgress.includes('⚡') ? '#10b981' : '#f59e0b', marginTop: '0.4rem', fontWeight: 600 }}>
+                  {uploadProgress}
+                </p>
+              )}
               <div style={{ marginTop: '0.5rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
                 {formData.attachments.map((url, i) => (
                   <div key={i} style={{ background: '#f1f5f9', padding: '4px 8px', borderRadius: '4px', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
