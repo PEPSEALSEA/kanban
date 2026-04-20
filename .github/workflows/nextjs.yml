@@ -78,6 +78,11 @@ jobs:
         run: ${{ steps.detect-package-manager.outputs.manager }} ${{ steps.detect-package-manager.outputs.command }}
       - name: Build with Next.js
         run: ${{ steps.detect-package-manager.outputs.runner }} next build
+        env:
+          NEXT_PUBLIC_TELEGRAM_BOT_TOKEN: ${{ secrets.NEXT_PUBLIC_TELEGRAM_BOT_TOKEN }}
+          NEXT_PUBLIC_TELEGRAM_CHAT_ID: ${{ secrets.NEXT_PUBLIC_TELEGRAM_CHAT_ID }}
+          NEXT_PUBLIC_GAS_WEB_APP_URL: ${{ secrets.NEXT_PUBLIC_GAS_WEB_APP_URL }}
+          NEXT_PUBLIC_UPLOAD_WEB_APP_URL: ${{ secrets.NEXT_PUBLIC_UPLOAD_WEB_APP_URL }}
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:

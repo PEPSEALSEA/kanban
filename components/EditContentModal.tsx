@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { uploadToTelegramDirect } from '@/lib/telegram';
 
 const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwcxlw11xxkbmWFiVZUX4jRgA0Xugbwl7lnSdMi9gO0BhXY4TAgfIjqqTX_xyvwwbfwsA/exec";
 const UPLOAD_WEB_APP_URL = "https://script.google.com/macros/s/AKfycby7FOqHLZN24sWCwl7XP4maUSi_iCxEFcg6REG-F8qp2C33aJL0US1Ye8XTZ7qUBDC8fw/exec";
@@ -43,29 +44,52 @@ export default function EditContentModal({
 
     try {
       for (const file of files) {
-        const reader = new FileReader();
-        const base64Promise = new Promise<string>((resolve) => {
-          reader.onload = () => resolve((reader.result as string).split(',')[1]);
-          reader.readAsDataURL(file);
-        });
-
-        const base64Data = await base64Promise;
-        const response = await fetch(`${UPLOAD_WEB_APP_URL}?action=upload&filename=${encodeURIComponent(file.name)}&contentType=${encodeURIComponent(file.type || 'application/octet-stream')}`, {
-          method: 'POST',
-          body: base64Data
-        });
-
-        const result = await response.json();
+        // Try Direct Upload (High Speed)
+        const result = await uploadToTelegramDirect(file, type === 'audio' ? 'audio' : 'document');
+        
         if (result.success) {
+          // Register in database sheet (background)
+          fetch(`${UPLOAD_WEB_APP_URL}?action=registerUpload`, {
+            method: 'POST',
+            body: JSON.stringify({
+              fileId: result.fileId,
+              url: result.url,
+              filename: file.name,
+              contentType: file.type
+            })
+          }).catch(err => console.error('Metadata registration failed:', err));
+
           if (type === 'audio') {
-            setFormData(prev => ({ ...prev, audio_url: result.url, audio_file_id: result.id }));
+            setFormData(prev => ({ ...prev, audio_url: result.url, audio_file_id: result.fileId }));
           } else {
             setFormData(prev => ({ ...prev, attachments: [...prev.attachments, `${result.url}#${encodeURIComponent(file.name)}`] }));
+          }
+        } else {
+          // Fallback to GAS (Slow)
+          const reader = new FileReader();
+          const base64Promise = new Promise<string>((resolve) => {
+            reader.onload = () => resolve((reader.result as string).split(',')[1]);
+            reader.readAsDataURL(file);
+          });
+
+          const base64Data = await base64Promise;
+          const response = await fetch(`${UPLOAD_WEB_APP_URL}?action=upload&filename=${encodeURIComponent(file.name)}&contentType=${encodeURIComponent(file.type || 'application/octet-stream')}`, {
+            method: 'POST',
+            body: base64Data
+          });
+
+          const res = await response.json();
+          if (res.success) {
+            if (type === 'audio') {
+              setFormData(prev => ({ ...prev, audio_url: res.url, audio_file_id: res.id }));
+            } else {
+              setFormData(prev => ({ ...prev, attachments: [...prev.attachments, `${res.url}#${encodeURIComponent(file.name)}`] }));
+            }
           }
         }
       }
     } catch (error) {
-      console.error(error);
+      console.error('Upload process failed:', error);
     } finally {
       setIsUploading(false);
     }

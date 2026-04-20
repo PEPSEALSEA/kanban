@@ -52,7 +52,7 @@ function doGet(e) {
         return createResponse(true, 'Link retrieved', { url: cachedLink });
     }
 
-    return createResponse(true, 'Upload service is online');
+    return createResponse(true, 'Telegram Upload Service v2.0 is online', { status: "READY_TELEGRAM", mode: "TELEGRAM" });
 }
 
 function doOptions(e) {
@@ -185,7 +185,8 @@ function doPost(e) {
             // Still log to sheet for record keeping (optional)
             logUploadToSheet(result.fileId, result.url, filename, contentType);
 
-            return createResponse(true, 'Upload successful', {
+            return createResponse(true, 'Upload successful via Telegram', {
+                service: 'TELEGRAM',
                 id: result.fileId,
                 fileId: result.fileId,
                 url: finalUrl,
@@ -257,7 +258,23 @@ function doPost(e) {
             }
         }
 
-        // 4. Delete Action (Keep as Drive delete for now if drive IDs are passed, but might need Telegram delete later)
+        // 4. Register Direct Upload Metadata
+        if (action === 'registerUpload') {
+            const driveId = params.fileId || postData.fileId || "";
+            const url = params.url || postData.url || "";
+            const filename = params.filename || postData.filename || "Uploaded File";
+            const contentType = params.contentType || postData.contentType || "application/octet-stream";
+            
+            logUploadToSheet(driveId, url, filename, contentType);
+            
+            if (action === 'uploadProof' && email && homeworkId) {
+                _updateProgressProof(email, homeworkId, status, url);
+            }
+
+            return createResponse(true, 'Upload metadata registered');
+        }
+
+        // 5. Delete Action (Keep as Drive delete for now if drive IDs are passed, but might need Telegram delete later)
         if (action === 'deleteFiles' || action === 'archiveFiles') {
             // ... (keep existing drive cleanup for legacy or mixed use)
         }
