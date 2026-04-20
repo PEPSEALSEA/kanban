@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 
-const GAS_WEB_APP_URL = process.env.NEXT_PUBLIC_GAS_WEB_APP_URL as string;
-const UPLOAD_WEB_APP_URL = process.env.NEXT_PUBLIC_UPLOAD_WEB_APP_URL as string;
+const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwcxlw11xxkbmWFiVZUX4jRgA0Xugbwl7lnSdMi9gO0BhXY4TAgfIjqqTX_xyvwwbfwsA/exec";
+const UPLOAD_WEB_APP_URL = "https://script.google.com/macros/s/AKfycby7FOqHLZN24sWCwl7XP4maUSi_iCxEFcg6REG-F8qp2C33aJL0US1Ye8XTZ7qUBDC8fw/exec";
 
 export default function EditContentModal({ 
   content, 
@@ -40,12 +40,6 @@ export default function EditContentModal({
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
     setIsUploading(true);
-
-    if (!UPLOAD_WEB_APP_URL) {
-      console.error("UPLOAD_WEB_APP_URL is not defined");
-      setIsUploading(false);
-      return;
-    }
 
     try {
       for (const file of files) {
@@ -91,12 +85,6 @@ export default function EditContentModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatus('submitting');
-    if (!GAS_WEB_APP_URL) {
-      console.error("GAS_WEB_APP_URL is not defined");
-      setStatus('error');
-      return;
-    }
-
     try {
       await fetch(GAS_WEB_APP_URL, {
         method: 'POST',
