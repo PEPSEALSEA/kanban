@@ -108,7 +108,7 @@ export default function LearningContentPage() {
 
   // --- PARSER LOGIC ---
   const parseDescription = (desc: string) => {
-    const regex = /\{(\d+)\s*([\s\S]*?)\}/g;
+    const regex = /\[Card\s*(\d+):\s*([\s\S]*?)\]/g;
     const cards: { num: string; text: string }[] = [];
     let match;
     let intro = desc;
