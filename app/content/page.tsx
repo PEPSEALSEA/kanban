@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { useData } from '@/components/DataProvider';
 import AttachmentList from '@/components/AttachmentList';
+import MarkdownRenderer from '@/components/MarkdownRenderer';
 
 // --- CONFIGURATION ---
 const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwcxlw11xxkbmWFiVZUX4jRgA0Xugbwl7lnSdMi9gO0BhXY4TAgfIjqqTX_xyvwwbfwsA/exec";
@@ -225,8 +226,8 @@ export default function LearningContentPage() {
 
           {/* Intro Text */}
           {intro && (
-            <div style={{ fontSize: '1.1rem', lineHeight: 1.6, color: '#f8fafc', marginBottom: '2.5rem', opacity: 0.9, whiteSpace: 'pre-wrap' }}>
-              {intro}
+            <div style={{ fontSize: '1.1rem', lineHeight: 1.6, color: '#f8fafc', marginBottom: '2.5rem', opacity: 0.9 }}>
+              <MarkdownRenderer content={intro} />
             </div>
           )}
 
@@ -236,8 +237,8 @@ export default function LearningContentPage() {
               {cards.map((card, idx) => (
                 <div key={idx} className="split-card animate-scale-in" style={{ animationDelay: `${idx * 0.1}s` }}>
                   <div className="split-number">{card.num}</div>
-                  <div style={{ fontSize: '1rem', lineHeight: 1.7, color: '#cbd5e1', whiteSpace: 'pre-wrap' }}>
-                    {card.text}
+                  <div style={{ fontSize: '1rem', lineHeight: 1.7, color: '#cbd5e1' }}>
+                    <MarkdownRenderer content={card.text} />
                   </div>
                 </div>
               ))}

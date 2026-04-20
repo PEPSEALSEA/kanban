@@ -5,6 +5,7 @@ import { DataProvider } from "@/components/DataProvider";
 import HeaderNav from "@/components/HeaderNav";
 import SyncToast from "@/components/SyncToast";
 import "./globals.css";
+import "katex/dist/katex.min.css";
 
 const mali = Mali({
   weight: ['200', '300', '400', '500', '600', '700'],

@@ -4,6 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { useData } from '@/components/DataProvider';
 import CreateContentModal from '@/components/CreateContentModal';
 import EditContentModal from '@/components/EditContentModal';
+import MarkdownRenderer from '@/components/MarkdownRenderer';
 
 type LearningContent = {
   id: string;
@@ -111,7 +112,7 @@ export default function ContentArchiveEditor() {
                   <td style={{ verticalAlign: 'top' }}>
                     <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--admin-primary)', marginBottom: '0.25rem' }}>{item.title}</div>
                     <div style={{ fontSize: '0.85rem', color: 'var(--admin-text-muted)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                      {item.description}
+                      <MarkdownRenderer content={item.description} />
                     </div>
                   </td>
                   <td style={{ verticalAlign: 'top' }}>

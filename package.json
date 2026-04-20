@@ -11,9 +11,14 @@
   "dependencies": {
     "@react-oauth/google": "^0.13.4",
     "jwt-decode": "^4.0.0",
+    "katex": "^0.16.45",
     "next": "16.1.6",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "react-markdown": "^10.1.0",
+    "rehype-katex": "^7.0.1",
+    "remark-gfm": "^4.0.1",
+    "remark-math": "^6.0.0"
   },
   "devDependencies": {
     "@types/node": "^20",

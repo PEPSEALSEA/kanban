@@ -6,6 +6,7 @@ import { GoogleLogin, googleLogout } from '@react-oauth/google';
 import { jwtDecode } from 'jwt-decode';
 import { useData } from '@/components/DataProvider';
 import AttachmentList from '@/components/AttachmentList';
+import MarkdownRenderer from '@/components/MarkdownRenderer';
 // --- CONFIGURATION ---
 const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwcxlw11xxkbmWFiVZUX4jRgA0Xugbwl7lnSdMi9gO0BhXY4TAgfIjqqTX_xyvwwbfwsA/exec";
 const UPLOAD_WEB_APP_URL = "https://script.google.com/macros/s/AKfycby7FOqHLZN24sWCwl7XP4maUSi_iCxEFcg6REG-F8qp2C33aJL0US1Ye8XTZ7qUBDC8fw/exec";
@@ -716,7 +717,9 @@ export default function StudyFlow() {
                     }) : [])
                   ]} />
                 </div>
-                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1.5rem', borderRadius: '1.5rem', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{activeHomework.description}</div>
+                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1.5rem', borderRadius: '1.5rem', lineHeight: 1.6 }}>
+                  <MarkdownRenderer content={activeHomework.description || ''} />
+                </div>
               </div>
 
               <div>
