@@ -1,6 +1,6 @@
 /**
- * Client-Side Audio Compressor (Worker-Enabled)
- * Runs compression in a background worker to prevent UI freezing and show progress.
+ * Client-Side Audio Compressor (Inline Worker-Enabled)
+ * Uses a Blob worker to ensure compatibility across all environments without external file dependencies.
  */
 
 export interface CompressionResult {
@@ -11,7 +11,66 @@ export interface CompressionResult {
 }
 
 /**
- * Compresses an audio file using a Web Worker.
+ * The worker code as a string to be converted into a Blob URL.
+ */
+const WORKER_CODE = `
+self.onmessage = async function(e) {
+    const { left, right, channels, sampleRate, bitrate } = e.data;
+    
+    try {
+        // Load lamejs from CDN inside worker
+        importScripts('https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js');
+        
+        const mp3encoder = new self.lamejs.Mp3Encoder(channels, sampleRate, bitrate);
+        const mp3Data = [];
+        
+        const sampleBlockSize = 1152;
+        const totalSamples = left.length;
+        
+        // Convert Float32 to Int16
+        const leftInt16 = new Int16Array(totalSamples);
+        const rightInt16 = new Int16Array(totalSamples);
+        
+        for (let i = 0; i < totalSamples; i++) {
+            leftInt16[i] = left[i] < 0 ? left[i] * 32768 : left[i] * 32767;
+            rightInt16[i] = right[i] < 0 ? right[i] * 32768 : right[i] * 32767;
+            
+            // Report progress every 5% during conversion
+            if (i % Math.floor(totalSamples / 20) === 0) {
+                self.postMessage({ type: 'progress', progress: Math.round((i / totalSamples) * 20) });
+            }
+        }
+
+        for (let i = 0; i < totalSamples; i += sampleBlockSize) {
+            const leftChunk = leftInt16.subarray(i, i + sampleBlockSize);
+            const rightChunk = rightInt16.subarray(i, i + sampleBlockSize);
+            const mp3buf = mp3encoder.encodeBuffer(leftChunk, rightChunk);
+            
+            if (mp3buf.length > 0) {
+                mp3Data.push(new Uint8Array(mp3buf));
+            }
+            
+            // Report progress (20% to 100% phase)
+            if (i % Math.floor(totalSamples / 40) === 0) {
+                const encodeProgress = 20 + Math.round((i / totalSamples) * 80);
+                self.postMessage({ type: 'progress', progress: encodeProgress });
+            }
+        }
+
+        const endBuf = mp3encoder.flush();
+        if (endBuf.length > 0) {
+            mp3Data.push(new Uint8Array(endBuf));
+        }
+
+        self.postMessage({ type: 'done', data: mp3Data, progress: 100 });
+    } catch (err) {
+        self.postMessage({ type: 'error', error: err.message });
+    }
+};
+`;
+
+/**
+ * Compresses an audio file using an inline Web Worker.
  */
 export async function compressAudioIfNeeded(
     file: File,
@@ -24,9 +83,12 @@ export async function compressAudioIfNeeded(
         return { file, compressed: false, originalSize: file.size, newSize: file.size };
     }
 
-    console.log(`Starting worker-based compression: ${file.name}`);
+    console.log(`Starting inline worker compression: ${file.name}`);
 
     return new Promise(async (resolve, reject) => {
+        let blobUrl: string | null = null;
+        let worker: Worker | null = null;
+
         try {
             const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
             const arrayBuffer = await file.arrayBuffer();
@@ -42,8 +104,10 @@ export async function compressAudioIfNeeded(
             const left = audioBuffer.getChannelData(0);
             const right = channels > 1 ? audioBuffer.getChannelData(1) : left;
 
-            // Start Worker
-            const worker = new Worker('/audio-worker.js');
+            // Create Inline Worker
+            const blob = new Blob([WORKER_CODE], { type: 'application/javascript' });
+            blobUrl = URL.createObjectURL(blob);
+            worker = new Worker(blobUrl);
             
             worker.onmessage = (e) => {
                 const { type, progress, data, error } = e.data;
@@ -51,12 +115,12 @@ export async function compressAudioIfNeeded(
                 if (type === 'progress' && onProgress) {
                     onProgress(progress || 0);
                 } else if (type === 'done') {
-                    const blob = new Blob(data, { type: 'audio/mp3' });
-                    const compressedFile = new File([blob], file.name.replace(/\.[^/.]+$/, "") + "_compressed.mp3", {
+                    const mp3Blob = new Blob(data, { type: 'audio/mp3' });
+                    const compressedFile = new File([mp3Blob], file.name.replace(/\.[^/.]+$/, "") + "_compressed.mp3", {
                         type: 'audio/mp3'
                     });
                     
-                    worker.terminate();
+                    cleanup();
                     resolve({
                         file: compressedFile,
                         compressed: true,
@@ -64,17 +128,23 @@ export async function compressAudioIfNeeded(
                         newSize: compressedFile.size
                     });
                 } else if (type === 'error') {
-                    worker.terminate();
+                    cleanup();
                     reject(new Error(error));
                 }
             };
 
             worker.onerror = (err) => {
-                worker.terminate();
-                reject(err);
+                cleanup();
+                console.error('Worker Script Error:', err);
+                reject(new Error('Background worker failed to start. This may be due to security policies or CDN blockage.'));
             };
 
-            // Send data to worker (using transferable objects for speed)
+            const cleanup = () => {
+                if (worker) worker.terminate();
+                if (blobUrl) URL.revokeObjectURL(blobUrl);
+            };
+
+            // Send data to worker
             worker.postMessage({
                 left,
                 right,
