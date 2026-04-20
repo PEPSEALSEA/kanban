@@ -803,3 +803,29 @@ h3 {
     grid-template-columns: 1fr;
   }
 }
+
+/* Content Archive Mobile Overrides */
+@media (max-width: 768px) {
+  .audio-player-container {
+    padding: 1rem !important;
+    margin: 1.5rem 0 !important;
+    border-radius: 1.5rem !important;
+  }
+
+  .split-card {
+    padding: 1rem !important;
+    border-radius: 1rem !important;
+  }
+
+  .split-card:hover {
+    transform: translateX(5px) !important;
+  }
+
+  .split-number {
+    width: 28px !important;
+    height: 28px !important;
+    font-size: 0.75rem !important;
+    top: -10px !important;
+    left: -10px !important;
+  }
+}

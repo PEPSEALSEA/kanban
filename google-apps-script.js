@@ -518,11 +518,19 @@ function sendDailySummaryToDiscord() {
 function generateDailySummary() {
     const homework = getHomeworkList();
     const now = new Date();
+    const gmt7Date = Utilities.formatDate(now, "GMT+7", "yyyy-MM-dd");
 
-    // Format Header Date: DD/MM/YY (Buddhist Era)
-    const dStr = String(now.getDate()).padStart(2, '0');
-    const mStr = String(now.getMonth() + 1).padStart(2, '0');
-    const yearBE = (now.getFullYear() + 543).toString().slice(-2);
+    // Fetch Learning Content for today (UTC+7)
+    const learningContent = getLearningContent();
+    const todayLC = learningContent.filter(item => {
+        const itemDate = item.date instanceof Date ? item.date : new Date(item.date);
+        return Utilities.formatDate(itemDate, "GMT+7", "yyyy-MM-dd") === gmt7Date;
+    });
+
+    // Format Header Date: DD/MM/YY (Buddhist Era) using UTC+7
+    const dStr = Utilities.formatDate(now, "GMT+7", "dd");
+    const mStr = Utilities.formatDate(now, "GMT+7", "MM");
+    const yearBE = (parseInt(Utilities.formatDate(now, "GMT+7", "yyyy")) + 543).toString().slice(-2);
     const headerDate = `# ${dStr}/${mStr}/${yearBE}`;
 
     // Thai Day Names
@@ -576,6 +584,17 @@ function generateDailySummary() {
     });
 
     let message = headerDate + "\n";
+
+    // Add Content Archive section for today
+    if (todayLC.length > 0) {
+        message += "\n## 📚 เนื้อหาวันนี้\n";
+        todayLC.forEach(item => {
+            // Link to the content view page with ID, wrapped in <> to suppress Discord embed
+            const link = `<https://pepsealsea.github.io/kanban/content#/view?id=${item.id}>`;
+            message += `- ${item.subject} : ${item.title} : ${link}\n`;
+        });
+        message += "\n> (AI สรุปเนื้อหา แต่มีรูปเนื้อหาและไฟล์เสียงในห้องนะ)\n";
+    }
 
     // Find unique keys for daily groups in order of dates
     const keys = [];

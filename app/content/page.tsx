@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useData } from '@/components/DataProvider';
 import AttachmentList from '@/components/AttachmentList';
 import MarkdownRenderer from '@/components/MarkdownRenderer';
+import { useDeviceDetection } from '@/hooks/useDeviceDetection';
 
 // --- CONFIGURATION ---
 const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwcxlw11xxkbmWFiVZUX4jRgA0Xugbwl7lnSdMi9gO0BhXY4TAgfIjqqTX_xyvwwbfwsA/exec";
@@ -43,6 +44,7 @@ export default function LearningContentPage() {
   const [activeContent, setActiveContent] = useState<LearningContent | null>(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [mounted, setMounted] = useState(false);
+  const { isMobile, isTablet } = useDeviceDetection();
 
   // --- HASH ROUTING ---
   const handleHashChange = useCallback(() => {
@@ -131,14 +133,14 @@ export default function LearningContentPage() {
   if (view === 'detail' && activeContent) {
     const { intro, cards } = parseDescription(activeContent.description);
     return (
-      <div className="animate-slide-in" style={{ padding: '2rem', maxWidth: '900px', margin: '0 auto' }}>
-        <button onClick={() => window.location.hash = ''} className="glass" style={{ padding: '0.75rem 1.5rem', borderRadius: '1rem', border: 'none', color: '#fff', cursor: 'pointer', marginBottom: '2rem' }}>
-          ← Back to Calendar
+      <div className="animate-slide-in" style={{ padding: isMobile ? '1rem' : '2rem', maxWidth: '900px', margin: '0 auto' }}>
+        <button onClick={() => window.location.hash = ''} className="glass" style={{ padding: isMobile ? '0.5rem 1rem' : '0.75rem 1.5rem', borderRadius: '1rem', border: 'none', color: '#fff', cursor: 'pointer', marginBottom: '2rem', fontSize: isMobile ? '0.8rem' : '1rem' }}>
+          ← Back
         </button>
 
-        <div className="glass" style={{ padding: '3rem', borderRadius: '2.5rem' }}>
+        <div className="glass" style={{ padding: isMobile ? '1.5rem' : '3rem', borderRadius: isMobile ? '1.5rem' : '2.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
-            <span style={{ padding: '4px 12px', borderRadius: '8px', background: `${SUBJECT_COLORS[activeContent.subject] || SUBJECT_COLORS['Other']}25`, color: SUBJECT_COLORS[activeContent.subject] || SUBJECT_COLORS['Other'], fontSize: '0.7rem', fontWeight: 800, border: '1px solid rgba(255,255,255,0.1)' }}>
+            <span style={{ padding: '4px 12px', borderRadius: '8px', background: `${SUBJECT_COLORS[activeContent.subject] || SUBJECT_COLORS['Other']}25`, color: SUBJECT_COLORS[activeContent.subject] || SUBJECT_COLORS['Other'], fontSize: isMobile ? '0.65rem' : '0.7rem', fontWeight: 800, border: '1px solid rgba(255,255,255,0.1)' }}>
               {activeContent.subject}
             </span>
             <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
@@ -146,7 +148,7 @@ export default function LearningContentPage() {
             </span>
           </div>
 
-          <h1 style={{ fontSize: '2.5rem', fontWeight: 900, marginBottom: '2rem', background: 'linear-gradient(to right, #fff, #94a3b8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+          <h1 style={{ fontSize: isMobile ? '1.75rem' : '2.5rem', fontWeight: 900, marginBottom: '2rem', background: 'linear-gradient(to right, #fff, #94a3b8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', lineHeight: 1.2 }}>
             {activeContent.title}
           </h1>
 
@@ -158,11 +160,11 @@ export default function LearningContentPage() {
 
             return (
               <div className="audio-player-container" style={{ marginBottom: '2.5rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-                  <div className="animate-float" style={{ fontSize: '2rem' }}>🎵</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0.75rem' : '1.5rem' }}>
+                  {!isMobile && <div className="animate-float" style={{ fontSize: '2rem' }}>🎵</div>}
                   <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                      <div style={{ fontSize: '0.8rem', fontWeight: 700, opacity: 0.6 }}>AUDIO RECORDING</div>
+                      <div style={{ fontSize: isMobile ? '0.7rem' : '0.8rem', fontWeight: 700, opacity: 0.6 }}>AUDIO RECORDING</div>
                       {finalUrl && (
                         <a 
                           href={finalUrl} 
@@ -176,7 +178,7 @@ export default function LearningContentPage() {
                     </div>
                     <div style={{ 
                       width: '100%', 
-                      height: '150px', 
+                      height: isMobile ? '110px' : '150px', 
                       borderRadius: '16px', 
                       overflow: 'hidden', 
                       background: 'rgba(0,0,0,0.2)',
@@ -226,7 +228,7 @@ export default function LearningContentPage() {
 
           {/* Intro Text */}
           {intro && (
-            <div style={{ fontSize: '1.1rem', lineHeight: 1.6, color: '#f8fafc', marginBottom: '2.5rem', opacity: 0.9 }}>
+            <div style={{ fontSize: isMobile ? '1rem' : '1.1rem', lineHeight: 1.6, color: '#f8fafc', marginBottom: '2.5rem', opacity: 0.9 }}>
               <MarkdownRenderer content={intro} />
             </div>
           )}
@@ -252,26 +254,26 @@ export default function LearningContentPage() {
   }
 
   return (
-    <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3rem' }}>
+    <div style={{ padding: isMobile ? '1rem' : '2rem', maxWidth: '1200px', margin: '0 auto' }}>
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: isMobile ? '1.5rem' : '3rem' }}>
         <div>
-          <h1 style={{ fontSize: '2rem', fontWeight: 900, background: 'linear-gradient(to right, #818cf8, #f43f5e)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+          <h1 style={{ fontSize: isMobile ? '1.5rem' : '2rem', fontWeight: 900, background: 'linear-gradient(to right, #818cf8, #f43f5e)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
             คลังเนื้อหาการเรียน
           </h1>
-          <p style={{ color: 'var(--text-muted)' }}>Learning Content Archive</p>
+          <p style={{ color: 'var(--text-muted)', fontSize: isMobile ? '0.75rem' : '1rem' }}>Learning Content Archive</p>
         </div>
       </header>
 
-      <div className="glass" style={{ padding: '2rem', borderRadius: '2rem' }}>
+      <div className="glass" style={{ padding: isMobile ? '1rem' : '2rem', borderRadius: isMobile ? '1.5rem' : '2rem' }}>
         {/* Calendar Nav */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 800 }}>
+          <h2 style={{ fontSize: isMobile ? '1rem' : '1.25rem', fontWeight: 800 }}>
             {mounted && currentMonth.toLocaleDateString('th-TH', { month: 'long', year: 'numeric' })}
           </h2>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button onClick={() => setCurrentMonth(new Date(currentMonth.setMonth(currentMonth.getMonth() - 1)))} className="glass" style={{ width: '40px', height: '40px', borderRadius: '10px', border: 'none', color: '#fff', cursor: 'pointer' }}>←</button>
-            <button onClick={() => setCurrentMonth(new Date())} className="glass" style={{ padding: '0 1rem', borderRadius: '10px', border: 'none', color: '#fff', cursor: 'pointer' }}>Today</button>
-            <button onClick={() => setCurrentMonth(new Date(currentMonth.setMonth(currentMonth.getMonth() + 1)))} className="glass" style={{ width: '40px', height: '40px', borderRadius: '10px', border: 'none', color: '#fff', cursor: 'pointer' }}>→</button>
+            <button onClick={() => setCurrentMonth(new Date(currentMonth.setMonth(currentMonth.getMonth() - 1)))} className="glass" style={{ width: isMobile ? '32px' : '40px', height: isMobile ? '32px' : '40px', borderRadius: '10px', border: 'none', color: '#fff', cursor: 'pointer' }}>←</button>
+            <button onClick={() => setCurrentMonth(new Date())} className="glass" style={{ padding: isMobile ? '0 0.5rem' : '0 1rem', borderRadius: '10px', border: 'none', color: '#fff', cursor: 'pointer', fontSize: isMobile ? '0.75rem' : '0.85rem' }}>Today</button>
+            <button onClick={() => setCurrentMonth(new Date(currentMonth.setMonth(currentMonth.getMonth() + 1)))} className="glass" style={{ width: isMobile ? '32px' : '40px', height: isMobile ? '32px' : '40px', borderRadius: '10px', border: 'none', color: '#fff', cursor: 'pointer' }}>→</button>
           </div>
         </div>
 
@@ -310,7 +312,7 @@ export default function LearningContentPage() {
         >
           <div 
             className="glass animate-scale-in" 
-            style={{ width: '90%', maxWidth: '400px', padding: '2rem', borderRadius: '2rem' }}
+            style={{ width: '90%', maxWidth: '400px', padding: isMobile ? '1.5rem' : '2rem', borderRadius: isMobile ? '1.5rem' : '2rem' }}
             onClick={e => e.stopPropagation()}
           >
             <h3 style={{ marginBottom: '1.5rem', fontWeight: 800 }}>
