@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { useData } from '@/components/DataProvider';
 import AttachmentList from '@/components/AttachmentList';
+import AudioPlayer from '@/components/AudioPlayer';
 import MarkdownRenderer from '@/components/MarkdownRenderer';
 import { useDeviceDetection } from '@/hooks/useDeviceDetection';
 
@@ -153,56 +154,16 @@ export default function LearningContentPage() {
           </h1>
 
           {/* Audio Player */}
-          {(activeContent.audio_file_id || activeContent.audio_url) && (() => {
-            const cleanId = activeContent.audio_file_id?.replace(/[{}]/g, '').split('#')[0].trim();
-            const cleanUrl = activeContent.audio_url?.replace(/[{}]/g, '').split('#')[0].trim();
-            const finalUrl = cleanId ? `https://docs.google.com/uc?id=${cleanId}&export=download` : cleanUrl;
-
-            return (
-              <div className="audio-player-container" style={{ marginBottom: '2.5rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0.75rem' : '1.5rem' }}>
-                  {!isMobile && <div className="animate-float" style={{ fontSize: '2rem' }}>🎵</div>}
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                      <div style={{ fontSize: isMobile ? '0.7rem' : '0.8rem', fontWeight: 700, opacity: 0.6 }}>AUDIO RECORDING</div>
-                      {finalUrl && (
-                        <a 
-                          href={finalUrl} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          style={{ fontSize: '0.75rem', color: '#818cf8', textDecoration: 'none', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}
-                        >
-                          <span>↗</span> Open in New Tab
-                        </a>
-                      )}
-                    </div>
-                    <div style={{ 
-                      width: '100%', 
-                      height: isMobile ? '110px' : '150px', 
-                      borderRadius: '16px', 
-                      overflow: 'hidden', 
-                      background: 'rgba(0,0,0,0.2)',
-                      border: '1px solid rgba(255,255,255,0.1)'
-                    }}>
-                      {cleanId ? (
-                        <iframe 
-                          src={`https://drive.google.com/file/d/${cleanId}/preview`} 
-                          width="100%" 
-                          height="100%" 
-                          style={{ border: 'none' }}
-                          allow="autoplay"
-                        ></iframe>
-                      ) : (
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                          Invalid Audio ID
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })()}
+          {(activeContent.audio_file_id || activeContent.audio_url) && (
+            <div style={{ marginBottom: '2.5rem' }}>
+              <AudioPlayer 
+                contentId={activeContent.id}
+                audioUrl={activeContent.audio_url?.replace(/[{}]/g, '').split('#')[0].trim()}
+                driveId={activeContent.audio_file_id?.replace(/[{}]/g, '').split('#')[0].trim()}
+                title={activeContent.title}
+              />
+            </div>
+          )}
 
           {/* Attachments via AttachmentList */}
           {(activeContent.links || activeContent.attachments) && (
