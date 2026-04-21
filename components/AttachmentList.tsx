@@ -39,6 +39,13 @@ export default function AttachmentList({ attachments }: { attachments: Attachmen
   };
 
   React.useEffect(() => {
+    if (selectedImage) {
+      setZoomLevel(1);
+      setPosition({ x: 0, y: 0 });
+    }
+  }, [selectedImage]);
+
+  React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') closeModal();
     };
@@ -167,7 +174,7 @@ export default function AttachmentList({ attachments }: { attachments: Attachmen
             </div>
           )}
           {/* Top Navbar for Modal */}
-          <div className="absolute top-0 inset-x-0 p-6 flex justify-between items-center bg-gradient-to-b from-black/80 via-black/40 to-transparent z-[10000]">
+          <div className="absolute top-0 inset-x-0 p-4 pb-8 flex justify-between items-center bg-gradient-to-b from-black/80 via-black/30 to-transparent z-[10000]">
             <div className="flex flex-col">
               <h3 className="text-white text-xl font-bold tracking-tight truncate pr-4 drop-shadow-lg">
                 {selectedImage.title || 'Image Viewer'}
@@ -220,22 +227,23 @@ export default function AttachmentList({ attachments }: { attachments: Attachmen
 
           {/* Interactive Image Container */}
           <div 
-            className="absolute inset-0 w-full h-full flex items-center justify-center overflow-hidden" 
+            className="absolute inset-0 w-full h-full grid place-items-center overflow-hidden" 
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
             onMouseMove={handleMouseMove}
           >
-            {/* Clickable bounding box for closing modal (only triggers if image isn't dragged/clicked) */}
-            <div className="absolute inset-0 z-0" onMouseUp={closeModal} />
+            {/* Clickable background overlay for closing modal */}
+            <div className="absolute inset-0 z-0 bg-transparent" onMouseUp={closeModal} />
             
             <img 
               src={selectedImage.url} 
               alt={selectedImage.title} 
               onMouseDown={handleMouseDown}
               onLoad={() => setIsImageLoading(false)}
-              className={`w-full h-full object-contain drop-shadow-[0_0_50px_rgba(0,0,0,0.5)] relative z-10 animate-in zoom-in-95 duration-300 ease-out transition-opacity ${isImageLoading ? 'opacity-0' : 'opacity-100'}`}
+              className={`max-w-full max-h-full w-full h-full object-contain drop-shadow-[0_0_50px_rgba(0,0,0,0.3)] relative z-10 animate-in zoom-in-95 duration-300 ease-out transition-opacity ${isImageLoading ? 'opacity-0' : 'opacity-100'}`}
               style={{ 
                 transform: `translate(${position.x}px, ${position.y}px) scale(${zoomLevel})`,
+                objectPosition: 'center',
                 cursor: zoomLevel > 1 ? (isDragging ? 'grabbing' : 'grab') : 'auto',
                 transition: isDragging ? 'none' : 'transform 0.2s cubic-bezier(0.2, 0, 0, 1)'
               }}
