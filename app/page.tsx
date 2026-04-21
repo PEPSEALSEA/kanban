@@ -742,15 +742,7 @@ export default function StudyFlow() {
                           <span style={{ fontWeight: 700, fontSize: '0.8rem' }}>{student.name}</span>
                           <span style={{ fontSize: '0.6rem', opacity: 0.5 }}>DONE</span>
                         </div>
-                        {student.proof && (
-                          <div style={{ marginTop: '8px' }}>
-                            <AttachmentList attachments={student.proof.split(',').filter(Boolean).map((url, idx) => ({
-                              type: 'link_image',
-                              url: url.trim(),
-                              title: `${student.name}'s Submission`
-                            }))} />
-                          </div>
-                        )}
+                        {student.proof && <div style={{ marginTop: '5px' }}>{student.proof.split(',').map((url, idx) => (url.startsWith('http') ? <img key={idx} src={url} style={{ width: '100%', borderRadius: '4px', marginTop: '4px' }} alt="" /> : <p key={idx} style={{ fontSize: '0.8rem' }}>{url}</p>))}</div>}
                       </div>
                     </div>
                    ))}
