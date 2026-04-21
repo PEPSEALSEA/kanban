@@ -499,20 +499,59 @@ function sendSubmissionNotification(studentName, homeworkTitle, status, content)
  * This can be triggered manually or via a Time-driven trigger.
  */
 function sendDailySummaryToDiscord() {
-    if (!SUMMARY_WEBHOOK_URL) return;
+    if (!SUMMARY_WEBHOOK_URL) {
+        Logger.log("SUMMARY_WEBHOOK_URL is not defined");
+        return;
+    }
 
-    const summaryText = generateDailySummary();
+    try {
+        const summaryText = generateDailySummary();
+        
+        // Discord content limit is 2000 characters
+        let finalContent = summaryText;
+        if (finalContent.length > 2000) {
+            Logger.log("Summary too long (" + finalContent.length + " chars). Truncating...");
+            finalContent = finalContent.substring(0, 1900) + "\n\n... (แสดงไม่ครบเนื่องจากยาวเกิน 2000 ตัวอักษร)";
+        }
 
-    const payload = {
-        content: summaryText
-    };
+        const payload = {
+            content: finalContent
+        };
 
-    UrlFetchApp.fetch(SUMMARY_WEBHOOK_URL, {
-        method: "post",
-        contentType: "application/json",
-        payload: JSON.stringify(payload),
-        muteHttpExceptions: true
-    });
+        Logger.log("Sending summary to Discord (" + finalContent.length + " chars)...");
+        
+        let response;
+        let retries = 3;
+        let waitTime = 2000;
+
+        while (retries > 0) {
+            response = UrlFetchApp.fetch(SUMMARY_WEBHOOK_URL, {
+                method: "post",
+                contentType: "application/json",
+                payload: JSON.stringify(payload),
+                muteHttpExceptions: true // Set to true to manually handle the 429 response code
+            });
+            
+            const code = response.getResponseCode();
+            if (code === 429) {
+                Logger.log("Discord is rate limiting (429). Retrying in " + waitTime + "ms... (" + retries + " attempts left)");
+                Utilities.sleep(waitTime);
+                retries--;
+                waitTime *= 2; // Exponential backoff
+                continue;
+            } else if (code >= 200 && code < 300) {
+                Logger.log("Discord Response Code: " + code);
+                return; // Success
+            } else {
+                throw new Error("Discord API error " + code + ": " + response.getContentText());
+            }
+        }
+
+        throw new Error("Failed after multiple retries due to Discord Rate Limits (429)");
+    } catch (err) {
+        Logger.log("Error in sendDailySummaryToDiscord: " + err.toString());
+        throw err; // Re-throw to ensure it's visible in the "Executions" tab
+    }
 }
 
 function generateDailySummary() {
@@ -523,7 +562,9 @@ function generateDailySummary() {
     // Fetch Learning Content for today (UTC+7)
     const learningContent = getLearningContent();
     const todayLC = learningContent.filter(item => {
+        if (!item.date) return false;
         const itemDate = item.date instanceof Date ? item.date : new Date(item.date);
+        if (isNaN(itemDate.getTime())) return false; // Ignore invalid dates
         return Utilities.formatDate(itemDate, "GMT+7", "yyyy-MM-dd") === gmt7Date;
     });
 
@@ -632,7 +673,7 @@ function generateDailySummary() {
     }
 
     message += "\nเนื้อหาทั้งหมดอยู่ใน link นี้\n";
-    message += "```https://pepsealsea.github.io/kanban/```\n\n";
+    message += "<https://pepsealsea.github.io/kanban/>\n\n";
     message += "> Have question **Reply** to this Bot. || <@&1162383289575817326> ||";
 
     return message;

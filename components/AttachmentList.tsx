@@ -36,6 +36,16 @@ export default function AttachmentList({ attachments }: { attachments: Attachmen
     setIsDragging(false);
   };
 
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeModal();
+    };
+    if (selectedImage) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedImage]);
+
   const handleMouseDown = (e: React.MouseEvent) => {
     if (zoomLevel <= 1) return;
     // We only drag with the left mouse button
@@ -142,36 +152,55 @@ export default function AttachmentList({ attachments }: { attachments: Attachmen
 
       {/* Fullscreen Image Modal */}
       {selectedImage && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/95 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/90 backdrop-blur-3xl transition-opacity duration-300 animate-in fade-in">
           {/* Top Navbar for Modal */}
-          <div className="absolute top-0 inset-x-0 p-4 flex justify-between items-center bg-gradient-to-b from-black/70 to-transparent z-[10000]">
-            <h3 className="text-white text-lg font-medium tracking-wide truncate pr-4 drop-shadow-md">
-              {selectedImage.title || 'Image Viewer'}
-            </h3>
+          <div className="absolute top-0 inset-x-0 p-6 flex justify-between items-center bg-gradient-to-b from-black/80 via-black/40 to-transparent z-[10000]">
+            <div className="flex flex-col">
+              <h3 className="text-white text-xl font-bold tracking-tight truncate pr-4 drop-shadow-lg">
+                {selectedImage.title || 'Image Viewer'}
+              </h3>
+              <p className="text-slate-400 text-xs font-medium uppercase tracking-widest mt-0.5 opacity-80">
+                Preview Mode
+              </p>
+            </div>
             
             <div className="flex items-center gap-3">
               {/* Zoom Controls */}
-              <div className="flex items-center bg-white/10 rounded-lg backdrop-blur-md border border-white/20 mr-4 overflow-hidden">
-                <button onClick={handleZoomOut} className="p-2 text-white hover:bg-white/20 transition disabled:opacity-50" disabled={zoomLevel <= 1}>
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" /></svg>
+              <div className="flex items-center bg-slate-800/40 rounded-xl backdrop-blur-xl border border-white/10 mr-4 shadow-xl overflow-hidden">
+                <button 
+                  onClick={handleZoomOut} 
+                  className="p-2.5 text-slate-300 hover:text-white hover:bg-white/10 transition-all disabled:opacity-30 disabled:cursor-not-allowed" 
+                  disabled={zoomLevel <= 1}
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M20 12H4" /></svg>
                 </button>
-                <div className="px-3 text-white text-sm font-medium w-16 text-center border-x border-white/10 select-none">
+                <div className="px-4 text-white text-sm font-bold w-20 text-center border-x border-white/5 select-none tabular-nums">
                   {Math.round(zoomLevel * 100)}%
                 </div>
-                <button onClick={handleResetZoom} className="px-2 text-white hover:bg-white/20 transition text-xs font-bold disabled:opacity-50" title="Reset Zoom" disabled={zoomLevel === 1}>
-                  R
+                <button 
+                  onClick={handleResetZoom} 
+                  className="px-3 py-2 text-white hover:bg-white/10 transition-all text-xs font-black disabled:opacity-30 disabled:cursor-not-allowed border-r border-white/5" 
+                  title="Reset Zoom" 
+                  disabled={zoomLevel === 1}
+                >
+                  1:1
                 </button>
-                <button onClick={handleZoomIn} className="p-2 text-white hover:bg-white/20 border-l border-white/10 transition disabled:opacity-50" disabled={zoomLevel >= 4}>
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                <button 
+                  onClick={handleZoomIn} 
+                  className="p-2.5 text-slate-300 hover:text-white hover:bg-white/10 transition-all disabled:opacity-30 disabled:cursor-not-allowed" 
+                  disabled={zoomLevel >= 4}
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>
                 </button>
               </div>
 
               {/* Close Button */}
               <button 
                 onClick={closeModal} 
-                className="p-2 bg-white/10 hover:bg-red-500/80 text-white rounded-full transition-colors backdrop-blur-md"
+                className="p-2.5 bg-red-500/10 hover:bg-red-500/80 text-red-500 hover:text-white rounded-xl transition-all backdrop-blur-xl border border-red-500/20"
+                title="Close (Esc)"
               >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
           </div>
@@ -190,11 +219,11 @@ export default function AttachmentList({ attachments }: { attachments: Attachmen
               src={selectedImage.url} 
               alt={selectedImage.title} 
               onMouseDown={handleMouseDown}
-              className="max-w-full max-h-full object-contain shadow-2xl relative z-10"
+              className="w-full h-full object-contain drop-shadow-[0_0_50px_rgba(0,0,0,0.5)] relative z-10 animate-in zoom-in-95 duration-300 ease-out"
               style={{ 
                 transform: `translate(${position.x}px, ${position.y}px) scale(${zoomLevel})`,
                 cursor: zoomLevel > 1 ? (isDragging ? 'grabbing' : 'grab') : 'auto',
-                transition: isDragging ? 'none' : 'transform 0.15s ease-out'
+                transition: isDragging ? 'none' : 'transform 0.2s cubic-bezier(0.2, 0, 0, 1)'
               }}
               draggable={false}
             />
