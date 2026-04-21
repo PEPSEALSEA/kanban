@@ -155,7 +155,7 @@ export default function LearningContentPage() {
 
           {/* Audio Player */}
           {(activeContent.audio_file_id || activeContent.audio_url) && (
-            <div style={{ marginBottom: '2.5rem' }}>
+            <div style={{ marginBottom: '1.5rem' }}>
               <AudioPlayer 
                 contentId={activeContent.id}
                 audioUrl={activeContent.audio_url?.replace(/[{}]/g, '').split('#')[0].trim()}
@@ -167,7 +167,7 @@ export default function LearningContentPage() {
 
           {/* Attachments via AttachmentList */}
           {(activeContent.links || activeContent.attachments) && (
-            <div style={{ marginBottom: '1.5rem' }}>
+            <div style={{ marginBottom: '1rem' }}>
               <AttachmentList attachments={[
                 ...(activeContent.links ? activeContent.links.split(',').filter(Boolean).map((link, idx) => ({
                   type: 'link_work' as const,
