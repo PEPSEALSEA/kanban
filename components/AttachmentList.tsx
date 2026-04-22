@@ -192,19 +192,19 @@ export default function AttachmentList({ attachments }: { attachments: Attachmen
       {/* Fullscreen Image Modal - Using Portal to ensure it's not clipped by parent containers */}
       {selectedImage && typeof document !== 'undefined' && require('react-dom').createPortal(
         <div 
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/90 backdrop-blur-3xl transition-opacity duration-300 animate-in fade-in"
+          className="fixed inset-0 z-[100000] flex items-center justify-center bg-slate-950/90 backdrop-blur-3xl transition-opacity duration-300 animate-in fade-in"
           style={{
             background: `radial-gradient(circle at center, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.95) 100%)`
           }}
         >
           {/* Loading Spinner */}
           {isImageLoading && (
-            <div className="absolute inset-0 flex items-center justify-center z-[10001]">
+            <div className="absolute inset-0 flex items-center justify-center z-[100001]">
               <div className="w-12 h-12 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin"></div>
             </div>
           )}
           {/* Top Navbar for Modal */}
-          <div className="absolute top-0 inset-x-0 p-6 flex justify-between items-center bg-gradient-to-b from-black/80 via-black/40 to-transparent z-[10000]">
+          <div className="absolute top-0 inset-x-0 p-6 flex justify-between items-center bg-gradient-to-b from-black/80 via-black/40 to-transparent z-[100002]">
             <div className="flex flex-col">
               <h3 className="text-white text-xl font-bold tracking-tight truncate pr-4 drop-shadow-lg">
                 {selectedImage.title || 'Image Viewer'}
