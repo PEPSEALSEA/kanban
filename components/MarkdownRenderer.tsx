@@ -52,19 +52,16 @@ function preprocessLatex(text: string): string {
     return `$$${trimmed}$$`;
   }).join('\n');
 
-  // Pass 2: Detect {LaTeX} brace-wrapped blocks and convert to $$...$$
-  result = wrapBracedLatex(result);
-
-  // Pass 3: Detect inline LaTeX commands and wrap surrounding math context in $...$
+  // Pass 2: Detect inline LaTeX commands and wrap surrounding math context in $...$
+  // This handles mixed text like "Thai text x \to a"
   result = wrapInlineLatex(result);
 
   return result;
 }
 
 /**
- * Pass 3: Find LaTeX commands and wrap the surrounding math expression in $...$
- * This handles mixed text like "แต่ลิมิตที่ x \to a" by detecting the \to command
- * and expanding to include the variable x and a.
+ * Find LaTeX commands and wrap the surrounding math expression in $...$
+ * Uses a Thai-aware expansion strategy to find the boundaries of the math expression.
  */
 function wrapInlineLatex(text: string): string {
   if (!text) return text;
@@ -86,39 +83,30 @@ function wrapInlineLatex(text: string): string {
       let start = match.index;
       let end = match.index + match[0].length;
       
-      // Expand backwards: include spaces, digits, symbols, and single letters
-      while (start > 0) {
-        const char = segment[start - 1];
-        const isLetter = /[a-zA-Z]/.test(char);
-        const prevIsLetter = start > 1 && /[a-zA-Z]/.test(segment[start - 2]);
-        const nextIsLetter = /[a-zA-Z]/.test(segment[start]);
-        
-        if (/[0-9\s\\{}()[\]|=+\-*/^_.,!;:<>~&%#@'"]/.test(char)) {
-          start--;
-        } else if (isLetter && !prevIsLetter && !nextIsLetter) {
-          start--;
-        } else {
-          break;
-        }
+      // Expansion rule: Expand as long as we don't hit Thai characters or Quotes.
+      // This is a safe boundary for math expressions in a mixed Thai/English app.
+      const BOUNDARY_CHAR = /[\u0E00-\u0E7F"']/;
+      
+      while (start > 0 && !BOUNDARY_CHAR.test(segment[start - 1])) {
+        start--;
+      }
+      while (end < segment.length && !BOUNDARY_CHAR.test(segment[end])) {
+        end++;
       }
       
-      // Expand forwards
-      while (end < segment.length) {
-        const char = segment[end];
-        const isLetter = /[a-zA-Z]/.test(char);
-        const nextIsLetter = end < segment.length - 1 && /[a-zA-Z]/.test(segment[end + 1]);
-        const prevIsLetter = /[a-zA-Z]/.test(segment[end - 1]);
-        
-        if (/[0-9\s\\{}()[\]|=+\-*/^_.,!;:<>~&%#@'"]/.test(char)) {
-          end++;
-        } else if (isLetter && !nextIsLetter && !prevIsLetter) {
-          end++;
-        } else {
-          break;
-        }
+      // Trim the expanded block to the nearest "mathy" characters.
+      // We exclude spaces and sentence punctuation (.,!?;:) from the start/end of the $ wrap.
+      const MATHY_CHAR = /[0-9\\{}()[\]|=+\-*/^_<>~&%#@a-zA-Z]/;
+      while (start < end && !MATHY_CHAR.test(segment[start])) {
+        start++;
+      }
+      while (end > start && !MATHY_CHAR.test(segment[end - 1])) {
+        end--;
       }
       
-      for (let i = start; i < end; i++) isMath[i] = true;
+      if (start < end) {
+        for (let i = start; i < end; i++) isMath[i] = true;
+      }
     }
     
     // Reconstruct the segment with $ delimiters around math blocks
@@ -162,63 +150,6 @@ function wrapInlineLatex(text: string): string {
     }
     return result;
   }).join('');
-}
-
-/** Walk character-by-character with brace-depth tracking to find {LaTeX} blocks */
-function wrapBracedLatex(text: string): string {
-  const result: string[] = [];
-  let i = 0;
-
-  while (i < text.length) {
-    // Skip existing $$ display math blocks
-    if (text[i] === '$' && text[i + 1] === '$') {
-      const end = text.indexOf('$$', i + 2);
-      if (end !== -1) {
-        result.push(text.substring(i, end + 2));
-        i = end + 2;
-        continue;
-      }
-    }
-
-    // Skip existing $ inline math blocks
-    if (text[i] === '$' && (i + 1 >= text.length || text[i + 1] !== '$')) {
-      const end = text.indexOf('$', i + 1);
-      if (end !== -1) {
-        result.push(text.substring(i, end + 1));
-        i = end + 1;
-        continue;
-      }
-    }
-
-    // Check for { that could be a LaTeX block (not escaped with \)
-    if (text[i] === '{' && (i === 0 || text[i - 1] !== '\\')) {
-      let depth = 1;
-      let j = i + 1;
-      while (j < text.length && depth > 0) {
-        if (text[j] === '\\') {
-          j += 2; // skip escaped character
-          continue;
-        }
-        if (text[j] === '{') depth++;
-        else if (text[j] === '}') depth--;
-        j++;
-      }
-
-      if (depth === 0) {
-        const inner = text.substring(i + 1, j - 1);
-        if (LATEX_COMMAND_RE.test(inner)) {
-          result.push('$$' + inner + '$$');
-          i = j;
-          continue;
-        }
-      }
-    }
-
-    result.push(text[i]);
-    i++;
-  }
-
-  return result.join('');
 }
 
 export default function MarkdownRenderer({ content, className }: MarkdownRendererProps) {
