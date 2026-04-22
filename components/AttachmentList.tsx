@@ -17,9 +17,12 @@ export default function AttachmentList({ attachments }: { attachments: Attachmen
   const [isImageLoading, setIsImageLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState<Record<number, boolean>>({});
 
-  // Sync local state when props change
+  // Sync local state when props change and sort A-Z
   React.useEffect(() => {
-    setLocalAttachments(attachments);
+    const sorted = [...attachments].sort((a, b) => 
+      (a.title || '').localeCompare(b.title || '', undefined, { numeric: true, sensitivity: 'base' })
+    );
+    setLocalAttachments(sorted);
   }, [attachments]);
 
   const handleImageError = async (idx: number) => {
