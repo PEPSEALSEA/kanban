@@ -27,13 +27,28 @@ function preprocessLatex(text: string): string {
     const trimmed = line.trim();
     // Skip empty lines or lines already containing $ delimiters
     if (!trimmed || /\$/.test(trimmed)) return line;
+    
+    // Skip if it looks like Markdown formatting that would be broken by LaTeX wrapping
+    // e.g. bold, italic, lists, headers, blockquotes
+    if (/\*\*|__/.test(trimmed) || /^[*+-]\s/.test(trimmed) || /^#+\s/.test(trimmed) || /^>\s/.test(trimmed)) {
+      return line;
+    }
+
     // Skip if no LaTeX commands found
     if (!LATEX_COMMAND_RE.test(trimmed)) return line;
+
     // Ensure line is predominantly math, not natural language with some LaTeX.
-    // Strip all characters valid in math expressions; whatever remains is
-    // natural-language text (e.g. Thai, CJK, Arabic script).
-    const nonMathText = trimmed.replace(/[a-zA-Z0-9\s\\{}()[\]|=+\-*/^_.,!;:<>~&%#@'"]/g, '');
-    if (nonMathText.length > trimmed.length * 0.3) return line;
+    // If it contains characters outside the standard ASCII set (like Thai, CJK), 
+    // it's likely mixed text and we shouldn't wrap the whole line in $$...$$.
+    const hasNonMathChars = /[^\x00-\x7F]/.test(trimmed);
+    if (hasNonMathChars) return line;
+
+    // Further check: even if ASCII, if it has too many "regular words", it might be a sentence.
+    // Math lines usually don't have many long alphabetic words.
+    const words = trimmed.split(/\s+/);
+    const longWords = words.filter(w => w.length > 5 && /^[a-zA-Z]+$/.test(w));
+    if (longWords.length > 2) return line;
+
     return `$$${trimmed}$$`;
   }).join('\n');
 
