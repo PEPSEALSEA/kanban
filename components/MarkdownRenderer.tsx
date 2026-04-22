@@ -55,7 +55,113 @@ function preprocessLatex(text: string): string {
   // Pass 2: Detect {LaTeX} brace-wrapped blocks and convert to $$...$$
   result = wrapBracedLatex(result);
 
+  // Pass 3: Detect inline LaTeX commands and wrap surrounding math context in $...$
+  result = wrapInlineLatex(result);
+
   return result;
+}
+
+/**
+ * Pass 3: Find LaTeX commands and wrap the surrounding math expression in $...$
+ * This handles mixed text like "แต่ลิมิตที่ x \to a" by detecting the \to command
+ * and expanding to include the variable x and a.
+ */
+function wrapInlineLatex(text: string): string {
+  if (!text) return text;
+  
+  // Split by existing $ or $$ blocks to avoid double-wrapping
+  const parts = text.split(/(\$\$?[\s\S]+?\$?\$)/g);
+  
+  return parts.map((part, index) => {
+    // index % 2 !== 0 means it's an existing $...$ or $$...$$ block
+    if (index % 2 !== 0) return part;
+    
+    let segment = part;
+    const COMMAND_PATTERN = new RegExp(LATEX_COMMAND_RE.source, 'g');
+    const isMath = new Array(segment.length).fill(false);
+    let match;
+    
+    // For every LaTeX command found, expand to include surrounding math-friendly chars
+    while ((match = COMMAND_PATTERN.exec(segment)) !== null) {
+      let start = match.index;
+      let end = match.index + match[0].length;
+      
+      // Expand backwards: include spaces, digits, symbols, and single letters
+      while (start > 0) {
+        const char = segment[start - 1];
+        const isLetter = /[a-zA-Z]/.test(char);
+        const prevIsLetter = start > 1 && /[a-zA-Z]/.test(segment[start - 2]);
+        const nextIsLetter = /[a-zA-Z]/.test(segment[start]);
+        
+        if (/[0-9\s\\{}()[\]|=+\-*/^_.,!;:<>~&%#@'"]/.test(char)) {
+          start--;
+        } else if (isLetter && !prevIsLetter && !nextIsLetter) {
+          start--;
+        } else {
+          break;
+        }
+      }
+      
+      // Expand forwards
+      while (end < segment.length) {
+        const char = segment[end];
+        const isLetter = /[a-zA-Z]/.test(char);
+        const nextIsLetter = end < segment.length - 1 && /[a-zA-Z]/.test(segment[end + 1]);
+        const prevIsLetter = /[a-zA-Z]/.test(segment[end - 1]);
+        
+        if (/[0-9\s\\{}()[\]|=+\-*/^_.,!;:<>~&%#@'"]/.test(char)) {
+          end++;
+        } else if (isLetter && !nextIsLetter && !prevIsLetter) {
+          end++;
+        } else {
+          break;
+        }
+      }
+      
+      for (let i = start; i < end; i++) isMath[i] = true;
+    }
+    
+    // Reconstruct the segment with $ delimiters around math blocks
+    let result = '';
+    let inMath = false;
+    let currentMath = '';
+    
+    for (let i = 0; i < segment.length; i++) {
+      if (isMath[i]) {
+        if (!inMath) {
+          inMath = true;
+          currentMath = segment[i];
+        } else {
+          currentMath += segment[i];
+        }
+      } else {
+        if (inMath) {
+          inMath = false;
+          const trimmed = currentMath.trim();
+          if (trimmed) {
+            const leading = currentMath.match(/^\s*/)?.[0] || '';
+            const trailing = currentMath.match(/\s*$/)?.[0] || '';
+            result += leading + '$' + trimmed + '$' + trailing;
+          } else {
+            result += currentMath;
+          }
+          currentMath = '';
+        }
+        result += segment[i];
+      }
+    }
+    if (inMath) {
+      const trimmed = currentMath.trim();
+      if (trimmed) {
+        const leading = currentMath.match(/^\s*/)?.[0] || '';
+        const trailing = currentMath.match(/\s*$/)?.[0] || '';
+        result += leading + '$' + trimmed + '$' + trailing;
+      } else {
+        result += currentMath;
+      }
+    }
+    return result;
+  }).join('');
 }
 
 /** Walk character-by-character with brace-depth tracking to find {LaTeX} blocks */
