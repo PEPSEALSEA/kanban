@@ -13,15 +13,38 @@ interface MarkdownRendererProps {
 }
 
 /**
- * Preprocess content to convert {LaTeX} syntax into $$LaTeX$$ for remark-math.
- * Uses brace-depth tracking to handle arbitrarily nested curly braces
- * (e.g. \frac{(-1)^n}{n!}) and wraps them with $$ delimiters for KaTeX.
+ * Preprocess content to auto-detect and wrap LaTeX in $$ delimiters.
+ * Pass 1: Standalone lines containing LaTeX commands get wrapped in $$...$$
+ * Pass 2: {LaTeX} brace blocks get wrapped in $$...$$ (brace-depth tracking)
  */
 const LATEX_COMMAND_RE = /\\(?:frac|left|right|sqrt|sum|prod|int|lim|dots|cdots|ldots|text|mathbb|mathcal|mathbf|mathrm|begin|end|over|under|hat|bar|vec|tilde|infty|alpha|beta|gamma|delta|epsilon|theta|lambda|mu|sigma|omega|pi|phi|psi|rho|tau|chi|nu|xi|zeta|eta|kappa|iota|partial|nabla|forall|exists|neq|notin|subset|supset|cup|cap|wedge|vee|neg|implies|iff|to|mapsto|circ|times|div|pm|mp|leq|geq|approx|equiv|sim|cong|propto|perp|parallel|angle|triangle|square|diamond|star|bullet|oplus|otimes|bigoplus|bigotimes|binom|choose|atop|cos|sin|tan|log|ln|exp|det|min|max|sup|limsup|liminf)(?![a-zA-Z])/;
 
 function preprocessLatex(text: string): string {
   if (!text) return text;
 
+  // Pass 1: Detect standalone LaTeX lines (no delimiters) and wrap with $$...$$
+  let result = text.split('\n').map(line => {
+    const trimmed = line.trim();
+    // Skip empty lines or lines already containing $ delimiters
+    if (!trimmed || /\$/.test(trimmed)) return line;
+    // Skip if no LaTeX commands found
+    if (!LATEX_COMMAND_RE.test(trimmed)) return line;
+    // Ensure line is predominantly math, not natural language with some LaTeX.
+    // Strip all characters valid in math expressions; whatever remains is
+    // natural-language text (e.g. Thai, CJK, Arabic script).
+    const nonMathText = trimmed.replace(/[a-zA-Z0-9\s\\{}()[\]|=+\-*/^_.,!;:<>~&%#@'"]/g, '');
+    if (nonMathText.length > trimmed.length * 0.3) return line;
+    return `$$${trimmed}$$`;
+  }).join('\n');
+
+  // Pass 2: Detect {LaTeX} brace-wrapped blocks and convert to $$...$$
+  result = wrapBracedLatex(result);
+
+  return result;
+}
+
+/** Walk character-by-character with brace-depth tracking to find {LaTeX} blocks */
+function wrapBracedLatex(text: string): string {
   const result: string[] = [];
   let i = 0;
 
@@ -48,7 +71,6 @@ function preprocessLatex(text: string): string {
 
     // Check for { that could be a LaTeX block (not escaped with \)
     if (text[i] === '{' && (i === 0 || text[i - 1] !== '\\')) {
-      // Track brace depth to find the matching }
       let depth = 1;
       let j = i + 1;
       while (j < text.length && depth > 0) {
@@ -63,7 +85,6 @@ function preprocessLatex(text: string): string {
 
       if (depth === 0) {
         const inner = text.substring(i + 1, j - 1);
-        // Only convert if it contains recognized LaTeX commands
         if (LATEX_COMMAND_RE.test(inner)) {
           result.push('$$' + inner + '$$');
           i = j;
