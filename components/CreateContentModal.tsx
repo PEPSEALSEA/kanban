@@ -9,7 +9,7 @@ const UPLOAD_WEB_APP_URL = "https://script.google.com/macros/s/AKfycby7FOqHLZN24
 
 export default function CreateContentModal({ onClose, onRefresh }: { onClose: () => void; onRefresh: () => void }) {
   const [formData, setFormData] = useState({
-    date: new Date().toISOString().split('T')[0],
+    date: (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })(),
     subject: 'Math',
     title: '',
     description: '',

@@ -24,7 +24,7 @@ export default function EditContentModal({
   const isPredefinedSubject = ['Math', 'Science', 'History', 'English', 'Arts', 'Computer'].includes(content.subject);
 
   const [formData, setFormData] = useState({
-    date: content.date ? new Date(content.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+    date: (() => { const d = content.date ? new Date(content.date) : new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })(),
     subject: isPredefinedSubject ? content.subject : 'Other',
     title: content.title || '',
     description: content.description || '',

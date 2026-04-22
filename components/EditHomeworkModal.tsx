@@ -26,7 +26,7 @@ export default function EditHomeworkModal({
     subject: isPredefinedSubject ? homework.subject : 'Other',
     title: homework.title || '',
     description: homework.description || '',
-    deadline: homework.deadline ? new Date(homework.deadline).toISOString().split('T')[0] : '',
+    deadline: homework.deadline ? (() => { const d = new Date(homework.deadline); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })() : '',
     link_image: parseLinks(homework.link_image)
   });
 
