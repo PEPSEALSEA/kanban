@@ -14,25 +14,69 @@ interface MarkdownRendererProps {
 
 /**
  * Preprocess content to convert {LaTeX} syntax into $$LaTeX$$ for remark-math.
- * Detects curly-brace blocks containing LaTeX commands (backslash sequences)
- * and wraps them with $$ delimiters so KaTeX can render them.
+ * Uses brace-depth tracking to handle arbitrarily nested curly braces
+ * (e.g. \frac{(-1)^n}{n!}) and wraps them with $$ delimiters for KaTeX.
  */
+const LATEX_COMMAND_RE = /\\(?:frac|left|right|sqrt|sum|prod|int|lim|dots|cdots|ldots|text|mathbb|mathcal|mathbf|mathrm|begin|end|over|under|hat|bar|vec|tilde|infty|alpha|beta|gamma|delta|epsilon|theta|lambda|mu|sigma|omega|pi|phi|psi|rho|tau|chi|nu|xi|zeta|eta|kappa|iota|partial|nabla|forall|exists|neq|notin|subset|supset|cup|cap|wedge|vee|neg|implies|iff|to|mapsto|circ|times|div|pm|mp|leq|geq|approx|equiv|sim|cong|propto|perp|parallel|angle|triangle|square|diamond|star|bullet|oplus|otimes|bigoplus|bigotimes|binom|choose|atop|cos|sin|tan|log|ln|exp|det|min|max|sup|limsup|liminf)(?![a-zA-Z])/;
+
 function preprocessLatex(text: string): string {
   if (!text) return text;
 
-  // Match { ... } blocks that contain LaTeX commands (indicated by backslash)
-  // This regex matches opening { that is NOT preceded by $ (to avoid breaking existing $${ }),
-  // captures content with at least one backslash command, and closes with }
-  return text.replace(
-    /(?<!\$)\{((?:[^{}]|\{[^{}]*\})*\\[a-zA-Z]+(?:[^{}]|\{[^{}]*\})*)\}(?!\$)/g,
-    (match, inner) => {
-      // Only convert if it looks like LaTeX (contains common LaTeX commands)
-      if (/\\(?:frac|left|right|sqrt|sum|prod|int|lim|dots|cdots|ldots|text|mathbb|mathcal|mathbf|mathrm|begin|end|over|under|hat|bar|vec|tilde|infty|alpha|beta|gamma|delta|epsilon|theta|lambda|mu|sigma|omega|pi|phi|psi|rho|tau|chi|nu|xi|zeta|eta|kappa|iota|partial|nabla|forall|exists|in|notin|subset|supset|cup|cap|wedge|vee|neg|implies|iff|to|mapsto|circ|times|div|pm|mp|leq|geq|neq|approx|equiv|sim|cong|propto|perp|parallel|angle|triangle|square|diamond|star|bullet|oplus|otimes|bigoplus|bigotimes|binom|choose|atop)(?![a-zA-Z])/.test(inner)) {
-        return `$$${inner}$$`;
+  const result: string[] = [];
+  let i = 0;
+
+  while (i < text.length) {
+    // Skip existing $$ display math blocks
+    if (text[i] === '$' && text[i + 1] === '$') {
+      const end = text.indexOf('$$', i + 2);
+      if (end !== -1) {
+        result.push(text.substring(i, end + 2));
+        i = end + 2;
+        continue;
       }
-      return match;
     }
-  );
+
+    // Skip existing $ inline math blocks
+    if (text[i] === '$' && (i + 1 >= text.length || text[i + 1] !== '$')) {
+      const end = text.indexOf('$', i + 1);
+      if (end !== -1) {
+        result.push(text.substring(i, end + 1));
+        i = end + 1;
+        continue;
+      }
+    }
+
+    // Check for { that could be a LaTeX block (not escaped with \)
+    if (text[i] === '{' && (i === 0 || text[i - 1] !== '\\')) {
+      // Track brace depth to find the matching }
+      let depth = 1;
+      let j = i + 1;
+      while (j < text.length && depth > 0) {
+        if (text[j] === '\\') {
+          j += 2; // skip escaped character
+          continue;
+        }
+        if (text[j] === '{') depth++;
+        else if (text[j] === '}') depth--;
+        j++;
+      }
+
+      if (depth === 0) {
+        const inner = text.substring(i + 1, j - 1);
+        // Only convert if it contains recognized LaTeX commands
+        if (LATEX_COMMAND_RE.test(inner)) {
+          result.push('$$' + inner + '$$');
+          i = j;
+          continue;
+        }
+      }
+    }
+
+    result.push(text[i]);
+    i++;
+  }
+
+  return result.join('');
 }
 
 export default function MarkdownRenderer({ content, className }: MarkdownRendererProps) {
