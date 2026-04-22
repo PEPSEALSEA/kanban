@@ -189,8 +189,8 @@ export default function AttachmentList({ attachments }: { attachments: Attachmen
         </div>
       )}
 
-      {/* Fullscreen Image Modal */}
-      {selectedImage && (
+      {/* Fullscreen Image Modal - Using Portal to ensure it's not clipped by parent containers */}
+      {selectedImage && typeof document !== 'undefined' && require('react-dom').createPortal(
         <div 
           className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/90 backdrop-blur-3xl transition-opacity duration-300 animate-in fade-in"
           style={{
@@ -243,7 +243,7 @@ export default function AttachmentList({ attachments }: { attachments: Attachmen
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>
                 </button>
               </div>
-
+    
               {/* Close Button */}
               <button 
                 onClick={closeModal} 
@@ -254,7 +254,7 @@ export default function AttachmentList({ attachments }: { attachments: Attachmen
               </button>
             </div>
           </div>
-
+    
           {/* Interactive Image Container */}
           <div 
             className="absolute inset-0 w-full h-full flex items-center justify-center overflow-hidden" 
@@ -280,7 +280,8 @@ export default function AttachmentList({ attachments }: { attachments: Attachmen
               draggable={false}
             />
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
