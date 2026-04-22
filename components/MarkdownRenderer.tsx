@@ -12,7 +12,32 @@ interface MarkdownRendererProps {
   className?: string;
 }
 
+/**
+ * Preprocess content to convert {LaTeX} syntax into $$LaTeX$$ for remark-math.
+ * Detects curly-brace blocks containing LaTeX commands (backslash sequences)
+ * and wraps them with $$ delimiters so KaTeX can render them.
+ */
+function preprocessLatex(text: string): string {
+  if (!text) return text;
+
+  // Match { ... } blocks that contain LaTeX commands (indicated by backslash)
+  // This regex matches opening { that is NOT preceded by $ (to avoid breaking existing $${ }),
+  // captures content with at least one backslash command, and closes with }
+  return text.replace(
+    /(?<!\$)\{((?:[^{}]|\{[^{}]*\})*\\[a-zA-Z]+(?:[^{}]|\{[^{}]*\})*)\}(?!\$)/g,
+    (match, inner) => {
+      // Only convert if it looks like LaTeX (contains common LaTeX commands)
+      if (/\\(?:frac|left|right|sqrt|sum|prod|int|lim|dots|cdots|ldots|text|mathbb|mathcal|mathbf|mathrm|begin|end|over|under|hat|bar|vec|tilde|infty|alpha|beta|gamma|delta|epsilon|theta|lambda|mu|sigma|omega|pi|phi|psi|rho|tau|chi|nu|xi|zeta|eta|kappa|iota|partial|nabla|forall|exists|in|notin|subset|supset|cup|cap|wedge|vee|neg|implies|iff|to|mapsto|circ|times|div|pm|mp|leq|geq|neq|approx|equiv|sim|cong|propto|perp|parallel|angle|triangle|square|diamond|star|bullet|oplus|otimes|bigoplus|bigotimes|binom|choose|atop)(?![a-zA-Z])/.test(inner)) {
+        return `$$${inner}$$`;
+      }
+      return match;
+    }
+  );
+}
+
 export default function MarkdownRenderer({ content, className }: MarkdownRendererProps) {
+  const processedContent = preprocessLatex(content);
+
   return (
     <div className={`markdown-content ${className || ''}`}>
       <ReactMarkdown
@@ -54,7 +79,7 @@ export default function MarkdownRenderer({ content, className }: MarkdownRendere
           td: ({ node, ...props }) => <td {...props} style={{ border: '1px solid rgba(255,255,255,0.1)', padding: '0.5rem' }} />,
         }}
       >
-        {content}
+        {processedContent}
       </ReactMarkdown>
     </div>
   );
