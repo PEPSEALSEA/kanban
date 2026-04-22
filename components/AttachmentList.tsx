@@ -6,11 +6,44 @@ export type Attachment = {
   type: 'link_image' | 'link_work';
   url: string;
   title: string;
+  fileId?: string;
 };
 
+const UPLOAD_WEB_APP_URL = "https://script.google.com/macros/s/AKfycby7FOqHLZN24sWCwl7XP4maUSi_iCxEFcg6REG-F8qp2C33aJL0US1Ye8XTZ7qUBDC8fw/exec";
+
 export default function AttachmentList({ attachments }: { attachments: Attachment[] }) {
+  const [localAttachments, setLocalAttachments] = useState<Attachment[]>(attachments);
   const [selectedImage, setSelectedImage] = useState<Attachment | null>(null);
   const [isImageLoading, setIsImageLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState<Record<number, boolean>>({});
+
+  // Sync local state when props change
+  React.useEffect(() => {
+    setLocalAttachments(attachments);
+  }, [attachments]);
+
+  const handleImageError = async (idx: number) => {
+    const img = localAttachments[idx];
+    if (img.url.includes('api.telegram.org') && img.fileId && !isRefreshing[idx]) {
+      setIsRefreshing(prev => ({ ...prev, [idx]: true }));
+      try {
+        const res = await fetch(`${UPLOAD_WEB_APP_URL}?action=getFreshLink&fileId=${img.fileId}&refresh=true`);
+        const data = await res.json();
+        if (data.success && data.url) {
+          const newAttachments = [...localAttachments];
+          newAttachments[idx] = { ...img, url: data.url };
+          setLocalAttachments(newAttachments);
+          if (selectedImage && selectedImage.fileId === img.fileId) {
+            setSelectedImage({ ...selectedImage, url: data.url });
+          }
+        }
+      } catch (err) {
+        console.error('Failed to refresh Telegram link:', err);
+      } finally {
+        setIsRefreshing(prev => ({ ...prev, [idx]: false }));
+      }
+    }
+  };
   const [zoomLevel, setZoomLevel] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
@@ -74,8 +107,8 @@ export default function AttachmentList({ attachments }: { attachments: Attachmen
     return <div className="text-gray-500 text-sm italic">No attachments found.</div>;
   }
 
-  const images = attachments.filter((a) => a.type === 'link_image');
-  const files = attachments.filter((a) => a.type === 'link_work');
+  const images = localAttachments.filter((a) => a.type === 'link_image');
+  const files = localAttachments.filter((a) => a.type === 'link_work');
 
   return (
     <div className="w-full flex flex-col gap-4">
@@ -136,6 +169,7 @@ export default function AttachmentList({ attachments }: { attachments: Attachmen
                   src={img.url} 
                   alt={img.title || 'Preview'} 
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  onError={() => handleImageError(localAttachments.indexOf(img))}
                 />
                 <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-3 pt-6 pointer-events-none">
                   <p className="text-white text-xs font-medium truncate drop-shadow-md">
@@ -233,6 +267,7 @@ export default function AttachmentList({ attachments }: { attachments: Attachmen
               alt={selectedImage.title} 
               onMouseDown={handleMouseDown}
               onLoad={() => setIsImageLoading(false)}
+              onError={() => handleImageError(localAttachments.indexOf(selectedImage))}
               className={`w-full h-full object-contain drop-shadow-[0_0_50px_rgba(0,0,0,0.5)] relative z-10 animate-in zoom-in-95 duration-300 ease-out transition-opacity ${isImageLoading ? 'opacity-0' : 'opacity-100'}`}
               style={{ 
                 transform: `translate(${position.x}px, ${position.y}px) scale(${zoomLevel})`,

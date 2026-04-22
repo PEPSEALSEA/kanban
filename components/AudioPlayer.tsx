@@ -17,8 +17,34 @@ export default function AudioPlayer({ contentId, audioUrl, driveId, title }: Aud
   const [isLoaded, setIsLoaded] = useState(false);
   const [showStatus, setShowStatus] = useState<string>('');
 
-  // 1. Resolve Final Source URL
-  const src = audioUrl || (driveId ? `https://docs.google.com/uc?id=${driveId}&export=download` : '');
+  // 1. Resolve Final Source URL with local state for refreshing
+  const [currentSrc, setCurrentSrc] = useState(audioUrl || (driveId ? `https://docs.google.com/uc?id=${driveId}&export=download` : ''));
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  useEffect(() => {
+    setCurrentSrc(audioUrl || (driveId ? `https://docs.google.com/uc?id=${driveId}&export=download` : ''));
+  }, [audioUrl, driveId]);
+
+  const handleAudioError = async () => {
+    if (currentSrc.includes('api.telegram.org') && driveId && !isRefreshing) {
+      console.log('Refreshing expired Telegram audio link...');
+      setIsRefreshing(true);
+      try {
+        const UPLOAD_WEB_APP_URL = "https://script.google.com/macros/s/AKfycby7FOqHLZN24sWCwl7XP4maUSi_iCxEFcg6REG-F8qp2C33aJL0US1Ye8XTZ7qUBDC8fw/exec";
+        const res = await fetch(`${UPLOAD_WEB_APP_URL}?action=getFreshLink&fileId=${driveId}&refresh=true`);
+        const data = await res.json();
+        if (data.success && data.url) {
+          setCurrentSrc(data.url);
+          setShowStatus('Link refreshed! Please play again.');
+          setTimeout(() => setShowStatus(''), 3000);
+        }
+      } catch (err) {
+        console.error('Failed to refresh audio link:', err);
+      } finally {
+        setIsRefreshing(false);
+      }
+    }
+  };
 
   // 2. Persistence: Remember where we left off
   useEffect(() => {
@@ -87,18 +113,19 @@ export default function AudioPlayer({ contentId, audioUrl, driveId, title }: Aud
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  if (!src) return null;
+  if (!currentSrc) return null;
 
   return (
     <div className="glass audio-player-card" style={{ padding: '1.5rem', borderRadius: '1.5rem', background: 'rgba(255,255,255,0.03)' }}>
       {/* Hidden Native Audio Element */}
       <audio 
         ref={audioRef}
-        src={src}
+        src={currentSrc}
         onTimeUpdate={onTimeUpdate}
         onLoadedMetadata={onLoadedMetadata}
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
+        onError={handleAudioError}
         preload="metadata"
       />
 
@@ -108,7 +135,7 @@ export default function AudioPlayer({ contentId, audioUrl, driveId, title }: Aud
           <div style={{ fontSize: '0.65rem', fontWeight: 800, opacity: 0.5, letterSpacing: '1px' }}>PLAYER SOURCE: {audioUrl?.includes('telegram') ? 'TELEGRAM ⚡' : 'DRIVE ☁️'}</div>
           {showStatus && <div style={{ fontSize: '0.7rem', color: '#818cf8', marginTop: '2px' }}>{showStatus}</div>}
         </div>
-        <a href={src} target="_blank" rel="noreferrer" style={{ fontSize: '0.7rem', color: '#94a3b8', textDecoration: 'none' }}>↗ Download</a>
+        <a href={currentSrc} target="_blank" rel="noreferrer" style={{ fontSize: '0.7rem', color: '#94a3b8', textDecoration: 'none' }}>↗ Download</a>
       </div>
 
       {/* Custom Progress Bar */}

@@ -83,9 +83,9 @@ function wrapInlineLatex(text: string): string {
       let start = match.index;
       let end = match.index + match[0].length;
       
-      // Expansion rule: Expand as long as we don't hit Thai characters or Quotes.
-      // This is a safe boundary for math expressions in a mixed Thai/English app.
-      const BOUNDARY_CHAR = /[\u0E00-\u0E7F"']/;
+      // Expansion rule: Expand as long as we don't hit Thai characters, Quotes, delimiters ($), or newlines.
+      // We allow spaces and punctuation during expansion to capture the full context.
+      const BOUNDARY_CHAR = /[\u0E00-\u0E7F"'\n$]/;
       
       while (start > 0 && !BOUNDARY_CHAR.test(segment[start - 1])) {
         start--;
@@ -94,18 +94,16 @@ function wrapInlineLatex(text: string): string {
         end++;
       }
       
-      // Trim the expanded block to the nearest "mathy" characters.
-      // We exclude spaces and sentence punctuation (.,!?;:) from the start/end of the $ wrap.
-      const MATHY_CHAR = /[0-9\\{}()[\]|=+\-*/^_<>~&%#@a-zA-Z]/;
-      while (start < end && !MATHY_CHAR.test(segment[start])) {
-        start++;
-      }
-      while (end > start && !MATHY_CHAR.test(segment[end - 1])) {
-        end--;
-      }
+      // Trim the expanded block to remove leading/trailing spaces and punctuation.
+      // This ensures that $ wraps only the actual math expression.
+      // We allow internal spaces and punctuation (like commas in coordinates).
+      const sub = segment.substring(start, end);
+      const trimmed = sub.trim().replace(/^[.,!?;:]+|[.,!?;:]+$/g, '').trim();
       
-      if (start < end) {
-        for (let i = start; i < end; i++) isMath[i] = true;
+      if (trimmed) {
+        const actualStart = start + sub.indexOf(trimmed);
+        const actualEnd = actualStart + trimmed.length;
+        for (let i = actualStart; i < actualEnd; i++) isMath[i] = true;
       }
     }
     

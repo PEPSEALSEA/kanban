@@ -176,7 +176,7 @@ function doPost(e) {
         // --- UNIFIED TELEGRAM UPLOAD LOGIC ---
         const handleTelegramUpload = (blob, filename, contentType) => {
             const result = uploadToTelegram(blob, filename, contentType);
-            const finalUrl = result.url + "#" + encodeURIComponent(filename);
+            const finalUrl = result.url + "#" + encodeURIComponent(filename) + "#" + result.fileId;
 
             if (action === 'uploadProof' && email && homeworkId) {
                 _updateProgressProof(email, homeworkId, status, finalUrl);

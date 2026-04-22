@@ -58,7 +58,7 @@ export default function EditHomeworkModal({
 
           setFormData(prev => ({ 
             ...prev, 
-            link_image: [...prev.link_image, `${result.url}#${encodeURIComponent(file.name)}`] 
+            link_image: [...prev.link_image, `${result.url}#${encodeURIComponent(file.name)}#${result.fileId}`] 
           }));
         } else {
           // Fallback to GAS (Slow)
@@ -78,7 +78,7 @@ export default function EditHomeworkModal({
           if (res.success) {
             setFormData(prev => ({ 
               ...prev, 
-              link_image: [...prev.link_image, `${res.url}#${encodeURIComponent(file.name)}`] 
+              link_image: [...prev.link_image, `${res.url}#${encodeURIComponent(file.name)}#${res.id}`] 
             }));
           }
         }
