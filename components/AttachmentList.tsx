@@ -151,8 +151,8 @@ export default function AttachmentList({
   const images = localAttachments.filter((a) => a.type === 'link_image');
   const files = localAttachments.filter((a) => a.type === 'link_work');
 
-  console.log('AttachmentList Render - Total:', localAttachments.length, 'Images:', images.length, 'Files:', files.length);
-  if (images.length > 0) console.log('First image data:', images[0]);
+  // Placeholder to prevent infinite onError loops during refresh
+  const TRANSPARENT_PIXEL = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 
   return (
     <div className="w-full flex flex-col gap-4">
@@ -210,7 +210,7 @@ export default function AttachmentList({
                 className="group relative aspect-square rounded-xl overflow-hidden cursor-pointer border border-slate-200 bg-slate-100 shadow-sm hover:shadow-md hover:ring-2 ring-indigo-400 transition-all"
               >
                 <img 
-                  src={img.url} 
+                  src={isRefreshing[img.fileId || ''] ? TRANSPARENT_PIXEL : img.url} 
                   alt={img.title || 'Preview'} 
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   onError={() => handleImageError(img)}
@@ -307,7 +307,7 @@ export default function AttachmentList({
             <div className="absolute inset-0 z-0" onMouseUp={closeModal} />
             
             <img 
-              src={selectedImage.url} 
+              src={isRefreshing[selectedImage.fileId || ''] ? TRANSPARENT_PIXEL : selectedImage.url} 
               alt={selectedImage.title} 
               onMouseDown={handleMouseDown}
               onLoad={() => setIsImageLoading(false)}
