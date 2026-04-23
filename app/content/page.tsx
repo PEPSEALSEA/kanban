@@ -156,6 +156,15 @@ export default function LearningContentPage() {
     return items;
   }, [activeContent?.id, activeContent?.links, activeContent?.attachments]);
 
+  const memoizedAudioProps = useMemo(() => {
+    if (!activeContent) return null;
+    return {
+      url: activeContent.audio_url?.replace(/[{}]/g, '').split('#')[0].trim(),
+      fileId: activeContent.audio_file_id?.replace(/[{}]/g, '').split('#')[0].trim(),
+      title: activeContent.title
+    };
+  }, [activeContent?.id, activeContent?.audio_url, activeContent?.audio_file_id, activeContent?.title]);
+
   if (view === 'detail' && activeContent) {
     const { intro, cards } = parseDescription(activeContent.description);
     return (
@@ -179,14 +188,14 @@ export default function LearningContentPage() {
           </h1>
 
           {/* Audio Player */}
-          {(activeContent.audio_file_id || activeContent.audio_url) && (
+          {memoizedAudioProps && (memoizedAudioProps.url || memoizedAudioProps.fileId) && (
             <div style={{ marginBottom: '1.5rem' }}>
               <AudioPlayer 
                 contentId={activeContent.id}
                 contentType="learning_content"
-                audioUrl={activeContent.audio_url?.replace(/[{}]/g, '').split('#')[0].trim()}
-                driveId={activeContent.audio_file_id?.replace(/[{}]/g, '').split('#')[0].trim()}
-                title={activeContent.title}
+                audioUrl={memoizedAudioProps.url}
+                driveId={memoizedAudioProps.fileId}
+                title={memoizedAudioProps.title}
               />
             </div>
           )}

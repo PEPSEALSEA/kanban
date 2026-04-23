@@ -34,7 +34,7 @@ export default function AttachmentList({
     setLocalAttachments(sorted);
   }, [attachments]);
 
-  const handleImageError = async (targetImg: Attachment) => {
+  const handleImageError = async (targetImg: Attachment, force: boolean = false) => {
     const fileId = targetImg.fileId;
     if (!fileId) {
       setIsImageLoading(false);
@@ -42,8 +42,9 @@ export default function AttachmentList({
     }
 
     // Don't retry if we've already tried this ID and it's still failing, 
-    // or if it's currently refreshing
-    if (refreshAttempted[fileId] || isRefreshing[fileId]) {
+    // or if it's currently refreshing. 
+    // Manual force refresh bypasses the 'already attempted' check.
+    if ((refreshAttempted[fileId] && !force) || isRefreshing[fileId]) {
       setIsImageLoading(false);
       return;
     }
@@ -60,9 +61,12 @@ export default function AttachmentList({
       setRefreshAttempted(prev => ({ ...prev, [fileId]: true }));
       
       try {
-        // Add a random staggered delay (0-2s) to avoid hitting GAS bandwidth quotas 
-        // when multiple images fail simultaneously
-        await new Promise(resolve => setTimeout(resolve, Math.random() * 2000));
+        // If it's a force refresh, we don't delay to give immediate feedback
+        if (!force) {
+          // Add a random staggered delay (0-2s) to avoid hitting GAS bandwidth quotas 
+          // when multiple images fail simultaneously
+          await new Promise(resolve => setTimeout(resolve, Math.random() * 2000));
+        }
 
         // Encode fileId to handle special characters (e.g. Thai characters in filenames)
         let refreshUrl = `${UPLOAD_WEB_APP_URL}?action=getFreshLink&fileId=${encodeURIComponent(fileId)}&refresh=true`;
@@ -237,6 +241,23 @@ export default function AttachmentList({
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
                   <svg className="w-8 h-8 text-white drop-shadow-lg" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" /></svg>
                 </div>
+                
+                {/* Manual Refresh Overlay for failed items */}
+                {refreshAttempted[img.fileId || ''] && !isRefreshing[img.fileId || ''] && (
+                  <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-[2px] flex flex-col items-center justify-center p-2 gap-2 z-20">
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleImageError(img, true);
+                      }}
+                      className="px-3 py-1.5 bg-indigo-500 hover:bg-indigo-400 text-white text-xs font-bold rounded-lg shadow-lg transition-all flex items-center gap-1.5 active:scale-95"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                      Refresh
+                    </button>
+                    <span className="text-[10px] text-slate-300 font-medium text-center leading-tight">Failed to load</span>
+                  </div>
+                )}
               </div>
             ))}
           </div>
