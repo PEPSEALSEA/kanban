@@ -41,10 +41,12 @@ export default function AttachmentList({
       return;
     }
 
-    // Don't retry if we've already tried this ID and it's still failing, 
-    // or if it's currently refreshing. 
-    // Manual force refresh bypasses the 'already attempted' check.
-    if ((refreshAttempted[fileId] && !force) || isRefreshing[fileId]) {
+    // Use a truly unique key for this specific attachment instance
+    const uniqueKey = `${fileId}_${targetImg.url}`;
+
+    // Don't retry if we've already tried this exact link and it's still failing, 
+    // or if it's currently refreshing.
+    if ((refreshAttempted[uniqueKey] && !force) || isRefreshing[uniqueKey]) {
       setIsImageLoading(false);
       return;
     }
@@ -57,8 +59,8 @@ export default function AttachmentList({
 
     const img = localAttachments[idx];
     if (img.url.includes('api.telegram.org')) {
-      setIsRefreshing(prev => ({ ...prev, [fileId]: true }));
-      setRefreshAttempted(prev => ({ ...prev, [fileId]: true }));
+      setIsRefreshing(prev => ({ ...prev, [uniqueKey]: true }));
+      setRefreshAttempted(prev => ({ ...prev, [uniqueKey]: true }));
       
       try {
         if (!force) {
@@ -73,7 +75,6 @@ export default function AttachmentList({
         const data = await res.json();
         
         if (data.success && data.url) {
-          // Use functional update to prevent race conditions when multiple images refresh at once
           setLocalAttachments(prev => {
             const newArr = [...prev];
             const currentIdx = newArr.findIndex(a => a.fileId === fileId && a.url === targetImg.url);
@@ -81,7 +82,6 @@ export default function AttachmentList({
               const updated = { ...newArr[currentIdx], url: data.url };
               newArr[currentIdx] = updated;
               
-              // Also update selectedImage if it's the one that just refreshed
               if (selectedImage && selectedImage.fileId === fileId && selectedImage.url === targetImg.url) {
                 setSelectedImage(updated);
               }
@@ -89,7 +89,7 @@ export default function AttachmentList({
             return newArr;
           });
           
-          setRefreshAttempted(prev => ({ ...prev, [fileId]: false }));
+          setRefreshAttempted(prev => ({ ...prev, [uniqueKey]: false }));
         } else {
           setIsImageLoading(false);
         }
@@ -97,7 +97,7 @@ export default function AttachmentList({
         console.error('Failed to refresh Telegram link:', err);
         setIsImageLoading(false);
       } finally {
-        setIsRefreshing(prev => ({ ...prev, [fileId]: false }));
+        setIsRefreshing(prev => ({ ...prev, [uniqueKey]: false }));
       }
     } else {
       setIsImageLoading(false);
@@ -221,11 +221,12 @@ export default function AttachmentList({
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-semibold text-slate-700 uppercase tracking-wider">Image Gallery</h4>
-            {images.some(img => refreshAttempted[img.fileId || '']) && (
+            {images.some(img => refreshAttempted[`${img.fileId}_${img.url}`]) && (
               <button 
                 onClick={() => {
                   images.forEach(img => {
-                    if (refreshAttempted[img.fileId || '']) handleImageError(img, true);
+                    const uk = `${img.fileId}_${img.url}`;
+                    if (refreshAttempted[uk]) handleImageError(img, true);
                   });
                 }}
                 className="text-[10px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded-md transition-colors flex items-center gap-1"
@@ -243,7 +244,7 @@ export default function AttachmentList({
                 className="group relative aspect-square rounded-xl overflow-hidden cursor-pointer border border-slate-200 bg-slate-100 shadow-sm hover:shadow-md hover:ring-2 ring-indigo-400 transition-all"
               >
                 <img 
-                  src={isRefreshing[img.fileId || ''] ? TRANSPARENT_PIXEL : img.url} 
+                  src={isRefreshing[`${img.fileId}_${img.url}`] ? TRANSPARENT_PIXEL : img.url} 
                   alt={img.title || 'Preview'} 
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   onError={() => handleImageError(img)}
@@ -259,7 +260,7 @@ export default function AttachmentList({
                 </div>
                 
                 {/* Manual Refresh Overlay for failed items */}
-                {refreshAttempted[img.fileId || ''] && !isRefreshing[img.fileId || ''] && (
+                {refreshAttempted[`${img.fileId}_${img.url}`] && !isRefreshing[`${img.fileId}_${img.url}`] && (
                   <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-[2px] flex flex-col items-center justify-center p-2 gap-2 z-20">
                     <button 
                       onClick={(e) => {
@@ -357,7 +358,7 @@ export default function AttachmentList({
             <div className="absolute inset-0 z-0" onMouseUp={closeModal} />
             
             <img 
-              src={isRefreshing[selectedImage.fileId || ''] ? TRANSPARENT_PIXEL : selectedImage.url} 
+              src={isRefreshing[`${selectedImage.fileId}_${selectedImage.url}`] ? TRANSPARENT_PIXEL : selectedImage.url} 
               alt={selectedImage.title} 
               onMouseDown={handleMouseDown}
               onLoad={() => setIsImageLoading(false)}
@@ -370,6 +371,28 @@ export default function AttachmentList({
               }}
               draggable={false}
             />
+
+            {/* Manual Refresh Button for Modal */}
+            {refreshAttempted[`${selectedImage.fileId}_${selectedImage.url}`] && !isRefreshing[`${selectedImage.fileId}_${selectedImage.url}`] && (
+              <div className="absolute inset-0 flex items-center justify-center z-[100003] pointer-events-none">
+                <div className="bg-slate-900/80 backdrop-blur-md p-6 rounded-2xl border border-white/10 flex flex-col items-center gap-4 pointer-events-auto shadow-2xl">
+                  <div className="p-3 bg-red-500/20 text-red-400 rounded-full">
+                    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-white font-bold">Failed to load high-res image</p>
+                    <p className="text-slate-400 text-sm">The link may have expired or Google quota was hit.</p>
+                  </div>
+                  <button 
+                    onClick={() => handleImageError(selectedImage, true)}
+                    className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-lg transition-all flex items-center gap-2 active:scale-95"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                    Refresh Image Link
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>,
         document.body
