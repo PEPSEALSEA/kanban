@@ -29,23 +29,26 @@ export default function AudioPlayer({ contentId, contentType = 'learning_content
   const handleAudioError = async () => {
     if (currentSrc.includes('api.telegram.org') && driveId && !isRefreshing) {
       console.log('Refreshing expired Telegram audio link...');
+      const lastPos = audioRef.current?.currentTime || currentTime;
       setIsRefreshing(true);
       try {
         const UPLOAD_WEB_APP_URL = "https://script.google.com/macros/s/AKfycby7FOqHLZN24sWCwl7XP4maUSi_iCxEFcg6REG-F8qp2C33aJL0US1Ye8XTZ7qUBDC8fw/exec";
-        // Encode driveId and pass content context for DB sync
         const refreshUrl = `${UPLOAD_WEB_APP_URL}?action=getFreshLink&fileId=${encodeURIComponent(driveId)}&refresh=true&contentId=${encodeURIComponent(contentId)}&contentType=${encodeURIComponent(contentType)}`;
         
         const res = await fetch(refreshUrl);
         const data = await res.json();
         if (data.success && data.url) {
           setCurrentSrc(data.url);
-          // If we recovered a real fileId, it's good to have it, 
-          // though AudioPlayer uses the driveId prop.
-          setShowStatus('Link refreshed! Playing...');
+          setShowStatus('Link refreshed! Resuming...');
+          
+          // Wait for the audio element to load the new source
           setTimeout(() => {
+            if (audioRef.current) {
+              audioRef.current.currentTime = lastPos;
+              audioRef.current.play().catch(e => console.log('Auto-play blocked or failed:', e));
+            }
             setShowStatus('');
-            if (audioRef.current) audioRef.current.play();
-          }, 2000);
+          }, 1500);
         }
       } catch (err) {
         console.error('Failed to refresh audio link:', err);
@@ -125,7 +128,35 @@ export default function AudioPlayer({ contentId, contentType = 'learning_content
   if (!currentSrc) return null;
 
   return (
-    <div className="glass audio-player-card" style={{ padding: '1.5rem', borderRadius: '1.5rem', background: 'rgba(255,255,255,0.03)' }}>
+    <div className="glass audio-player-card" style={{ 
+      padding: '1.5rem', 
+      borderRadius: '1.5rem', 
+      background: 'rgba(255,255,255,0.03)',
+      position: 'relative',
+      overflow: 'hidden'
+    }}>
+      {/* Refresh Overlay */}
+      {isRefreshing && (
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          zIndex: 10,
+          background: 'rgba(0,0,0,0.7)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backdropFilter: 'blur(4px)'
+        }}>
+          <div className="loading-spinner" style={{ 
+            width: '24px', height: '24px', border: '2px solid rgba(255,255,255,0.3)', 
+            borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 1s linear infinite' 
+          }} />
+          <div style={{ marginTop: '10px', fontSize: '0.8rem', fontWeight: 500 }}>Refreshing link...</div>
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+      )}
+
       {/* Hidden Native Audio Element */}
       <audio 
         ref={audioRef}
