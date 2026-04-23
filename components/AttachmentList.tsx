@@ -35,8 +35,7 @@ export default function AttachmentList({
   }, [attachments]);
 
   const handleImageError = async (targetImg: Attachment, force: boolean = false) => {
-    // If fileId is missing but it's a Telegram link, try using the title/filename as a fallback ID
-    // for the GAS recovery logic.
+    // 1. Resolve which ID to use (real ID or filename fallback)
     let fileId = targetImg.fileId;
     if (!fileId && targetImg.url.includes('api.telegram.org')) {
       fileId = targetImg.title;
@@ -59,27 +58,35 @@ export default function AttachmentList({
       setIsRefreshing(prev => ({ ...prev, [uniqueKey]: true }));
       setRefreshAttempted(prev => ({ ...prev, [uniqueKey]: true }));
       
-      console.log(`Attempting to refresh Telegram link for: ${targetImg.title} (${fileId})`);
+      console.log(`Refreshing Telegram link directly: ${targetImg.title}`);
       
       try {
-        // Staggered retry to avoid hitting GAS quotas if many images fail at once
-        if (!force) {
-          await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 1500));
+        // Direct Client-Side Fetch (Bypasses GAS Quotas)
+        const { getFreshTelegramUrl } = await import('@/lib/telegram');
+        let freshUrl = await getFreshTelegramUrl(fileId);
+
+        // If direct fetch fails (e.g. fileId was a filename), fallback to GAS recovery
+        if (!freshUrl) {
+          console.log("Direct fetch failed or skipped, falling back to GAS...");
+          const refreshUrl = `${UPLOAD_WEB_APP_URL}?action=getFreshLink&fileId=${encodeURIComponent(fileId)}&refresh=true&contentId=${encodeURIComponent(contentId || '')}&contentType=${encodeURIComponent(contentType || '')}`;
+          const res = await fetch(refreshUrl);
+          const data = await res.json();
+          if (data.success && data.url) {
+            freshUrl = data.url;
+            // Capture real fileId if GAS recovered it from filename
+            if (data.fileId) fileId = data.fileId;
+          }
+        } else {
+          // If direct fetch SUCCEEDED, we still want to notify GAS to update the spreadsheet
+          // We do this in the background (no await) to keep the UI fast
+          fetch(`${UPLOAD_WEB_APP_URL}?action=getFreshLink&fileId=${encodeURIComponent(fileId)}&refresh=true&contentId=${encodeURIComponent(contentId || '')}&contentType=${encodeURIComponent(contentType || '')}`).catch(() => {});
         }
-
-        let refreshUrl = `${UPLOAD_WEB_APP_URL}?action=getFreshLink&fileId=${encodeURIComponent(fileId)}&refresh=true`;
-        if (contentId) refreshUrl += `&contentId=${encodeURIComponent(contentId)}`;
-        if (contentType) refreshUrl += `&contentType=${encodeURIComponent(contentType)}`;
-
-        const res = await fetch(refreshUrl);
-        const data = await res.json();
         
-        if (data.success && data.url) {
-          console.log(`Successfully got fresh link for ${targetImg.title}`);
+        if (freshUrl) {
+          console.log(`Successfully refreshed link for ${targetImg.title}`);
           
           setLocalAttachments(prev => {
             const newArr = [...prev];
-            // Find the item using the same criteria as handleImageError
             const currentIdx = newArr.findIndex(a => 
               a.url === targetImg.url && 
               (a.fileId === targetImg.fileId || (targetImg.url.includes('api.telegram.org') && a.title === targetImg.title))
@@ -88,13 +95,11 @@ export default function AttachmentList({
             if (currentIdx !== -1) {
               const updated = { 
                 ...newArr[currentIdx], 
-                url: data.url,
-                // If we recovered a real fileId from GAS, store it locally!
-                fileId: data.fileId || newArr[currentIdx].fileId 
+                url: freshUrl!,
+                fileId: fileId // Update with real ID if we have it
               };
               newArr[currentIdx] = updated;
               
-              // Also update the selected image if this was the one being viewed
               setSelectedImage(currentSelected => {
                 if (currentSelected && currentSelected.url === targetImg.url) {
                   return updated;
@@ -105,11 +110,11 @@ export default function AttachmentList({
             return newArr;
           });
         } else {
-          console.error("Failed to get fresh link from GAS:", data.message || "Unknown error");
+          console.error("All refresh methods failed for", targetImg.title);
           setIsImageLoading(false);
         }
       } catch (err) {
-        console.error('Network error while refreshing Telegram link:', err);
+        console.error('Refresh error:', err);
         setIsImageLoading(false);
       } finally {
         setIsRefreshing(prev => ({ ...prev, [uniqueKey]: false }));

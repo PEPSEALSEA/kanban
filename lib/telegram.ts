@@ -101,3 +101,23 @@ export async function uploadToTelegramDirect(
     };
   }
 }
+
+/**
+ * Fetches a fresh download URL for a given Telegram fileId.
+ * Bypasses GAS to avoid bandwidth quotas.
+ */
+export async function getFreshTelegramUrl(fileId: string): Promise<string | null> {
+  if (!BOT_TOKEN) return null;
+  
+  try {
+    const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getFile?file_id=${fileId}`);
+    const result = await response.json();
+    
+    if (result.ok && result.result.file_path) {
+      return `https://api.telegram.org/file/bot${BOT_TOKEN}/${result.result.file_path}`;
+    }
+  } catch (err) {
+    console.error('Error getting fresh Telegram URL:', err);
+  }
+  return null;
+}
