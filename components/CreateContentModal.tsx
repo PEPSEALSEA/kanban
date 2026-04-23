@@ -71,7 +71,7 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
           if (type === 'audio') {
             setFormData(prev => ({ ...prev, audio_url: result.url, audio_file_id: result.fileId }));
           } else {
-            setFormData(prev => ({ ...prev, attachments: [...prev.attachments, `${result.url}#${encodeURIComponent(file.name)}`] }));
+            setFormData(prev => ({ ...prev, attachments: [...prev.attachments, `${result.url}#${encodeURIComponent(file.name)}#${result.fileId}`] }));
           }
           setUploadProgress('');
         } else {
@@ -94,7 +94,7 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
             if (type === 'audio') {
               setFormData(prev => ({ ...prev, audio_url: res.url, audio_file_id: res.id }));
             } else {
-              setFormData(prev => ({ ...prev, attachments: [...prev.attachments, `${res.url}#${encodeURIComponent(file.name)}`] }));
+              setFormData(prev => ({ ...prev, attachments: [...prev.attachments, `${res.url}#${encodeURIComponent(file.name)}#${res.id}`] }));
             }
           }
           setUploadProgress('');

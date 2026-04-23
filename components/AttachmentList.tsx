@@ -15,7 +15,7 @@ export default function AttachmentList({ attachments }: { attachments: Attachmen
   const [localAttachments, setLocalAttachments] = useState<Attachment[]>(attachments);
   const [selectedImage, setSelectedImage] = useState<Attachment | null>(null);
   const [isImageLoading, setIsImageLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState<Record<number, boolean>>({});
+  const [isRefreshing, setIsRefreshing] = useState<Record<string, boolean>>({});
 
   // Sync local state when props change and sort A-Z
   React.useEffect(() => {
@@ -25,26 +25,46 @@ export default function AttachmentList({ attachments }: { attachments: Attachmen
     setLocalAttachments(sorted);
   }, [attachments]);
 
-  const handleImageError = async (idx: number) => {
+  const handleImageError = async (targetImg: Attachment) => {
+    const fileId = targetImg.fileId;
+    if (!fileId) {
+      setIsImageLoading(false);
+      return;
+    }
+
+    const idx = localAttachments.findIndex(a => a.fileId === fileId);
+    if (idx === -1) {
+      setIsImageLoading(false);
+      return;
+    }
+
     const img = localAttachments[idx];
-    if (img.url.includes('api.telegram.org') && img.fileId && !isRefreshing[idx]) {
-      setIsRefreshing(prev => ({ ...prev, [idx]: true }));
+    if (img.url.includes('api.telegram.org') && !isRefreshing[fileId]) {
+      setIsRefreshing(prev => ({ ...prev, [fileId]: true }));
       try {
-        const res = await fetch(`${UPLOAD_WEB_APP_URL}?action=getFreshLink&fileId=${img.fileId}&refresh=true`);
+        const res = await fetch(`${UPLOAD_WEB_APP_URL}?action=getFreshLink&fileId=${fileId}&refresh=true`);
         const data = await res.json();
         if (data.success && data.url) {
           const newAttachments = [...localAttachments];
-          newAttachments[idx] = { ...img, url: data.url };
+          const updatedImg = { ...img, url: data.url };
+          newAttachments[idx] = updatedImg;
           setLocalAttachments(newAttachments);
-          if (selectedImage && selectedImage.fileId === img.fileId) {
-            setSelectedImage({ ...selectedImage, url: data.url });
+          
+          if (selectedImage && selectedImage.fileId === fileId) {
+            setSelectedImage(updatedImg);
           }
+        } else {
+          setIsImageLoading(false);
         }
       } catch (err) {
         console.error('Failed to refresh Telegram link:', err);
+        setIsImageLoading(false);
       } finally {
-        setIsRefreshing(prev => ({ ...prev, [idx]: false }));
+        setIsRefreshing(prev => ({ ...prev, [fileId]: false }));
       }
+    } else {
+      // If it's not a refreshable link or already refreshing, stop spinner if we're in modal
+      if (!isRefreshing[fileId]) setIsImageLoading(false);
     }
   };
   const [zoomLevel, setZoomLevel] = useState(1);
@@ -172,7 +192,7 @@ export default function AttachmentList({ attachments }: { attachments: Attachmen
                   src={img.url} 
                   alt={img.title || 'Preview'} 
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  onError={() => handleImageError(localAttachments.indexOf(img))}
+                  onError={() => handleImageError(img)}
                 />
                 <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-3 pt-6 pointer-events-none">
                   <p className="text-white text-xs font-medium truncate drop-shadow-md">
@@ -270,7 +290,7 @@ export default function AttachmentList({ attachments }: { attachments: Attachmen
               alt={selectedImage.title} 
               onMouseDown={handleMouseDown}
               onLoad={() => setIsImageLoading(false)}
-              onError={() => handleImageError(localAttachments.indexOf(selectedImage))}
+              onError={() => handleImageError(selectedImage)}
               className={`w-full h-full object-contain drop-shadow-[0_0_50px_rgba(0,0,0,0.5)] relative z-10 animate-in zoom-in-95 duration-300 ease-out transition-opacity ${isImageLoading ? 'opacity-0' : 'opacity-100'}`}
               style={{ 
                 transform: `translate(${position.x}px, ${position.y}px) scale(${zoomLevel})`,

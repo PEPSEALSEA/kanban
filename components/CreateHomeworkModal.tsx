@@ -43,7 +43,7 @@ export default function CreateHomeworkModal({ onClose, onRefresh }: { onClose: (
             })
           }).catch(err => console.error('Metadata registration failed:', err));
 
-          setFormData(prev => ({ ...prev, link_image: [...prev.link_image, `${result.url}#${encodeURIComponent(file.name)}`] }));
+          setFormData(prev => ({ ...prev, link_image: [...prev.link_image, `${result.url}#${encodeURIComponent(file.name)}#${result.fileId}`] }));
         } else {
           // Fallback to GAS (Slow)
           const reader = new FileReader();
@@ -60,7 +60,7 @@ export default function CreateHomeworkModal({ onClose, onRefresh }: { onClose: (
 
           const res = await response.json();
           if (res.success) {
-            setFormData(prev => ({ ...prev, link_image: [...prev.link_image, `${res.url}#${encodeURIComponent(file.name)}`] }));
+            setFormData(prev => ({ ...prev, link_image: [...prev.link_image, `${res.url}#${encodeURIComponent(file.name)}#${res.id}`] }));
           }
         }
       }

@@ -25,9 +25,6 @@ export async function uploadToTelegramDirect(
   }
 
   try {
-    const formData = new FormData();
-    formData.append('chat_id', CHAT_ID);
-    
     let method = 'sendDocument';
     let field = 'document';
 
@@ -39,6 +36,10 @@ export async function uploadToTelegramDirect(
       field = 'audio';
     }
 
+    const formData = new FormData();
+    formData.append('chat_id', CHAT_ID);
+    formData.append(field, file);
+    
     const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/${method}`, {
       method: 'POST',
       body: formData,
