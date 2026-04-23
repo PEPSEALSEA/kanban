@@ -11,7 +11,15 @@ export type Attachment = {
 
 const UPLOAD_WEB_APP_URL = "https://script.google.com/macros/s/AKfycby7FOqHLZN24sWCwl7XP4maUSi_iCxEFcg6REG-F8qp2C33aJL0US1Ye8XTZ7qUBDC8fw/exec";
 
-export default function AttachmentList({ attachments }: { attachments: Attachment[] }) {
+export default function AttachmentList({ 
+  attachments, 
+  contentId, 
+  contentType 
+}: { 
+  attachments: Attachment[]; 
+  contentId?: string; 
+  contentType?: 'learning_content' | 'homework';
+}) {
   const [localAttachments, setLocalAttachments] = useState<Attachment[]>(attachments);
   const [selectedImage, setSelectedImage] = useState<Attachment | null>(null);
   const [isImageLoading, setIsImageLoading] = useState(true);
@@ -42,7 +50,12 @@ export default function AttachmentList({ attachments }: { attachments: Attachmen
     if (img.url.includes('api.telegram.org') && !isRefreshing[fileId]) {
       setIsRefreshing(prev => ({ ...prev, [fileId]: true }));
       try {
-        const res = await fetch(`${UPLOAD_WEB_APP_URL}?action=getFreshLink&fileId=${fileId}&refresh=true`);
+        // Encode fileId to handle special characters (e.g. Thai characters in filenames)
+        let refreshUrl = `${UPLOAD_WEB_APP_URL}?action=getFreshLink&fileId=${encodeURIComponent(fileId)}&refresh=true`;
+        if (contentId) refreshUrl += `&contentId=${encodeURIComponent(contentId)}`;
+        if (contentType) refreshUrl += `&contentType=${encodeURIComponent(contentType)}`;
+
+        const res = await fetch(refreshUrl);
         const data = await res.json();
         if (data.success && data.url) {
           const newAttachments = [...localAttachments];

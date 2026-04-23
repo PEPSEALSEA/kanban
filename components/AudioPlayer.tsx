@@ -4,12 +4,13 @@ import React, { useRef, useState, useEffect, useCallback } from 'react';
 
 interface AudioPlayerProps {
   contentId: string;
+  contentType?: 'learning_content' | 'homework';
   audioUrl?: string;
   driveId?: string;
   title?: string;
 }
 
-export default function AudioPlayer({ contentId, audioUrl, driveId, title }: AudioPlayerProps) {
+export default function AudioPlayer({ contentId, contentType = 'learning_content', audioUrl, driveId, title }: AudioPlayerProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
@@ -31,7 +32,10 @@ export default function AudioPlayer({ contentId, audioUrl, driveId, title }: Aud
       setIsRefreshing(true);
       try {
         const UPLOAD_WEB_APP_URL = "https://script.google.com/macros/s/AKfycby7FOqHLZN24sWCwl7XP4maUSi_iCxEFcg6REG-F8qp2C33aJL0US1Ye8XTZ7qUBDC8fw/exec";
-        const res = await fetch(`${UPLOAD_WEB_APP_URL}?action=getFreshLink&fileId=${driveId}&refresh=true`);
+        // Encode driveId and pass content context for DB sync
+        const refreshUrl = `${UPLOAD_WEB_APP_URL}?action=getFreshLink&fileId=${encodeURIComponent(driveId)}&refresh=true&contentId=${encodeURIComponent(contentId)}&contentType=${encodeURIComponent(contentType)}`;
+        
+        const res = await fetch(refreshUrl);
         const data = await res.json();
         if (data.success && data.url) {
           setCurrentSrc(data.url);
