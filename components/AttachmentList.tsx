@@ -34,37 +34,33 @@ export default function AttachmentList({
   }, [attachments]);
 
   const handleImageError = async (targetImg: Attachment) => {
-    console.log('Image error triggered for:', targetImg.title, 'URL:', targetImg.url);
     const fileId = targetImg.fileId;
     if (!fileId) {
-      console.warn('Refresh aborted: No fileId found for', targetImg.title);
       setIsImageLoading(false);
       return;
     }
 
     const idx = localAttachments.findIndex(a => a.fileId === fileId);
     if (idx === -1) {
-      console.warn('Refresh aborted: Could not find attachment in local state by fileId:', fileId);
       setIsImageLoading(false);
       return;
     }
 
     const img = localAttachments[idx];
-    console.log('Target attachment found at index:', idx, 'Refreshing state:', isRefreshing[fileId]);
-    
     if (img.url.includes('api.telegram.org') && !isRefreshing[fileId]) {
-      console.log('Conditions met. Starting refresh for fileId:', fileId);
       setIsRefreshing(prev => ({ ...prev, [fileId]: true }));
       try {
+        // Add a random staggered delay (0-2s) to avoid hitting GAS bandwidth quotas 
+        // when multiple images fail simultaneously
+        await new Promise(resolve => setTimeout(resolve, Math.random() * 2000));
+
         // Encode fileId to handle special characters (e.g. Thai characters in filenames)
         let refreshUrl = `${UPLOAD_WEB_APP_URL}?action=getFreshLink&fileId=${encodeURIComponent(fileId)}&refresh=true`;
         if (contentId) refreshUrl += `&contentId=${encodeURIComponent(contentId)}`;
         if (contentType) refreshUrl += `&contentType=${encodeURIComponent(contentType)}`;
 
-        console.log('Fetching fresh link from:', refreshUrl);
         const res = await fetch(refreshUrl);
         const data = await res.json();
-        console.log('Refresh response:', data);
         
         if (data.success && data.url) {
           const newAttachments = [...localAttachments];
@@ -75,9 +71,7 @@ export default function AttachmentList({
           if (selectedImage && selectedImage.fileId === fileId) {
             setSelectedImage(updatedImg);
           }
-          console.log('Local state updated with fresh link.');
         } else {
-          console.warn('Backend failed to provide fresh link:', data);
           setIsImageLoading(false);
         }
       } catch (err) {
@@ -87,7 +81,6 @@ export default function AttachmentList({
         setIsRefreshing(prev => ({ ...prev, [fileId]: false }));
       }
     } else {
-      console.log('Refresh skipped. URL is not Telegram or already refreshing.');
       // If it's not a refreshable link or already refreshing, stop spinner if we're in modal
       if (!isRefreshing[fileId]) setIsImageLoading(false);
     }

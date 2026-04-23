@@ -107,6 +107,34 @@ export default function StudyFlow() {
     });
   }, [allHomework, allProgress, user]);
 
+  const memoizedHomeworkAttachments = useMemo(() => {
+    if (!activeHomework) return [];
+    return [
+      ...(activeHomework.link_work ? activeHomework.link_work.split(',').filter(Boolean).map(url => {
+        const parts = url.split('#');
+        return {
+          type: 'link_work' as const,
+          url: parts[0],
+          title: decodeURIComponent(parts[1] || 'Document'),
+          fileId: parts[2] ? decodeURIComponent(parts[2]) : undefined
+        };
+      }) : []),
+      ...(activeHomework.link_image ? activeHomework.link_image.split(',').filter(Boolean).map(url => {
+        const parts = url.split('#');
+        const decodedUrl = parts[0];
+        const title = parts[1] ? decodeURIComponent(parts[1]) : 'Image';
+        const fileId = parts[2] ? decodeURIComponent(parts[2]) : undefined;
+        
+        return {
+          type: title.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp|svg)$/) || decodedUrl.match(/\.(jpg|jpeg|png|gif|webp|svg)($|\?)/) ? 'link_image' as const : 'link_work' as const,
+          url: decodedUrl,
+          title,
+          fileId
+        };
+      }) : [])
+    ];
+  }, [activeHomework?.id, activeHomework?.link_work, activeHomework?.link_image]);
+
   const handleLoginSuccess = async (credentialResponse: any) => {
     const decoded: any = jwtDecode(credentialResponse.credential);
     const newUser = {
@@ -702,30 +730,7 @@ export default function StudyFlow() {
                   <AttachmentList 
                     contentId={activeHomework.id}
                     contentType="homework"
-                    attachments={[
-                      ...(activeHomework.link_work ? activeHomework.link_work.split(',').filter(Boolean).map(url => {
-                        const parts = url.split('#');
-                        return {
-                          type: 'link_work' as const,
-                          url: parts[0],
-                          title: decodeURIComponent(parts[1] || 'Document'),
-                          fileId: parts[2] ? decodeURIComponent(parts[2]) : undefined
-                        };
-                      }) : []),
-                      ...(activeHomework.link_image ? activeHomework.link_image.split(',').filter(Boolean).map(url => {
-                        const parts = url.split('#');
-                        const decodedUrl = parts[0];
-                        const title = parts[1] ? decodeURIComponent(parts[1]) : 'Image';
-                        const fileId = parts[2] ? decodeURIComponent(parts[2]) : undefined;
-                        
-                        return {
-                          type: title.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp|svg)$/) || decodedUrl.match(/\.(jpg|jpeg|png|gif|webp|svg)($|\?)/) ? 'link_image' as const : 'link_work' as const,
-                          url: decodedUrl,
-                          title,
-                          fileId
-                        };
-                      }) : [])
-                    ]} 
+                    attachments={memoizedHomeworkAttachments} 
                   />
                 </div>
                 <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1.5rem', borderRadius: '1.5rem', lineHeight: 1.6 }}>
