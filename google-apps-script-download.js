@@ -68,7 +68,7 @@ function doGet(e) {
                 const contentId = params.contentId;
                 const contentType = params.contentType;
                 if (contentId && contentType) {
-                    _updateSpreadsheetLink(contentId, contentType, actualFileId, newLink);
+                    _updateSpreadsheetLink(contentId, contentType, actualFileId, newLink, fileId);
                 }
 
                 return createResponse(true, 'Link refreshed and synced', { 
@@ -426,59 +426,60 @@ function sendSubmissionNotification(studentName, homeworkTitle, status, content)
 /**
  * Updates the spreadsheet with a fresh link.
  */
-function _updateSpreadsheetLink(contentId, contentType, fileId, newUrl) {
+function _updateSpreadsheetLink(contentId, contentType, fileId, newUrl, originalId) {
+    Logger.log("Starting Optimized DB Sync: " + contentType + " ID=" + contentId);
     try {
         const ss = SpreadsheetApp.openById(SHEET_ID);
-        let sheetName = "";
-        let colsToUpdate = [];
-
-        if (contentType === 'homework') {
-            sheetName = "Homework";
-            colsToUpdate = [6, 7]; // link_work (index 5+1), link_image (index 6+1) -> Wait, headers are: id(1), subject(2), title(3), description(4), deadline(5), link_work(6), link_image(7)
-        } else if (contentType === 'learning_content') {
-            sheetName = "LearningContent";
-            colsToUpdate = [7, 8, 9]; // audio_url (7), attachments (8), links (9) -> Headers: id, date, subject, title, description, audio_file_id, audio_url, attachments, links
-        }
-
+        let sheetName = contentType === 'homework' ? "Homework" : "LearningContent";
         const sheet = ss.getSheetByName(sheetName);
         if (!sheet) return;
 
-        const data = sheet.getDataRange().getValues();
-        for (let i = 1; i < data.length; i++) {
-            if (String(data[i][0]) === String(contentId)) {
-                let updated = false;
-
-                colsToUpdate.forEach(colIdx => {
-                    let currentVal = String(data[i][colIdx - 1] || "");
-                    if (currentVal.includes(fileId)) {
-                        let parts = currentVal.split(',');
-                        let newParts = parts.map(part => {
-                            if (part.includes(fileId)) {
-                                let subParts = part.split('#');
-                                let title = subParts[1] ? decodeURIComponent(subParts[1]) : "";
-                                return newUrl + "#" + encodeURIComponent(title) + "#" + fileId;
-                            }
-                            return part;
-                        });
-                        sheet.getRange(i + 1, colIdx).setValue(newParts.join(','));
-                        updated = true;
-                    }
-                });
-
-                // Special check for audio_file_id in LearningContent
-                if (contentType === 'learning_content' && String(data[i][5]) === String(fileId)) {
-                    sheet.getRange(i + 1, 7).setValue(newUrl); // Update audio_url
-                    updated = true;
-                }
-
-                if (updated) {
-                    Logger.log("Successfully updated " + contentType + " " + contentId + " with new URL for " + fileId);
-                }
-                break;
-            }
+        // Use TextFinder to find the row quickly instead of scanning all rows
+        const finder = sheet.createTextFinder(contentId).matchEntireCell(true);
+        const cell = finder.findNext();
+        if (!cell) {
+            Logger.log("ID not found: " + contentId);
+            return;
         }
+
+        const rowIndex = cell.getRow();
+        const rowData = sheet.getRange(rowIndex, 1, 1, sheet.getLastColumn()).getValues()[0];
+        let colsToUpdate = contentType === 'homework' ? [6, 7] : [7, 8, 9];
+        let updated = false;
+
+        colsToUpdate.forEach(colIdx => {
+            let currentVal = String(rowData[colIdx - 1] || "");
+            if (!currentVal) return;
+
+            let parts = currentVal.split(',');
+            let rowUpdated = false;
+            let newParts = parts.map(part => {
+                let subParts = part.split('#');
+                let partTitle = subParts[1] ? decodeURIComponent(subParts[1]).trim() : "";
+                let partId = subParts[2] ? decodeURIComponent(subParts[2]).trim() : "";
+
+                if (partId === fileId || partTitle === fileId || (originalId && (partId === originalId || partTitle === originalId))) {
+                    rowUpdated = true;
+                    return newUrl + "#" + encodeURIComponent(subParts[1] || "") + "#" + fileId;
+                }
+                return part;
+            });
+
+            if (rowUpdated) {
+                sheet.getRange(rowIndex, colIdx).setValue(newParts.join(','));
+                updated = true;
+            }
+        });
+
+        // Audio fallback for LearningContent
+        if (contentType === 'learning_content' && String(rowData[5]).trim() === String(fileId).trim()) {
+            sheet.getRange(rowIndex, 7).setValue(newUrl);
+            updated = true;
+        }
+
+        if (updated) Logger.log("Successfully updated " + sheetName + " row " + rowIndex);
     } catch (err) {
-        Logger.log("Error updating spreadsheet: " + err.toString());
+        Logger.log("Sync Error: " + err.toString());
     }
 }
 

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { getFreshTelegramUrl } from '@/lib/telegram';
 
 export type Attachment = {
   type: 'link_image' | 'link_work';
@@ -58,27 +59,22 @@ export default function AttachmentList({
       setIsRefreshing(prev => ({ ...prev, [uniqueKey]: true }));
       setRefreshAttempted(prev => ({ ...prev, [uniqueKey]: true }));
       
-      console.log(`Refreshing Telegram link directly: ${targetImg.title}`);
-      
       try {
-        // Direct Client-Side Fetch (Bypasses GAS Quotas)
-        const { getFreshTelegramUrl } = await import('@/lib/telegram');
+        // 1. Direct Client-Side Fetch (Bypasses GAS - Instant)
         let freshUrl = await getFreshTelegramUrl(fileId);
 
-        // If direct fetch fails (e.g. fileId was a filename), fallback to GAS recovery
+        // 2. Fallback to GAS if direct fetch fails (usually for legacy filename-based IDs)
         if (!freshUrl) {
-          console.log("Direct fetch failed or skipped, falling back to GAS...");
+          console.log(`[Heal] Direct fetch failed for ${targetImg.title}, using GAS recovery...`);
           const refreshUrl = `${UPLOAD_WEB_APP_URL}?action=getFreshLink&fileId=${encodeURIComponent(fileId)}&refresh=true&contentId=${encodeURIComponent(contentId || '')}&contentType=${encodeURIComponent(contentType || '')}`;
           const res = await fetch(refreshUrl);
           const data = await res.json();
           if (data.success && data.url) {
             freshUrl = data.url;
-            // Capture real fileId if GAS recovered it from filename
             if (data.fileId) fileId = data.fileId;
           }
         } else {
-          // If direct fetch SUCCEEDED, we still want to notify GAS to update the spreadsheet
-          // We do this in the background (no await) to keep the UI fast
+          // Notify GAS in background to update spreadsheet
           fetch(`${UPLOAD_WEB_APP_URL}?action=getFreshLink&fileId=${encodeURIComponent(fileId)}&refresh=true&contentId=${encodeURIComponent(contentId || '')}&contentType=${encodeURIComponent(contentType || '')}`).catch(() => {});
         }
         
