@@ -483,18 +483,21 @@ function _updateSpreadsheetLink(contentId, contentType, fileId, newUrl) {
  * Fallback search: finds the real fileId by filename in the URLs sheet.
  */
 function _findFileIdByFilename(filename) {
+    if (!filename) return null;
     try {
         const ss = SpreadsheetApp.openById(SHEET_ID);
         const sheet = ss.getSheetByName(URLS_SHEET_NAME);
-        if (!sheet) return null;
+        if (!sheet || sheet.getLastRow() < 2) return null;
 
-        const data = sheet.getRange(2, 2, sheet.getLastRow() - 1, 6).getValues(); // Name (2), Type (3), URL (4), ..., Drive ID (7)
-        // Adjust indices relative to range start at col 2: Name is 0, Drive ID is 5
+        const data = sheet.getRange(2, 2, sheet.getLastRow() - 1, 6).getValues();
+        const searchName = String(filename).toLowerCase().trim();
         
         // Search backwards to get the most recent one
         for (let i = data.length - 1; i >= 0; i--) {
-            if (String(data[i][0]) === String(filename)) {
-                return String(data[i][5]); // Drive ID (Telegram fileId)
+            const rowName = String(data[i][0] || "").toLowerCase().trim();
+            if (rowName === searchName) {
+                const driveId = String(data[i][5] || "").trim();
+                if (driveId) return driveId;
             }
         }
     } catch (e) {

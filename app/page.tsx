@@ -120,12 +120,6 @@ export default function StudyFlow() {
       if (parts.length >= 2) title = decodeURIComponent(parts[1]);
       if (parts.length >= 3) fileId = decodeURIComponent(parts[2]);
 
-      // Validation: If fileId looks like a filename (has extension), it's probably wrong
-      if (fileId && fileId.includes('.') && fileId.match(/\.[a-z0-9]{2,4}$/i)) {
-        // Swap or clear if it's clearly a filename
-        fileId = undefined;
-      }
-
       return {
         url: decodedUrl,
         title,

@@ -35,12 +35,15 @@ export default function AttachmentList({
   }, [attachments]);
 
   const handleImageError = async (targetImg: Attachment, force: boolean = false) => {
-    const fileId = targetImg.fileId;
+    // If fileId is missing but it's a Telegram link, try using the title/filename as a fallback ID
+    // for the GAS recovery logic.
+    let fileId = targetImg.fileId;
+    if (!fileId && targetImg.url.includes('api.telegram.org')) {
+      fileId = targetImg.title;
+    }
     
-    // If no fileId, we can't refresh Telegram links. 
-    // But we should still stop the loading state.
     if (!fileId) {
-      console.warn("Cannot refresh: Missing fileId for", targetImg.title);
+      console.warn("Cannot refresh: Missing both fileId and filename for", targetImg.title);
       setIsImageLoading(false);
       return;
     }
