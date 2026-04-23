@@ -32,17 +32,32 @@ function doGet(e) {
     if (action === "getFreshLink" && fileId) {
         const props = PropertiesService.getScriptProperties();
         const cacheKey = "tg_link_" + fileId;
-        
+
         if (refresh) {
             try {
                 const botToken = TELEGRAM_CONFIG.BOT_TOKEN;
+                if (!botToken) throw new Error("BOT_TOKEN is not configured.");
+
                 const getFileUrl = "https://api.telegram.org/bot" + botToken + "/getFile?file_id=" + fileId;
                 const response = UrlFetchApp.fetch(getFileUrl);
-                const filePath = JSON.parse(response.getContentText()).result.file_path;
+                const result = JSON.parse(response.getContentText());
+
+                if (!result.ok) throw new Error(result.description || "Telegram API Error");
+
+                const filePath = result.result.file_path;
                 const newLink = "https://api.telegram.org/file/bot" + botToken + "/" + filePath;
-                
+
+                // 1. Update Cache
                 props.setProperty(cacheKey, newLink);
-                return createResponse(true, 'Link refreshed', { url: newLink });
+
+                // 2. Sync to Spreadsheet if context is provided
+                const contentId = params.contentId;
+                const contentType = params.contentType;
+                if (contentId && contentType) {
+                    _updateSpreadsheetLink(contentId, contentType, fileId, newLink);
+                }
+
+                return createResponse(true, 'Link refreshed and synced', { url: newLink });
             } catch (err) {
                 return createResponse(false, 'Failed to refresh link: ' + err.message);
             }
@@ -73,7 +88,7 @@ function uploadToTelegram(blob, filename, contentType) {
     // Determine Telegram method
     let method = "sendDocument";
     let payloadField = "document";
-    
+
     if (contentType && contentType.indexOf('image/') !== -1) {
         method = "sendPhoto";
         payloadField = "photo";
@@ -83,7 +98,7 @@ function uploadToTelegram(blob, filename, contentType) {
     }
 
     const apiUrl = "https://api.telegram.org/bot" + botToken + "/" + method;
-    
+
     const payload = {
         chat_id: chatId,
         caption: filename || "Uploaded via StudyFlow"
@@ -264,9 +279,9 @@ function doPost(e) {
             const url = params.url || postData.url || "";
             const filename = params.filename || postData.filename || "Uploaded File";
             const contentType = params.contentType || postData.contentType || "application/octet-stream";
-            
+
             logUploadToSheet(driveId, url, filename, contentType);
-            
+
             if (action === 'uploadProof' && email && homeworkId) {
                 _updateProgressProof(email, homeworkId, status, url);
             }
@@ -389,4 +404,63 @@ function sendSubmissionNotification(studentName, homeworkTitle, status, content)
         payload: JSON.stringify(payload),
         muteHttpExceptions: true
     });
+}
+
+/**
+ * Updates the spreadsheet with a fresh link.
+ */
+function _updateSpreadsheetLink(contentId, contentType, fileId, newUrl) {
+    try {
+        const ss = SpreadsheetApp.openById(SHEET_ID);
+        let sheetName = "";
+        let colsToUpdate = [];
+
+        if (contentType === 'homework') {
+            sheetName = "Homework";
+            colsToUpdate = [6, 7]; // link_work (index 5+1), link_image (index 6+1) -> Wait, headers are: id(1), subject(2), title(3), description(4), deadline(5), link_work(6), link_image(7)
+        } else if (contentType === 'learning_content') {
+            sheetName = "LearningContent";
+            colsToUpdate = [7, 8, 9]; // audio_url (7), attachments (8), links (9) -> Headers: id, date, subject, title, description, audio_file_id, audio_url, attachments, links
+        }
+
+        const sheet = ss.getSheetByName(sheetName);
+        if (!sheet) return;
+
+        const data = sheet.getDataRange().getValues();
+        for (let i = 1; i < data.length; i++) {
+            if (String(data[i][0]) === String(contentId)) {
+                let updated = false;
+
+                colsToUpdate.forEach(colIdx => {
+                    let currentVal = String(data[i][colIdx - 1] || "");
+                    if (currentVal.includes(fileId)) {
+                        let parts = currentVal.split(',');
+                        let newParts = parts.map(part => {
+                            if (part.includes(fileId)) {
+                                let subParts = part.split('#');
+                                let title = subParts[1] ? decodeURIComponent(subParts[1]) : "";
+                                return newUrl + "#" + encodeURIComponent(title) + "#" + fileId;
+                            }
+                            return part;
+                        });
+                        sheet.getRange(i + 1, colIdx).setValue(newParts.join(','));
+                        updated = true;
+                    }
+                });
+
+                // Special check for audio_file_id in LearningContent
+                if (contentType === 'learning_content' && String(data[i][5]) === String(fileId)) {
+                    sheet.getRange(i + 1, 7).setValue(newUrl); // Update audio_url
+                    updated = true;
+                }
+
+                if (updated) {
+                    Logger.log("Successfully updated " + contentType + " " + contentId + " with new URL for " + fileId);
+                }
+                break;
+            }
+        }
+    } catch (err) {
+        Logger.log("Error updating spreadsheet: " + err.toString());
+    }
 }

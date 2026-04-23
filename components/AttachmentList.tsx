@@ -36,35 +36,32 @@ export default function AttachmentList({
 
   const handleImageError = async (targetImg: Attachment, force: boolean = false) => {
     const fileId = targetImg.fileId;
+    
+    // If no fileId, we can't refresh Telegram links. 
+    // But we should still stop the loading state.
     if (!fileId) {
+      console.warn("Cannot refresh: Missing fileId for", targetImg.title);
       setIsImageLoading(false);
       return;
     }
 
-    // Use a truly unique key for this specific attachment instance
     const uniqueKey = `${fileId}_${targetImg.url}`;
 
-    // Don't retry if we've already tried this exact link and it's still failing, 
-    // or if it's currently refreshing.
     if ((refreshAttempted[uniqueKey] && !force) || isRefreshing[uniqueKey]) {
       setIsImageLoading(false);
       return;
     }
 
-    const idx = localAttachments.findIndex(a => a.fileId === fileId && a.url === targetImg.url);
-    if (idx === -1) {
-      setIsImageLoading(false);
-      return;
-    }
-
-    const img = localAttachments[idx];
-    if (img.url.includes('api.telegram.org')) {
+    if (targetImg.url.includes('api.telegram.org')) {
       setIsRefreshing(prev => ({ ...prev, [uniqueKey]: true }));
       setRefreshAttempted(prev => ({ ...prev, [uniqueKey]: true }));
       
+      console.log(`Attempting to refresh Telegram link for: ${targetImg.title} (${fileId})`);
+      
       try {
+        // Staggered retry to avoid hitting GAS quotas if many images fail at once
         if (!force) {
-          await new Promise(resolve => setTimeout(resolve, Math.random() * 2000));
+          await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 1500));
         }
 
         let refreshUrl = `${UPLOAD_WEB_APP_URL}?action=getFreshLink&fileId=${encodeURIComponent(fileId)}&refresh=true`;
@@ -75,6 +72,8 @@ export default function AttachmentList({
         const data = await res.json();
         
         if (data.success && data.url) {
+          console.log(`Successfully got fresh link for ${fileId}`);
+          
           setLocalAttachments(prev => {
             const newArr = [...prev];
             const currentIdx = newArr.findIndex(a => a.fileId === fileId && a.url === targetImg.url);
@@ -82,23 +81,32 @@ export default function AttachmentList({
               const updated = { ...newArr[currentIdx], url: data.url };
               newArr[currentIdx] = updated;
               
-              if (selectedImage && selectedImage.fileId === fileId && selectedImage.url === targetImg.url) {
-                setSelectedImage(updated);
-              }
+              // Also update the selected image if this was the one being viewed
+              setSelectedImage(currentSelected => {
+                if (currentSelected && currentSelected.fileId === fileId && currentSelected.url === targetImg.url) {
+                  return updated;
+                }
+                return currentSelected;
+              });
             }
             return newArr;
           });
           
-          setRefreshAttempted(prev => ({ ...prev, [uniqueKey]: false }));
+          // Reset failure flag for the NEW URL that will be generated
+          // No need to reset uniqueKey as it's specific to the old URL
         } else {
+          console.error("Failed to get fresh link from GAS:", data.message || "Unknown error");
           setIsImageLoading(false);
         }
       } catch (err) {
-        console.error('Failed to refresh Telegram link:', err);
+        console.error('Network error while refreshing Telegram link:', err);
         setIsImageLoading(false);
       } finally {
         setIsRefreshing(prev => ({ ...prev, [uniqueKey]: false }));
       }
+    } else if (targetImg.url.includes('drive.google.com')) {
+      console.warn("Google Drive link failed - likely bandwidth quota exceeded.");
+      setIsImageLoading(false);
     } else {
       setIsImageLoading(false);
     }
