@@ -49,7 +49,7 @@ export default function AttachmentList({
       return;
     }
 
-    const idx = localAttachments.findIndex(a => a.fileId === fileId);
+    const idx = localAttachments.findIndex(a => a.fileId === fileId && a.url === targetImg.url);
     if (idx === -1) {
       setIsImageLoading(false);
       return;
@@ -61,14 +61,10 @@ export default function AttachmentList({
       setRefreshAttempted(prev => ({ ...prev, [fileId]: true }));
       
       try {
-        // If it's a force refresh, we don't delay to give immediate feedback
         if (!force) {
-          // Add a random staggered delay (0-2s) to avoid hitting GAS bandwidth quotas 
-          // when multiple images fail simultaneously
           await new Promise(resolve => setTimeout(resolve, Math.random() * 2000));
         }
 
-        // Encode fileId to handle special characters (e.g. Thai characters in filenames)
         let refreshUrl = `${UPLOAD_WEB_APP_URL}?action=getFreshLink&fileId=${encodeURIComponent(fileId)}&refresh=true`;
         if (contentId) refreshUrl += `&contentId=${encodeURIComponent(contentId)}`;
         if (contentType) refreshUrl += `&contentType=${encodeURIComponent(contentType)}`;
@@ -77,16 +73,22 @@ export default function AttachmentList({
         const data = await res.json();
         
         if (data.success && data.url) {
-          const newAttachments = [...localAttachments];
-          const updatedImg = { ...img, url: data.url };
-          newAttachments[idx] = updatedImg;
-          setLocalAttachments(newAttachments);
+          // Use functional update to prevent race conditions when multiple images refresh at once
+          setLocalAttachments(prev => {
+            const newArr = [...prev];
+            const currentIdx = newArr.findIndex(a => a.fileId === fileId && a.url === targetImg.url);
+            if (currentIdx !== -1) {
+              const updated = { ...newArr[currentIdx], url: data.url };
+              newArr[currentIdx] = updated;
+              
+              // Also update selectedImage if it's the one that just refreshed
+              if (selectedImage && selectedImage.fileId === fileId && selectedImage.url === targetImg.url) {
+                setSelectedImage(updated);
+              }
+            }
+            return newArr;
+          });
           
-          if (selectedImage && selectedImage.fileId === fileId) {
-            setSelectedImage(updatedImg);
-          }
-          
-          // Clear attempt flag on success so we can refresh again if this NEW link expires later
           setRefreshAttempted(prev => ({ ...prev, [fileId]: false }));
         } else {
           setIsImageLoading(false);
@@ -98,7 +100,6 @@ export default function AttachmentList({
         setIsRefreshing(prev => ({ ...prev, [fileId]: false }));
       }
     } else {
-      // If it's not a refreshable link or already refreshing, stop spinner if we're in modal
       setIsImageLoading(false);
     }
   };
@@ -218,7 +219,22 @@ export default function AttachmentList({
       {/* Images Section */}
       {images.length > 0 && (
         <div className="flex flex-col gap-3">
-          <h4 className="text-sm font-semibold text-slate-700 uppercase tracking-wider">Image Gallery</h4>
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-semibold text-slate-700 uppercase tracking-wider">Image Gallery</h4>
+            {images.some(img => refreshAttempted[img.fileId || '']) && (
+              <button 
+                onClick={() => {
+                  images.forEach(img => {
+                    if (refreshAttempted[img.fileId || '']) handleImageError(img, true);
+                  });
+                }}
+                className="text-[10px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded-md transition-colors flex items-center gap-1"
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                Refresh All Broken
+              </button>
+            )}
+          </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {images.map((img, idx) => (
               <div 
