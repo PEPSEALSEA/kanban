@@ -75,18 +75,28 @@ export default function AttachmentList({
         const data = await res.json();
         
         if (data.success && data.url) {
-          console.log(`Successfully got fresh link for ${fileId}`);
+          console.log(`Successfully got fresh link for ${targetImg.title}`);
           
           setLocalAttachments(prev => {
             const newArr = [...prev];
-            const currentIdx = newArr.findIndex(a => a.fileId === fileId && a.url === targetImg.url);
+            // Find the item using the same criteria as handleImageError
+            const currentIdx = newArr.findIndex(a => 
+              a.url === targetImg.url && 
+              (a.fileId === targetImg.fileId || (targetImg.url.includes('api.telegram.org') && a.title === targetImg.title))
+            );
+
             if (currentIdx !== -1) {
-              const updated = { ...newArr[currentIdx], url: data.url };
+              const updated = { 
+                ...newArr[currentIdx], 
+                url: data.url,
+                // If we recovered a real fileId from GAS, store it locally!
+                fileId: data.fileId || newArr[currentIdx].fileId 
+              };
               newArr[currentIdx] = updated;
               
               // Also update the selected image if this was the one being viewed
               setSelectedImage(currentSelected => {
-                if (currentSelected && currentSelected.fileId === fileId && currentSelected.url === targetImg.url) {
+                if (currentSelected && currentSelected.url === targetImg.url) {
                   return updated;
                 }
                 return currentSelected;
@@ -94,9 +104,6 @@ export default function AttachmentList({
             }
             return newArr;
           });
-          
-          // Reset failure flag for the NEW URL that will be generated
-          // No need to reset uniqueKey as it's specific to the old URL
         } else {
           console.error("Failed to get fresh link from GAS:", data.message || "Unknown error");
           setIsImageLoading(false);

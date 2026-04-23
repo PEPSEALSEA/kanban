@@ -39,8 +39,13 @@ export default function AudioPlayer({ contentId, contentType = 'learning_content
         const data = await res.json();
         if (data.success && data.url) {
           setCurrentSrc(data.url);
-          setShowStatus('Link refreshed! Please play again.');
-          setTimeout(() => setShowStatus(''), 3000);
+          // If we recovered a real fileId, it's good to have it, 
+          // though AudioPlayer uses the driveId prop.
+          setShowStatus('Link refreshed! Playing...');
+          setTimeout(() => {
+            setShowStatus('');
+            if (audioRef.current) audioRef.current.play();
+          }, 2000);
         }
       } catch (err) {
         console.error('Failed to refresh audio link:', err);

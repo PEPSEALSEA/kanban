@@ -71,7 +71,10 @@ function doGet(e) {
                     _updateSpreadsheetLink(contentId, contentType, actualFileId, newLink);
                 }
 
-                return createResponse(true, 'Link refreshed and synced', { url: newLink });
+                return createResponse(true, 'Link refreshed and synced', { 
+                    url: newLink,
+                    fileId: actualFileId 
+                });
             } catch (err) {
                 return createResponse(false, 'Failed to refresh link: ' + err.message);
             }
