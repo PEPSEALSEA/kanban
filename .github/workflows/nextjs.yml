@@ -24,8 +24,6 @@ concurrency:
   group: "pages"
   cancel-in-progress: false
 
-env:
-  # Deployment environment variables
 
 jobs:
   # Build job
