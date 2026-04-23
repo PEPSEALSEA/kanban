@@ -31,22 +31,36 @@ function doGet(e) {
     // --- TELEGRAM LINK GETTER / REFRESHER ---
     if (action === "getFreshLink" && fileId) {
         const props = PropertiesService.getScriptProperties();
-        const cacheKey = "tg_link_" + fileId;
-
+        
         if (refresh) {
             try {
+                // 1. Detect if fileId is actually a filename (fallback for legacy data)
+                let actualFileId = fileId;
+                if (fileId.includes('.') && fileId.match(/\.[a-z0-9]{2,4}$/i)) {
+                    const foundId = _findFileIdByFilename(fileId);
+                    if (foundId) {
+                        actualFileId = foundId;
+                        Logger.log("Resolved filename " + fileId + " to fileId " + actualFileId);
+                    } else {
+                        throw new Error("Could not find fileId for filename: " + fileId);
+                    }
+                }
+
+                const cacheKey = "tg_link_" + actualFileId;
                 const botToken = TELEGRAM_CONFIG.BOT_TOKEN;
                 if (!botToken) throw new Error("BOT_TOKEN is not configured.");
 
-                const getFileUrl = "https://api.telegram.org/bot" + botToken + "/getFile?file_id=" + fileId;
-                const response = UrlFetchApp.fetch(getFileUrl);
+                const getFileUrl = "https://api.telegram.org/bot" + botToken + "/getFile?file_id=" + actualFileId;
+                const response = UrlFetchApp.fetch(getFileUrl, { muteHttpExceptions: true });
                 const result = JSON.parse(response.getContentText());
-
-                if (!result.ok) throw new Error(result.description || "Telegram API Error");
+                
+                if (!result.ok) {
+                    throw new Error(result.description || "Telegram API Error");
+                }
 
                 const filePath = result.result.file_path;
                 const newLink = "https://api.telegram.org/file/bot" + botToken + "/" + filePath;
-
+                
                 // 1. Update Cache
                 props.setProperty(cacheKey, newLink);
 
@@ -54,7 +68,7 @@ function doGet(e) {
                 const contentId = params.contentId;
                 const contentType = params.contentType;
                 if (contentId && contentType) {
-                    _updateSpreadsheetLink(contentId, contentType, fileId, newLink);
+                    _updateSpreadsheetLink(contentId, contentType, actualFileId, newLink);
                 }
 
                 return createResponse(true, 'Link refreshed and synced', { url: newLink });
@@ -63,7 +77,7 @@ function doGet(e) {
             }
         }
 
-        const cachedLink = props.getProperty(cacheKey) || "";
+        const cachedLink = props.getProperty("tg_link_" + fileId) || "";
         return createResponse(true, 'Link retrieved', { url: cachedLink });
     }
 
@@ -463,4 +477,28 @@ function _updateSpreadsheetLink(contentId, contentType, fileId, newUrl) {
     } catch (err) {
         Logger.log("Error updating spreadsheet: " + err.toString());
     }
+}
+
+/**
+ * Fallback search: finds the real fileId by filename in the URLs sheet.
+ */
+function _findFileIdByFilename(filename) {
+    try {
+        const ss = SpreadsheetApp.openById(SHEET_ID);
+        const sheet = ss.getSheetByName(URLS_SHEET_NAME);
+        if (!sheet) return null;
+
+        const data = sheet.getRange(2, 2, sheet.getLastRow() - 1, 6).getValues(); // Name (2), Type (3), URL (4), ..., Drive ID (7)
+        // Adjust indices relative to range start at col 2: Name is 0, Drive ID is 5
+        
+        // Search backwards to get the most recent one
+        for (let i = data.length - 1; i >= 0; i--) {
+            if (String(data[i][0]) === String(filename)) {
+                return String(data[i][5]); // Drive ID (Telegram fileId)
+            }
+        }
+    } catch (e) {
+        Logger.log("Error in _findFileIdByFilename: " + e.toString());
+    }
+    return null;
 }

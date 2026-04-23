@@ -133,25 +133,37 @@ export default function LearningContentPage() {
 
   const memoizedAttachments = useMemo(() => {
     if (!activeContent) return [];
+
+    const parseItem = (url: string) => {
+      const parts = url.split('#');
+      const decodedUrl = parts[0];
+      let title = 'Attachment';
+      let fileId: string | undefined = undefined;
+
+      // Extract parts: url#title#fileId
+      if (parts.length >= 2) title = decodeURIComponent(parts[1]);
+      if (parts.length >= 3) fileId = decodeURIComponent(parts[2]);
+
+      // Validation: If fileId looks like a filename (has extension), it's probably wrong
+      if (fileId && fileId.includes('.') && fileId.match(/\.[a-z0-9]{2,4}$/i)) {
+        fileId = undefined;
+      }
+
+      return {
+        url: decodedUrl,
+        title,
+        fileId,
+        type: title.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp|svg)$/) || decodedUrl.match(/\.(jpg|jpeg|png|gif|webp|svg)($|\?)/) ? 'link_image' as const : 'link_work' as const
+      };
+    };
+
     const items = [
       ...(activeContent.links ? activeContent.links.split(',').filter(Boolean).map((link, idx) => ({
         type: 'link_work' as const,
         url: link.trim(),
         title: `External Link ${idx + 1}`
       })) : []),
-      ...(activeContent.attachments ? activeContent.attachments.split(',').filter(Boolean).map(url => {
-        const parts = url.split('#');
-        const decodedUrl = parts[0];
-        const title = parts[1] ? decodeURIComponent(parts[1]) : 'Attachment';
-        const fileId = parts[2] ? decodeURIComponent(parts[2]) : undefined;
-        
-        return {
-          type: title.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp|svg)$/) || decodedUrl.match(/\.(jpg|jpeg|png|gif|webp|svg)($|\?)/) ? 'link_image' as const : 'link_work' as const,
-          url: decodedUrl,
-          title,
-          fileId
-        };
-      }) : [])
+      ...(activeContent.attachments ? activeContent.attachments.split(',').filter(Boolean).map(parseItem) : [])
     ];
     return items;
   }, [activeContent?.id, activeContent?.links, activeContent?.attachments]);

@@ -109,29 +109,34 @@ export default function StudyFlow() {
 
   const memoizedHomeworkAttachments = useMemo(() => {
     if (!activeHomework) return [];
+    
+    const parseItem = (url: string) => {
+      const parts = url.split('#');
+      const decodedUrl = parts[0];
+      let title = 'Document';
+      let fileId: string | undefined = undefined;
+
+      // Extract parts: url#title#fileId
+      if (parts.length >= 2) title = decodeURIComponent(parts[1]);
+      if (parts.length >= 3) fileId = decodeURIComponent(parts[2]);
+
+      // Validation: If fileId looks like a filename (has extension), it's probably wrong
+      if (fileId && fileId.includes('.') && fileId.match(/\.[a-z0-9]{2,4}$/i)) {
+        // Swap or clear if it's clearly a filename
+        fileId = undefined;
+      }
+
+      return {
+        url: decodedUrl,
+        title,
+        fileId,
+        type: title.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp|svg)$/) || decodedUrl.match(/\.(jpg|jpeg|png|gif|webp|svg)($|\?)/) ? 'link_image' as const : 'link_work' as const
+      };
+    };
+
     return [
-      ...(activeHomework.link_work ? activeHomework.link_work.split(',').filter(Boolean).map(url => {
-        const parts = url.split('#');
-        return {
-          type: 'link_work' as const,
-          url: parts[0],
-          title: decodeURIComponent(parts[1] || 'Document'),
-          fileId: parts[2] ? decodeURIComponent(parts[2]) : undefined
-        };
-      }) : []),
-      ...(activeHomework.link_image ? activeHomework.link_image.split(',').filter(Boolean).map(url => {
-        const parts = url.split('#');
-        const decodedUrl = parts[0];
-        const title = parts[1] ? decodeURIComponent(parts[1]) : 'Image';
-        const fileId = parts[2] ? decodeURIComponent(parts[2]) : undefined;
-        
-        return {
-          type: title.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp|svg)$/) || decodedUrl.match(/\.(jpg|jpeg|png|gif|webp|svg)($|\?)/) ? 'link_image' as const : 'link_work' as const,
-          url: decodedUrl,
-          title,
-          fileId
-        };
-      }) : [])
+      ...(activeHomework.link_work ? activeHomework.link_work.split(',').filter(Boolean).map(parseItem) : []),
+      ...(activeHomework.link_image ? activeHomework.link_image.split(',').filter(Boolean).map(parseItem) : [])
     ];
   }, [activeHomework?.id, activeHomework?.link_work, activeHomework?.link_image]);
 
