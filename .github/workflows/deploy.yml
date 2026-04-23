@@ -21,7 +21,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  # Deployment environment variables
 
 jobs:
   # Build job
