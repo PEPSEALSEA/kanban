@@ -24,6 +24,7 @@ export default function AttachmentList({
   const [selectedImage, setSelectedImage] = useState<Attachment | null>(null);
   const [isImageLoading, setIsImageLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState<Record<string, boolean>>({});
+  const [refreshAttempted, setRefreshAttempted] = useState<Record<string, boolean>>({});
 
   // Sync local state when props change and sort A-Z
   React.useEffect(() => {
@@ -40,6 +41,13 @@ export default function AttachmentList({
       return;
     }
 
+    // Don't retry if we've already tried this ID and it's still failing, 
+    // or if it's currently refreshing
+    if (refreshAttempted[fileId] || isRefreshing[fileId]) {
+      setIsImageLoading(false);
+      return;
+    }
+
     const idx = localAttachments.findIndex(a => a.fileId === fileId);
     if (idx === -1) {
       setIsImageLoading(false);
@@ -47,8 +55,10 @@ export default function AttachmentList({
     }
 
     const img = localAttachments[idx];
-    if (img.url.includes('api.telegram.org') && !isRefreshing[fileId]) {
+    if (img.url.includes('api.telegram.org')) {
       setIsRefreshing(prev => ({ ...prev, [fileId]: true }));
+      setRefreshAttempted(prev => ({ ...prev, [fileId]: true }));
+      
       try {
         // Add a random staggered delay (0-2s) to avoid hitting GAS bandwidth quotas 
         // when multiple images fail simultaneously
@@ -71,6 +81,9 @@ export default function AttachmentList({
           if (selectedImage && selectedImage.fileId === fileId) {
             setSelectedImage(updatedImg);
           }
+          
+          // Clear attempt flag on success so we can refresh again if this NEW link expires later
+          setRefreshAttempted(prev => ({ ...prev, [fileId]: false }));
         } else {
           setIsImageLoading(false);
         }
@@ -82,7 +95,7 @@ export default function AttachmentList({
       }
     } else {
       // If it's not a refreshable link or already refreshing, stop spinner if we're in modal
-      if (!isRefreshing[fileId]) setIsImageLoading(false);
+      setIsImageLoading(false);
     }
   };
   const [zoomLevel, setZoomLevel] = useState(1);
