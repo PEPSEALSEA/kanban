@@ -172,26 +172,30 @@ export default function LearningContentPage() {
               <AttachmentList 
                 contentId={activeContent.id}
                 contentType="learning_content"
-                attachments={[
-                  ...(activeContent.links ? activeContent.links.split(',').filter(Boolean).map((link, idx) => ({
-                    type: 'link_work' as const,
-                    url: link.trim(),
-                    title: `External Link ${idx + 1}`
-                  })) : []),
-                  ...(activeContent.attachments ? activeContent.attachments.split(',').filter(Boolean).map(url => {
-                    const parts = url.split('#');
-                    const decodedUrl = parts[0];
-                    const title = parts[1] ? decodeURIComponent(parts[1]) : 'Attachment';
-                    const fileId = parts[2] ? decodeURIComponent(parts[2]) : undefined;
-                    
-                    return {
-                      type: title.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp|svg)$/) || decodedUrl.match(/\.(jpg|jpeg|png|gif|webp|svg)($|\?)/) ? 'link_image' as const : 'link_work' as const,
-                      url: decodedUrl,
-                      title,
-                      fileId
-                    };
-                  }) : [])
-                ]} 
+                attachments={(() => {
+                  const items = [
+                    ...(activeContent.links ? activeContent.links.split(',').filter(Boolean).map((link, idx) => ({
+                      type: 'link_work' as const,
+                      url: link.trim(),
+                      title: `External Link ${idx + 1}`
+                    })) : []),
+                    ...(activeContent.attachments ? activeContent.attachments.split(',').filter(Boolean).map(url => {
+                      const parts = url.split('#');
+                      const decodedUrl = parts[0];
+                      const title = parts[1] ? decodeURIComponent(parts[1]) : 'Attachment';
+                      const fileId = parts[2] ? decodeURIComponent(parts[2]) : undefined;
+                      
+                      return {
+                        type: title.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp|svg)$/) || decodedUrl.match(/\.(jpg|jpeg|png|gif|webp|svg)($|\?)/) ? 'link_image' as const : 'link_work' as const,
+                        url: decodedUrl,
+                        title,
+                        fileId
+                      };
+                    }) : [])
+                  ];
+                  console.log('Parsed attachments for AttachmentList:', items);
+                  return items;
+                })()} 
               />
             </div>
           )}

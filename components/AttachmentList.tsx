@@ -34,20 +34,26 @@ export default function AttachmentList({
   }, [attachments]);
 
   const handleImageError = async (targetImg: Attachment) => {
+    console.log('Image error triggered for:', targetImg.title, 'URL:', targetImg.url);
     const fileId = targetImg.fileId;
     if (!fileId) {
+      console.warn('Refresh aborted: No fileId found for', targetImg.title);
       setIsImageLoading(false);
       return;
     }
 
     const idx = localAttachments.findIndex(a => a.fileId === fileId);
     if (idx === -1) {
+      console.warn('Refresh aborted: Could not find attachment in local state by fileId:', fileId);
       setIsImageLoading(false);
       return;
     }
 
     const img = localAttachments[idx];
+    console.log('Target attachment found at index:', idx, 'Refreshing state:', isRefreshing[fileId]);
+    
     if (img.url.includes('api.telegram.org') && !isRefreshing[fileId]) {
+      console.log('Conditions met. Starting refresh for fileId:', fileId);
       setIsRefreshing(prev => ({ ...prev, [fileId]: true }));
       try {
         // Encode fileId to handle special characters (e.g. Thai characters in filenames)
@@ -55,8 +61,11 @@ export default function AttachmentList({
         if (contentId) refreshUrl += `&contentId=${encodeURIComponent(contentId)}`;
         if (contentType) refreshUrl += `&contentType=${encodeURIComponent(contentType)}`;
 
+        console.log('Fetching fresh link from:', refreshUrl);
         const res = await fetch(refreshUrl);
         const data = await res.json();
+        console.log('Refresh response:', data);
+        
         if (data.success && data.url) {
           const newAttachments = [...localAttachments];
           const updatedImg = { ...img, url: data.url };
@@ -66,7 +75,9 @@ export default function AttachmentList({
           if (selectedImage && selectedImage.fileId === fileId) {
             setSelectedImage(updatedImg);
           }
+          console.log('Local state updated with fresh link.');
         } else {
+          console.warn('Backend failed to provide fresh link:', data);
           setIsImageLoading(false);
         }
       } catch (err) {
@@ -76,6 +87,7 @@ export default function AttachmentList({
         setIsRefreshing(prev => ({ ...prev, [fileId]: false }));
       }
     } else {
+      console.log('Refresh skipped. URL is not Telegram or already refreshing.');
       // If it's not a refreshable link or already refreshing, stop spinner if we're in modal
       if (!isRefreshing[fileId]) setIsImageLoading(false);
     }
@@ -145,6 +157,9 @@ export default function AttachmentList({
 
   const images = localAttachments.filter((a) => a.type === 'link_image');
   const files = localAttachments.filter((a) => a.type === 'link_work');
+
+  console.log('AttachmentList Render - Total:', localAttachments.length, 'Images:', images.length, 'Files:', files.length);
+  if (images.length > 0) console.log('First image data:', images[0]);
 
   return (
     <div className="w-full flex flex-col gap-4">
