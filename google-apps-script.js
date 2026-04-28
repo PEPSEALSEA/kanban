@@ -537,7 +537,7 @@ function sendDailySummaryToDiscord() {
                 Logger.log("Discord is rate limiting (429). Retrying in " + waitTime + "ms... (" + retries + " attempts left)");
                 Utilities.sleep(waitTime);
                 retries--;
-                waitTime *= 2; // Exponential backoff
+                // waitTime *= 2; // Exponential backoff
                 continue;
             } else if (code >= 200 && code < 300) {
                 Logger.log("Discord Response Code: " + code);
@@ -608,9 +608,8 @@ function generateDailySummary() {
         const tomorrowReset = new Date(todayReset.getTime() + 1 * 24 * 60 * 60 * 1000);
         const deadlineReset = _getMidnightGMT7(deadlineDate);
 
-        // If it's in the past or today, move to longTerm/unscheduled
+        // Filter: Completely exclude tasks from the past or today
         if (deadlineReset < tomorrowReset) {
-            longTerm.push(hw);
             return;
         }
 
