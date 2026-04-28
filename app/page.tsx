@@ -413,6 +413,10 @@ export default function StudyFlow() {
     homeworkWithStatus.forEach(hw => {
       const deadline = new Date(hw.deadline);
       const diffDays = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      
+      // Filter: Show only "after today" onwards (diffDays >= 1)
+      if (diffDays < 1) return;
+
       if (diffDays <= 3) categorized.soon.push(hw);
       else if (diffDays <= 7) categorized.week.push(hw);
       else categorized.backlog.push(hw);
