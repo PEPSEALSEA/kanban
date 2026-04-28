@@ -605,11 +605,11 @@ function generateDailySummary() {
         // Only include future or "very recent" past (e.g. today)
         // Set both to midnight for better comparison
         const todayReset = _getMidnightGMT7(now);
-        const afterTomorrowReset = new Date(todayReset.getTime() + 2 * 24 * 60 * 60 * 1000);
+        const tomorrowReset = new Date(todayReset.getTime() + 1 * 24 * 60 * 60 * 1000);
         const deadlineReset = _getMidnightGMT7(deadlineDate);
 
-        // If it's in the past or today/tomorrow, move to longTerm/unscheduled
-        if (deadlineReset < afterTomorrowReset) {
+        // If it's in the past or today, move to longTerm/unscheduled
+        if (deadlineReset < tomorrowReset) {
             longTerm.push(hw);
             return;
         }
@@ -642,14 +642,14 @@ function generateDailySummary() {
     // Find unique keys for daily groups in order of dates
     const keys = [];
     const todayReset = _getMidnightGMT7(now);
-    const afterTomorrowReset = new Date(todayReset.getTime() + 2 * 24 * 60 * 60 * 1000);
+    const tomorrowReset = new Date(todayReset.getTime() + 1 * 24 * 60 * 60 * 1000);
     
     sortedHw.forEach(hw => {
         if (!hw.deadline) return;
         const deadlineDate = new Date(hw.deadline);
         const deadlineReset = _getMidnightGMT7(deadlineDate);
         
-        if (deadlineReset <= threshold && deadlineReset >= afterTomorrowReset) {
+        if (deadlineReset <= threshold && deadlineReset >= tomorrowReset) {
             const dateStr = `${String(deadlineReset.getDate()).padStart(2, '0')}/${String(deadlineReset.getMonth() + 1).padStart(2, '0')}`;
             const dayName = thaiDays[deadlineReset.getDay()];
             const groupKey = `## ${dayName} (${dateStr})`;
