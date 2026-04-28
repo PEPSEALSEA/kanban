@@ -521,7 +521,7 @@ function sendDailySummaryToDiscord() {
         Logger.log("Sending summary to Discord (" + finalContent.length + " chars)...");
         
         let response;
-        let retries = 3;
+        let retries = 10;
         let waitTime = 2000;
 
         while (retries > 0) {
@@ -604,10 +604,12 @@ function generateDailySummary() {
 
         // Only include future or "very recent" past (e.g. today)
         // Set both to midnight for better comparison
-        const todayReset = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const deadlineReset = new Date(deadlineDate.getFullYear(), deadlineDate.getMonth(), deadlineDate.getDate());
+        const todayReset = _getMidnightGMT7(now);
+        const afterTomorrowReset = new Date(todayReset.getTime() + 2 * 24 * 60 * 60 * 1000);
+        const deadlineReset = _getMidnightGMT7(deadlineDate);
 
-        if (deadlineReset < todayReset) {
+        // If it's in the past or today/tomorrow, move to longTerm/unscheduled
+        if (deadlineReset < afterTomorrowReset) {
             longTerm.push(hw);
             return;
         }
@@ -639,12 +641,17 @@ function generateDailySummary() {
 
     // Find unique keys for daily groups in order of dates
     const keys = [];
+    const todayReset = _getMidnightGMT7(now);
+    const afterTomorrowReset = new Date(todayReset.getTime() + 2 * 24 * 60 * 60 * 1000);
+    
     sortedHw.forEach(hw => {
         if (!hw.deadline) return;
         const deadlineDate = new Date(hw.deadline);
-        if (deadlineDate <= threshold && deadlineDate >= new Date(now.getFullYear(), now.getMonth(), now.getDate())) {
-            const dateStr = `${String(deadlineDate.getDate()).padStart(2, '0')}/${String(deadlineDate.getMonth() + 1).padStart(2, '0')}`;
-            const dayName = thaiDays[deadlineDate.getDay()];
+        const deadlineReset = _getMidnightGMT7(deadlineDate);
+        
+        if (deadlineReset <= threshold && deadlineReset >= afterTomorrowReset) {
+            const dateStr = `${String(deadlineReset.getDate()).padStart(2, '0')}/${String(deadlineReset.getMonth() + 1).padStart(2, '0')}`;
+            const dayName = thaiDays[deadlineReset.getDay()];
             const groupKey = `## ${dayName} (${dateStr})`;
             if (!keys.includes(groupKey)) keys.push(groupKey);
         }
@@ -784,4 +791,11 @@ function getBatchData() {
         progress: getAllProgress(),
         learningContent: getLearningContent()
     };
+}
+
+function _getMidnightGMT7(date) {
+    if (!date || isNaN(date.getTime())) date = new Date();
+    const gmt7Str = Utilities.formatDate(date, "GMT+7", "yyyy-MM-dd");
+    const [y, m, d] = gmt7Str.split('-').map(Number);
+    return new Date(y, m - 1, d);
 }

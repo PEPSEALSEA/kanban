@@ -31,20 +31,24 @@ export function KanbanDesktopView({
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const categorized = { soon: [] as Homework[], week: [] as Homework[], backlog: [] as Homework[] };
-    
+
     homeworkWithStatus.forEach(hw => {
       const deadline = new Date(hw.deadline);
       const diffDays = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+      // Filter: Show only "after today" onwards (diffDays >= 1)
+      if (diffDays < 1) return;
+
       if (diffDays <= 3) categorized.soon.push(hw);
       else if (diffDays <= 7) categorized.week.push(hw);
       else categorized.backlog.push(hw);
     });
 
     const sortFn = (a: Homework, b: Homework) => (a.my_status === 'done' ? 1 : 0) - (b.my_status === 'done' ? 1 : 0);
-    return { 
-      soon: categorized.soon.sort(sortFn), 
-      week: categorized.week.sort(sortFn), 
-      backlog: categorized.backlog.sort(sortFn) 
+    return {
+      soon: categorized.soon.sort(sortFn),
+      week: categorized.week.sort(sortFn),
+      backlog: categorized.backlog.sort(sortFn)
     };
   }, [homeworkWithStatus]);
 
@@ -71,7 +75,7 @@ export function KanbanDesktopView({
       {/* Calendar/Timeline Navigation Controls */}
       {(viewMode === 'calendar' || viewMode === 'timeline') && (
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '1.5rem', marginBottom: '2rem' }}>
-          <button 
+          <button
             onClick={() => {
               const d = new Date(focusDate);
               if (viewMode === 'calendar') d.setMonth(d.getMonth() - 1);
@@ -82,12 +86,12 @@ export function KanbanDesktopView({
             style={{ width: '40px', height: '40px', borderRadius: '50%', border: 'none', color: '#fff', cursor: 'pointer' }}
           >←</button>
           <h2 style={{ fontSize: '1.25rem', fontWeight: 800, minWidth: '180px', textAlign: 'center' }}>
-            {viewMode === 'calendar' 
+            {viewMode === 'calendar'
               ? focusDate.toLocaleDateString('th-TH', { month: 'long', year: 'numeric' })
               : `Week of ${new Date(focusDate).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}`
             }
           </h2>
-          <button 
+          <button
             onClick={() => {
               const d = new Date(focusDate);
               if (viewMode === 'calendar') d.setMonth(d.getMonth() + 1);
@@ -97,7 +101,7 @@ export function KanbanDesktopView({
             className="glass"
             style={{ width: '40px', height: '40px', borderRadius: '50%', border: 'none', color: '#fff', cursor: 'pointer' }}
           >→</button>
-          <button 
+          <button
             onClick={() => setFocusDate(new Date())}
             className="glass"
             style={{ padding: '0.5rem 1rem', borderRadius: '1rem', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '0.8rem' }}
@@ -145,12 +149,12 @@ export function KanbanDesktopView({
 
         {viewMode === 'calendar' && (
           <div style={{ padding: '0 2.5rem 2.5rem' }}>
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: 'repeat(7, 1fr)', 
-              gap: '1px', 
-              background: 'var(--card-border)', 
-              borderRadius: '1.5rem', 
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(7, 1fr)',
+              gap: '1px',
+              background: 'var(--card-border)',
+              borderRadius: '1.5rem',
               overflow: 'hidden',
               border: '1px solid var(--card-border)'
             }}>
@@ -164,38 +168,38 @@ export function KanbanDesktopView({
                 const totalDays = new Date(year, month + 1, 0).getDate();
                 const cells = [];
                 const prevMonthDays = new Date(year, month, 0).getDate();
-                
+
                 for (let i = firstDay - 1; i >= 0; i--) cells.push({ day: prevMonthDays - i, month: month - 1, year, current: false });
                 for (let i = 1; i <= totalDays; i++) cells.push({ day: i, month, year, current: true });
                 while (cells.length < 42) cells.push({ day: cells.length - totalDays - firstDay + 1, month: month + 1, year, current: false });
-                
+
                 return cells.map((d, i) => {
                   const isToday = new Date().toDateString() === new Date(d.year, d.month, d.day).toDateString();
                   const dayTasks = homeworkWithStatus.filter(hw => {
                     const hwDate = new Date(hw.deadline);
                     return hwDate.getDate() === d.day && hwDate.getMonth() === d.month && hwDate.getFullYear() === d.year;
                   });
-                  
+
                   return (
-                    <div 
-                      key={i} 
+                    <div
+                      key={i}
                       className={`calendar-day ${!d.current ? 'not-current' : ''} ${isToday ? 'today' : ''}`}
-                      style={{ 
+                      style={{
                         opacity: d.current ? 1 : 0.4,
                         display: 'flex', flexDirection: 'column', gap: '4px', overflowY: 'auto'
                       }}
                     >
                       <span style={{ fontSize: '0.85rem', fontWeight: d.current ? 700 : 400 }}>{d.day}</span>
                       {dayTasks.map(task => (
-                        <div 
-                          key={task.id} 
+                        <div
+                          key={task.id}
                           onClick={() => setActiveHomework(task)}
-                          style={{ 
-                            fontSize: '0.65rem', 
-                            padding: '2px 6px', 
-                            borderRadius: '4px', 
-                            background: `${getSubjectColor(task.subject)}30`, 
-                            color: getSubjectColor(task.subject), 
+                          style={{
+                            fontSize: '0.65rem',
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            background: `${getSubjectColor(task.subject)}30`,
+                            color: getSubjectColor(task.subject),
                             borderLeft: `2px solid ${getSubjectColor(task.subject)}`,
                             whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', cursor: 'pointer',
                             textDecoration: task.my_status === 'done' ? 'line-through' : 'none'
@@ -216,15 +220,15 @@ export function KanbanDesktopView({
             <div className="timeline-v-container">
               {Array.from({ length: 30 }).map((_, i) => {
                 const d = new Date(focusDate);
-                d.setDate(d.getDate() + i); 
+                d.setDate(d.getDate() + i);
                 const isToday = new Date().toDateString() === d.toDateString();
-                
+
                 const dayTasks = homeworkWithStatus
                   .filter(hw => {
                     const hwDate = new Date(hw.deadline);
-                    return hwDate.getDate() === d.getDate() && 
-                           hwDate.getMonth() === d.getMonth() && 
-                           hwDate.getFullYear() === d.getFullYear();
+                    return hwDate.getDate() === d.getDate() &&
+                      hwDate.getMonth() === d.getMonth() &&
+                      hwDate.getFullYear() === d.getFullYear();
                   })
                   .sort((a, b) => {
                     if (a.my_status === 'done' && b.my_status !== 'done') return 1;
@@ -254,11 +258,11 @@ export function KanbanDesktopView({
                           {dayTasks.map(task => {
                             const isDone = task.my_status === 'done';
                             return (
-                              <div 
-                                key={task.id} 
+                              <div
+                                key={task.id}
                                 onClick={() => setActiveHomework(task)}
                                 className={`timeline-card-v ${isDone ? 'done' : ''}`}
-                                style={{ 
+                                style={{
                                   borderLeft: `6px solid ${isDone ? '#10b981' : getSubjectColor(task.subject)}`,
                                 }}
                               >
