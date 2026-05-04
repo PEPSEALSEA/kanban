@@ -1,13 +1,15 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { useData } from '@/components/DataProvider';
+import { useData, GAS_WEB_APP_URL } from '@/components/DataProvider';
 import EditHomeworkModal from '@/components/EditHomeworkModal';
 
 export default function KanbanEditor() {
   const { allHomework, refreshData } = useData();
   const [editingHomework, setEditingHomework] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isSendingSummary, setIsSendingSummary] = useState(false);
+  const [summaryLogs, setSummaryLogs] = useState<string | null>(null);
 
   const filteredHomework = useMemo(() => {
     let tasks = [...allHomework];
@@ -26,13 +28,89 @@ export default function KanbanEditor() {
     
     return tasks;
   }, [allHomework, searchTerm]);
+  
+  const handleSendSummary = async () => {
+    if (!confirm('Are you sure you want to send the daily summary to Discord now?')) return;
+    
+    setIsSendingSummary(true);
+    setSummaryLogs('Sending...');
+    
+    try {
+      // We use a POST request with the action parameter
+      const response = await fetch(`${GAS_WEB_APP_URL}?action=sendSummary`, {
+        method: 'POST',
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        setSummaryLogs(data.data || 'Summary sent successfully.');
+      } else {
+        setSummaryLogs('Error: ' + (data.error || 'Unknown error'));
+      }
+    } catch (e: any) {
+      console.error(e);
+      setSummaryLogs('Error: ' + e.message + '\n\nNote: This might be a CORS error or a timeout. Check Discord to see if the summary arrived.');
+    } finally {
+      setIsSendingSummary(false);
+    }
+  };
 
   return (
     <div className="admin-dashboard">
       <header style={{ marginBottom: '2.5rem' }}>
         <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--admin-text-main)' }}>Kanban Editor</h1>
-        <p style={{ color: 'var(--admin-text-muted)' }}>Manage and edit existing Kanban tasks.</p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+          <p style={{ color: 'var(--admin-text-muted)', margin: 0 }}>Manage and edit existing Kanban tasks.</p>
+          <button 
+            onClick={handleSendSummary}
+            disabled={isSendingSummary}
+            style={{ 
+              background: '#5865F2', // Discord color
+              color: 'white', 
+              border: 'none', 
+              padding: '10px 20px', 
+              borderRadius: '0.75rem', 
+              cursor: isSendingSummary ? 'not-allowed' : 'pointer',
+              fontWeight: 700,
+              fontSize: '0.9rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              opacity: isSendingSummary ? 0.7 : 1,
+              transition: 'all 0.2s ease'
+            }}
+          >
+            {isSendingSummary ? '⌛ Sending...' : '📢 Send Daily Summary to Discord'}
+          </button>
+        </div>
       </header>
+
+      {summaryLogs && (
+        <div className="admin-card" style={{ marginBottom: '2rem', borderLeft: '4px solid #5865F2', position: 'relative' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700 }}>Execution Logs</h3>
+            <button 
+              onClick={() => setSummaryLogs(null)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--admin-text-muted)', fontWeight: 600 }}
+            >
+              Close
+            </button>
+          </div>
+          <pre style={{ 
+            background: '#0f172a', 
+            color: '#38bdf8', 
+            padding: '1.5rem', 
+            borderRadius: '0.5rem', 
+            fontSize: '0.85rem', 
+            overflowX: 'auto',
+            maxHeight: '300px',
+            fontFamily: 'monospace',
+            whiteSpace: 'pre-wrap'
+          }}>
+            {summaryLogs}
+          </pre>
+        </div>
+      )}
 
       <div className="admin-card" style={{ marginBottom: '2rem' }}>
         <input 

@@ -121,6 +121,8 @@ function doPost(e) {
             );
         } else if (action === "deleteLearningContent") {
             result = deleteLearningContent(getVal('id'));
+        } else if (action === "sendSummary") {
+            result = sendDailySummaryToDiscord();
         } else {
             throw new Error("unknown action: " + action);
         }
@@ -499,18 +501,26 @@ function sendSubmissionNotification(studentName, homeworkTitle, status, content)
  * This can be triggered manually or via a Time-driven trigger.
  */
 function sendDailySummaryToDiscord() {
+    let logs = [];
+    const log = (msg) => {
+        Logger.log(msg);
+        logs.push(msg);
+    };
+
     if (!SUMMARY_WEBHOOK_URL) {
-        Logger.log("SUMMARY_WEBHOOK_URL is not defined");
-        return;
+        log("SUMMARY_WEBHOOK_URL is not defined");
+        return "Error: SUMMARY_WEBHOOK_URL is missing";
     }
 
     try {
+        log("Starting Daily Summary generation...");
         const summaryText = generateDailySummary();
+        log("Summary generated successfully.");
         
         // Discord content limit is 2000 characters
         let finalContent = summaryText;
         if (finalContent.length > 2000) {
-            Logger.log("Summary too long (" + finalContent.length + " chars). Truncating...");
+            log("Summary too long (" + finalContent.length + " chars). Truncating...");
             finalContent = finalContent.substring(0, 1900) + "\n\n... (แสดงไม่ครบเนื่องจากยาวเกิน 2000 ตัวอักษร)";
         }
 
@@ -518,10 +528,10 @@ function sendDailySummaryToDiscord() {
             content: finalContent
         };
 
-        Logger.log("Sending summary to Discord (" + finalContent.length + " chars)...");
+        log("Sending summary to Discord (" + finalContent.length + " chars)...");
         
         let response;
-        let retries = 10;
+        let retries = 5; // Reduced from 10 to be faster for manual trigger
         let waitTime = 2000;
 
         while (retries > 0) {
@@ -529,19 +539,19 @@ function sendDailySummaryToDiscord() {
                 method: "post",
                 contentType: "application/json",
                 payload: JSON.stringify(payload),
-                muteHttpExceptions: true // Set to true to manually handle the 429 response code
+                muteHttpExceptions: true
             });
             
             const code = response.getResponseCode();
             if (code === 429) {
-                Logger.log("Discord is rate limiting (429). Retrying in " + waitTime + "ms... (" + retries + " attempts left)");
+                log("Discord is rate limiting (429). Retrying in " + waitTime + "ms... (" + retries + " attempts left)");
                 Utilities.sleep(waitTime);
                 retries--;
-                // waitTime *= 2; // Exponential backoff
                 continue;
             } else if (code >= 200 && code < 300) {
-                Logger.log("Discord Response Code: " + code);
-                return; // Success
+                log("Discord Response Code: " + code);
+                log("Success! Summary sent to Discord.");
+                return logs.join("\n");
             } else {
                 throw new Error("Discord API error " + code + ": " + response.getContentText());
             }
@@ -549,8 +559,8 @@ function sendDailySummaryToDiscord() {
 
         throw new Error("Failed after multiple retries due to Discord Rate Limits (429)");
     } catch (err) {
-        Logger.log("Error in sendDailySummaryToDiscord: " + err.toString());
-        throw err; // Re-throw to ensure it's visible in the "Executions" tab
+        log("Error: " + err.toString());
+        return logs.join("\n");
     }
 }
 
