@@ -41,12 +41,19 @@ type LearningContent = {
   attachments: string;
   links: string;
 };
+ 
+type Subject = {
+  id: string;
+  name: string;
+  color: string;
+};
 
 type DataContextType = {
   allHomework: Homework[];
   allUsers: UserInfo[];
   allProgress: ProgressItem[];
   learningContent: LearningContent[];
+  subjects: Subject[];
   user: UserInfo | null;
   setUser: (user: UserInfo | null) => void;
   isLoading: boolean;
@@ -62,6 +69,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [allUsers, setAllUsers] = useState<UserInfo[]>([]);
   const [allProgress, setAllProgress] = useState<ProgressItem[]>([]);
   const [learningContent, setLearningContent] = useState<LearningContent[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
   const [user, setUser] = useState<UserInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -83,6 +91,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         setAllUsers(parsed.users || []);
         setAllProgress(parsed.progress || []);
         setLearningContent(parsed.learningContent || []);
+        setSubjects(parsed.subjects || []);
         setIsLoading(false); // We have cached data, so we can hide initial loader early
       } catch (e) {
         console.error("Cache parsing failed", e);
@@ -106,6 +115,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         setAllUsers(payload.users || []);
         setAllProgress(payload.progress || []);
         setLearningContent(payload.learningContent || []);
+        setSubjects(payload.subjects || []);
         
         // Update cache
         localStorage.setItem('studyflow_cache', JSON.stringify(payload));
@@ -134,6 +144,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       allUsers,
       allProgress,
       learningContent,
+      subjects,
       user,
       setUser,
       isLoading,

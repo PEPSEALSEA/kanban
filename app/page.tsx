@@ -12,17 +12,9 @@ const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwcxlw11xxkbmWF
 const UPLOAD_WEB_APP_URL = "https://script.google.com/macros/s/AKfycby7FOqHLZN24sWCwl7XP4maUSi_iCxEFcg6REG-F8qp2C33aJL0US1Ye8XTZ7qUBDC8fw/exec";
 const ADMIN_EMAILS = ['pepsealsea@gmail.com', 'iampep2009@gmail.com', 'sealseapep@gmail.com'];
 
-function getSubjectColor(subject: string): string {
-  const colors: Record<string, string> = {
-    'Math': '#6366f1',
-    'Science': '#10b981',
-    'History': '#f59e0b',
-    'English': '#f43f5e',
-    'Arts': '#ec4899',
-    'Computer': '#8b5cf6',
-    'Other': '#94a3b8'
-  };
-  return colors[subject] || colors['Other'];
+function getSubjectColor(subjectName: string, subjects: any[]): string {
+  const sub = subjects.find(s => s.name === subjectName);
+  return sub ? sub.color : '#94a3b8';
 }
 
 type UserInfo = {
@@ -58,7 +50,8 @@ export default function StudyFlow() {
     user, 
     setUser, 
     isLoading, 
-    refreshData 
+    refreshData,
+    subjects
   } = useData();
 
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -542,10 +535,10 @@ export default function StudyFlow() {
                   {col.items.map(hw => {
                     const isDone = hw.my_status === 'done';
                     return (
-                      <div key={hw.id} className="card glass" onClick={() => setActiveHomework(hw)} style={{ opacity: isDone ? 0.5 : 1, borderLeft: `6px solid ${isDone ? '#10b981' : getSubjectColor(hw.subject)}`, padding: '1.25rem', cursor: 'pointer' }}>
+                      <div key={hw.id} className="card glass" onClick={() => setActiveHomework(hw)} style={{ opacity: isDone ? 0.5 : 1, borderLeft: `6px solid ${isDone ? '#10b981' : getSubjectColor(hw.subject, subjects)}`, padding: '1.25rem', cursor: 'pointer' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                           <div>
-                            <span style={{ fontSize: '0.7rem', fontWeight: 800, color: getSubjectColor(hw.subject), textTransform: 'uppercase' }}>{hw.subject}</span>
+                            <span style={{ fontSize: '0.7rem', fontWeight: 800, color: getSubjectColor(hw.subject, subjects), textTransform: 'uppercase' }}>{hw.subject}</span>
                             <h4 style={{ margin: '4px 0', textDecoration: isDone ? 'line-through' : 'none' }}>{hw.title}</h4>
                           </div>
                           {user && (
@@ -613,10 +606,10 @@ export default function StudyFlow() {
                           style={{ 
                             fontSize: '0.65rem', 
                             padding: '2px 6px', 
-                            borderRadius: '4px', 
-                            background: `${getSubjectColor(task.subject)}30`, 
-                            color: getSubjectColor(task.subject), 
-                            borderLeft: `2px solid ${getSubjectColor(task.subject)}`,
+                           borderRadius: '4px', 
+                            background: `${getSubjectColor(task.subject, subjects)}30`, 
+                            color: getSubjectColor(task.subject, subjects), 
+                            borderLeft: `2px solid ${getSubjectColor(task.subject, subjects)}`,
                             whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', cursor: 'pointer',
                             textDecoration: task.my_status === 'done' ? 'line-through' : 'none'
                           }}>
@@ -684,10 +677,10 @@ export default function StudyFlow() {
                                 onClick={() => setActiveHomework(task)}
                                 className={`timeline-card-v ${isDone ? 'done' : ''}`}
                                 style={{ 
-                                  borderLeft: `6px solid ${isDone ? '#10b981' : getSubjectColor(task.subject)}`,
+                                  borderLeft: `6px solid ${isDone ? '#10b981' : getSubjectColor(task.subject, subjects)}`,
                                 }}
                               >
-                                <div className="timeline-card-v-subject" style={{ color: getSubjectColor(task.subject) }}>
+                                <div className="timeline-card-v-subject" style={{ color: getSubjectColor(task.subject, subjects) }}>
                                   {task.subject}
                                 </div>
                                 <div className="timeline-card-v-title" style={{ textDecoration: isDone ? 'line-through' : 'none' }}>

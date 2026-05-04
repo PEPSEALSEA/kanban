@@ -11,6 +11,7 @@ export default function AdminSidebar({ collapsed, setCollapsed }: { collapsed: b
     { name: 'Dashboard', icon: '📊', path: '/admin' },
     { name: 'Kanban Editor', icon: '📝', path: '/admin/kanban' },
     { name: 'Content Archive Editor', icon: '📁', path: '/admin/content-archive' },
+    { name: 'Subject Manager', icon: '🏷️', path: '/admin/subjects' },
   ];
 
   return (

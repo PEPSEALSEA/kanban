@@ -12,6 +12,7 @@ const SHEETS = {
     URLS: "URLs",
     COMMENTS: "Comments",
     LEARNING_CONTENT: "LearningContent",
+    SUBJECTS: "Subjects",
 };
 
 const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1478774323874500640/3jwe9TnrxPJNCOJkPFln6OP1Ts1zxYhDaMC1FnIt5CzBhJwFDn-ogkMw-XYWtYr5eNVl"; // USER: Please fill your Discord Webhook URL here
@@ -31,6 +32,7 @@ function doGet(e) {
         else if (action === "users") result = getUserList();
         else if (action === "comments") result = getComments(params.homework_id, params.owner_email);
         else if (action === "learningContent") result = getLearningContent(params.date, params.id);
+        else if (action === "subjects") result = getSubjects();
         else if (action === "batchData") result = getBatchData();
         else if (action === "setup") { setupSheet(); result = "setup complete"; }
         else throw new Error("unknown action: " + action);
@@ -123,6 +125,10 @@ function doPost(e) {
             result = deleteLearningContent(getVal('id'));
         } else if (action === "sendSummary") {
             result = sendDailySummaryToDiscord();
+        } else if (action === "addSubject") {
+            result = addSubject(getVal('name'), getVal('color'));
+        } else if (action === "deleteSubject") {
+            result = deleteSubject(getVal('id'));
         } else {
             throw new Error("unknown action: " + action);
         }
@@ -147,6 +153,7 @@ function setupSheet() {
     _setupUrls(ss);
     _setupComments(ss);
     _setupLearningContent(ss);
+    _setupSubjects(ss);
 }
 
 function _setupLearningContent(ss) {
@@ -154,6 +161,23 @@ function _setupLearningContent(ss) {
     if (sheet.getLastRow() === 0) {
         sheet.appendRow(["id", "date", "subject", "title", "description", "audio_file_id", "audio_url", "attachments", "links", "created_at"]);
         sheet.setFrozenRows(1);
+    }
+}
+function _setupSubjects(ss) {
+    let sheet = ss.getSheetByName(SHEETS.SUBJECTS) || ss.insertSheet(SHEETS.SUBJECTS);
+    if (sheet.getLastRow() === 0) {
+        sheet.appendRow(["id", "name", "color", "created_at"]);
+        sheet.setFrozenRows(1);
+        // Add some defaults
+        const defaults = [
+            ["Math", "#6366f1"],
+            ["Science", "#10b981"],
+            ["History", "#f59e0b"],
+            ["English", "#8b5cf6"],
+            ["Arts", "#ec4899"],
+            ["Computer", "#0ea5e9"]
+        ];
+        defaults.forEach(d => addSubject(d[0], d[1]));
     }
 }
 
@@ -798,8 +822,45 @@ function getBatchData() {
         homework: getHomeworkList(),
         users: getUserList(),
         progress: getAllProgress(),
-        learningContent: getLearningContent()
+        learningContent: getLearningContent(),
+        subjects: getSubjects()
     };
+}
+
+function getSubjects() {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const sheet = ss.getSheetByName(SHEETS.SUBJECTS);
+    if (!sheet || sheet.getLastRow() < 2) return [];
+    return _toObjects(
+        sheet.getRange(2, 1, sheet.getLastRow() - 1, 4).getValues(),
+        ["id", "name", "color", "created_at"]
+    );
+}
+
+function addSubject(name, color) {
+    if (!name) throw new Error("Name is required");
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const sheet = ss.getSheetByName(SHEETS.SUBJECTS) || ss.insertSheet(SHEETS.SUBJECTS);
+    if (sheet.getLastRow() === 0) {
+        sheet.appendRow(["id", "name", "color", "created_at"]);
+    }
+    const id = Date.now().toString() + Math.floor(Math.random() * 1000);
+    sheet.appendRow([id, name, color || "#6366f1", new Date()]);
+    return id;
+}
+
+function deleteSubject(id) {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const sheet = ss.getSheetByName(SHEETS.SUBJECTS);
+    if (!sheet) return false;
+    const data = sheet.getDataRange().getValues();
+    for (let i = 1; i < data.length; i++) {
+        if (String(data[i][0]) === String(id)) {
+            sheet.deleteRow(i + 1);
+            return true;
+        }
+    }
+    return false;
 }
 
 function _getMidnightGMT7(date) {

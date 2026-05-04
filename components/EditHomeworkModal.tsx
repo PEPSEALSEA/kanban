@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { uploadToTelegramDirect } from '@/lib/telegram';
 import { useDeviceDetection } from '@/hooks/useDeviceDetection';
+import { useData } from '@/components/DataProvider';
 
 const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwcxlw11xxkbmWFiVZUX4jRgA0Xugbwl7lnSdMi9gO0BhXY4TAgfIjqqTX_xyvwwbfwsA/exec";
 const UPLOAD_WEB_APP_URL = "https://script.google.com/macros/s/AKfycby7FOqHLZN24sWCwl7XP4maUSi_iCxEFcg6REG-F8qp2C33aJL0US1Ye8XTZ7qUBDC8fw/exec";
@@ -16,12 +17,13 @@ export default function EditHomeworkModal({
   onClose: () => void; 
   onRefresh: () => void; 
 }) {
+  const { subjects } = useData();
   const parseLinks = (links: string | undefined): string[] => {
     if (!links) return [];
     return links.split(',').filter(Boolean);
   };
 
-  const isPredefinedSubject = ['Math', 'Science', 'History', 'English', 'Arts', 'Computer'].includes(homework.subject);
+  const isPredefinedSubject = subjects.some(s => s.name === homework.subject);
 
   const [formData, setFormData] = useState({
     subject: isPredefinedSubject ? homework.subject : 'Other',
@@ -162,7 +164,8 @@ export default function EditHomeworkModal({
                 onChange={e => setFormData({ ...formData, subject: e.target.value })}
                 style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid var(--admin-border)', outline: 'none' }}
               >
-                 {['Math', 'Science', 'History', 'English', 'Arts', 'Computer', 'Other'].map(s => <option key={s} value={s}>{s}</option>)}
+                 {subjects.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                 <option value="Other">Other</option>
               </select>
               {formData.subject === 'Other' && (
                 <div style={{ marginTop: '0.5rem' }}>
