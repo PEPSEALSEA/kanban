@@ -446,6 +446,12 @@ h3 {
   --admin-accent: #f43f5e;
   --admin-primary: #6366f1;
   --admin-border: rgba(255, 255, 255, 0.1);
+  color-scheme: dark;
+}
+
+.admin-card select option {
+  background-color: #1e293b;
+  color: #f8fafc;
 }
 
 .admin-layout {
