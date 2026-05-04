@@ -183,33 +183,37 @@ function _setupSubjects(ss) {
 
 function _setupHomework(ss) {
     let sheet = ss.getSheetByName(SHEETS.HOMEWORK) || ss.insertSheet(SHEETS.HOMEWORK);
-    sheet.clearContents();
-    sheet.getRange(1, 1, 1, 9).setValues([["id", "subject", "title", "description", "deadline", "link_work", "link_image", "note", "created_at"]]);
-    sheet.setFrozenRows(1);
+    if (sheet.getLastRow() === 0) {
+        sheet.getRange(1, 1, 1, 9).setValues([["id", "subject", "title", "description", "deadline", "link_work", "link_image", "note", "created_at"]]);
+        sheet.setFrozenRows(1);
+    }
 }
 
 function _setupUsers(ss) {
     let sheet = ss.getSheetByName(SHEETS.USERS) || ss.insertSheet(SHEETS.USERS);
-    sheet.clearContents();
-    sheet.getRange(1, 1, 1, 4).setValues([["email", "display_name", "photo_url", "created_at"]]);
-    sheet.setFrozenRows(1);
+    if (sheet.getLastRow() === 0) {
+        sheet.getRange(1, 1, 1, 4).setValues([["email", "display_name", "photo_url", "created_at"]]);
+        sheet.setFrozenRows(1);
+    }
 }
 
 function _setupProgress(ss) {
     let sheet = ss.getSheetByName(SHEETS.PROGRESS) || ss.insertSheet(SHEETS.PROGRESS);
-    sheet.clearContents();
-    sheet.getRange(1, 1, 1, 5).setValues([["email", "homework_id", "status", "image_url", "updated_at"]]);
-    sheet.setFrozenRows(1);
-    sheet.getRange("C2:C5000").setDataValidation(
-        SpreadsheetApp.newDataValidation().requireValueInList(["pending", "in_progress", "done"]).build()
-    );
+    if (sheet.getLastRow() === 0) {
+        sheet.getRange(1, 1, 1, 5).setValues([["email", "homework_id", "status", "image_url", "updated_at"]]);
+        sheet.setFrozenRows(1);
+        sheet.getRange("C2:C5000").setDataValidation(
+            SpreadsheetApp.newDataValidation().requireValueInList(["pending", "in_progress", "done"]).build()
+        );
+    }
 }
 
 function _setupUrls(ss) {
     let sheet = ss.getSheetByName(SHEETS.URLS) || ss.insertSheet(SHEETS.URLS);
-    sheet.clearContents();
-    sheet.getRange(1, 1, 1, 7).setValues([["ID", "Name", "Type", "URL", "Created At", "Expiry Date", "Drive ID"]]);
-    sheet.setFrozenRows(1);
+    if (sheet.getLastRow() === 0) {
+        sheet.getRange(1, 1, 1, 7).setValues([["ID", "Name", "Type", "URL", "Created At", "Expiry Date", "Drive ID"]]);
+        sheet.setFrozenRows(1);
+    }
 }
 
 function addHomework(subject, title, description, deadline, linkWork, linkImage, note) {

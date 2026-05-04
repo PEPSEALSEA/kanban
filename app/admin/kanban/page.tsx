@@ -146,13 +146,13 @@ export default function KanbanEditor() {
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <span style={{ 
-                      background: `${subjects.find(s => s.name === hw.subject)?.color || 'var(--admin-primary)'}22`, 
+                      background: `${subjects.find(s => s.name.trim().toLowerCase() === (hw.subject || '').trim().toLowerCase())?.color || 'var(--admin-primary)'}22`, 
                       padding: '4px 10px', 
                       borderRadius: '6px', 
                       fontSize: '0.75rem', 
                       fontWeight: 700, 
-                      color: subjects.find(s => s.name === hw.subject)?.color || 'var(--admin-primary)',
-                      border: `1px solid ${subjects.find(s => s.name === hw.subject)?.color || 'var(--admin-primary)'}44`
+                      color: subjects.find(s => s.name.trim().toLowerCase() === (hw.subject || '').trim().toLowerCase())?.color || 'var(--admin-primary)',
+                      border: `1px solid ${subjects.find(s => s.name.trim().toLowerCase() === (hw.subject || '').trim().toLowerCase())?.color || 'var(--admin-primary)'}44`
                     }}>
                       {hw.subject}
                     </span>
@@ -204,13 +204,13 @@ export default function KanbanEditor() {
                   <tr key={hw.id} style={{ borderBottom: '1px solid var(--admin-border)' }}>
                     <td style={{ padding: '1rem' }}>
                       <span style={{ 
-                        background: `${subjects.find(s => s.name === hw.subject)?.color || 'var(--admin-primary)'}22`, 
+                        background: `${subjects.find(s => s.name.trim().toLowerCase() === (hw.subject || '').trim().toLowerCase())?.color || 'var(--admin-primary)'}22`, 
                         padding: '4px 8px', 
                         borderRadius: '4px', 
                         fontSize: '0.85rem', 
                         fontWeight: 600, 
-                        color: subjects.find(s => s.name === hw.subject)?.color || 'var(--admin-primary)',
-                        border: `1px solid ${subjects.find(s => s.name === hw.subject)?.color || 'var(--admin-primary)'}44`
+                        color: subjects.find(s => s.name.trim().toLowerCase() === (hw.subject || '').trim().toLowerCase())?.color || 'var(--admin-primary)',
+                        border: `1px solid ${subjects.find(s => s.name.trim().toLowerCase() === (hw.subject || '').trim().toLowerCase())?.color || 'var(--admin-primary)'}44`
                       }}>
                         {hw.subject}
                       </span>

@@ -31,7 +31,7 @@ export default function ContentArchiveEditor() {
       const matchesSearch = 
         item.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
         item.description.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesSubject = subjectFilter === 'All' || item.subject === subjectFilter;
+      const matchesSubject = subjectFilter === 'All' || item.subject.trim().toLowerCase() === subjectFilter.trim().toLowerCase();
       return matchesSearch && matchesSubject;
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [learningContent, searchTerm, subjectFilter]);
@@ -110,9 +110,9 @@ export default function ContentArchiveEditor() {
                     <div style={{ fontSize: '0.85rem', fontWeight: 700 }}>{new Date(item.date).toLocaleDateString()}</div>
                     <span style={{ 
                       padding: '2px 8px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 700,
-                      background: `${subjects.find(s => s.name === item.subject)?.color || 'var(--admin-primary)'}22`,
-                      color: subjects.find(s => s.name === item.subject)?.color || 'var(--admin-primary)',
-                      border: `1px solid ${subjects.find(s => s.name === item.subject)?.color || 'var(--admin-primary)'}44`
+                      background: `${subjects.find(s => s.name.trim().toLowerCase() === (item.subject || '').trim().toLowerCase())?.color || 'var(--admin-primary)'}22`,
+                      color: subjects.find(s => s.name.trim().toLowerCase() === (item.subject || '').trim().toLowerCase())?.color || 'var(--admin-primary)',
+                      border: `1px solid ${subjects.find(s => s.name.trim().toLowerCase() === (item.subject || '').trim().toLowerCase())?.color || 'var(--admin-primary)'}44`
                     }}>
                       {item.subject}
                     </span>
@@ -169,9 +169,9 @@ export default function ContentArchiveEditor() {
                     <td style={{ verticalAlign: 'top' }}>
                       <span style={{ 
                         display: 'inline-block', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700,
-                        background: `${subjects.find(s => s.name === item.subject)?.color || 'var(--admin-primary)'}22`,
-                        color: subjects.find(s => s.name === item.subject)?.color || 'var(--admin-primary)',
-                        border: `1px solid ${subjects.find(s => s.name === item.subject)?.color || 'var(--admin-primary)'}44`
+                        background: `${subjects.find(s => s.name.trim().toLowerCase() === (item.subject || '').trim().toLowerCase())?.color || 'var(--admin-primary)'}22`,
+                        color: subjects.find(s => s.name.trim().toLowerCase() === (item.subject || '').trim().toLowerCase())?.color || 'var(--admin-primary)',
+                        border: `1px solid ${subjects.find(s => s.name.trim().toLowerCase() === (item.subject || '').trim().toLowerCase())?.color || 'var(--admin-primary)'}44`
                       }}>
                         {item.subject}
                       </span>

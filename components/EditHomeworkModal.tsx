@@ -23,7 +23,7 @@ export default function EditHomeworkModal({
     return links.split(',').filter(Boolean);
   };
 
-  const isPredefinedSubject = subjects.some(s => s.name === homework.subject);
+  const isPredefinedSubject = subjects.some(s => s.name.trim().toLowerCase() === (homework.subject || '').trim().toLowerCase());
 
   const [formData, setFormData] = useState({
     subject: isPredefinedSubject ? homework.subject : 'Other',

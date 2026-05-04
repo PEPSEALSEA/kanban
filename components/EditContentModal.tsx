@@ -24,7 +24,7 @@ export default function EditContentModal({
     return str.split(',').filter(Boolean);
   };
 
-  const isPredefinedSubject = subjects.some(s => s.name === content.subject);
+  const isPredefinedSubject = subjects.some(s => s.name.trim().toLowerCase() === (content.subject || '').trim().toLowerCase());
 
   const [formData, setFormData] = useState({
     date: (() => { const d = content.date ? new Date(content.date) : new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })(),

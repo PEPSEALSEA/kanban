@@ -13,7 +13,8 @@ const UPLOAD_WEB_APP_URL = "https://script.google.com/macros/s/AKfycby7FOqHLZN24
 const ADMIN_EMAILS = ['pepsealsea@gmail.com', 'iampep2009@gmail.com', 'sealseapep@gmail.com'];
 
 function getSubjectColor(subjectName: string, subjects: any[]): string {
-  const sub = subjects.find(s => s.name === subjectName);
+  if (!subjectName) return '#94a3b8';
+  const sub = subjects.find(s => s.name.trim().toLowerCase() === subjectName.trim().toLowerCase());
   return sub ? sub.color : '#94a3b8';
 }
 
