@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { uploadToTelegramDirect } from '@/lib/telegram';
 import { compressAudioIfNeeded } from '@/lib/audio-compressor';
+import { useDeviceDetection } from '@/hooks/useDeviceDetection';
 
 const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwcxlw11xxkbmWFiVZUX4jRgA0Xugbwl7lnSdMi9gO0BhXY4TAgfIjqqTX_xyvwwbfwsA/exec";
 const UPLOAD_WEB_APP_URL = "https://script.google.com/macros/s/AKfycby7FOqHLZN24sWCwl7XP4maUSi_iCxEFcg6REG-F8qp2C33aJL0US1Ye8XTZ7qUBDC8fw/exec";
@@ -24,6 +25,7 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
   const [activeUploadType, setActiveUploadType] = useState<'audio' | 'attachment' | null>(null);
   const [uploadProgress, setUploadProgress] = useState<string>('');
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
+  const { isMobile } = useDeviceDetection();
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'audio' | 'attachment') => {
     const files = Array.from(e.target.files || []);
@@ -145,7 +147,7 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
         </div>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '1rem' }}>
             <div>
               <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.4rem', color: 'var(--admin-text-muted)' }}>Date</label>
               <input
@@ -203,7 +205,7 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
             />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '1.5rem' }}>
             <div>
               <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.4rem', color: 'var(--admin-text-muted)' }}>Audio Lecture (MP3)</label>
               <input
@@ -236,7 +238,7 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
               )}
               <div style={{ marginTop: '0.5rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
                 {formData.attachments.map((url, i) => (
-                  <div key={i} style={{ background: '#f1f5f9', padding: '4px 8px', borderRadius: '4px', fontSize: '0.7rem' }}>
+                  <div key={i} style={{ background: 'var(--admin-bg-soft)', padding: '4px 8px', borderRadius: '4px', fontSize: '0.7rem', border: '1px solid var(--admin-border)' }}>
                     📎 {decodeURIComponent(url.split('#')[1] || 'File')}
                   </div>
                 ))}
@@ -244,11 +246,11 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem', borderTop: '1px solid var(--admin-border)', paddingTop: '1.5rem' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', marginTop: '1.5rem', borderTop: '1px solid var(--admin-border)', paddingTop: '1.5rem' }}>
             <button
               type="button"
               onClick={onClose}
-              style={{ flex: 1, padding: '0.8rem', borderRadius: '0.75rem', border: '1px solid var(--admin-border)', background: 'none', cursor: 'pointer' }}
+              style={{ flex: 1, padding: '0.8rem', borderRadius: '0.75rem', border: '1px solid var(--admin-border)', background: 'none', color: 'var(--admin-text-main)', cursor: 'pointer' }}
             >
               Cancel
             </button>
@@ -256,14 +258,14 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
               type="submit"
               disabled={status === 'submitting' || isUploading}
               style={{
-                flex: 1, padding: '0.8rem', borderRadius: '0.75rem', border: 'none',
+                flex: isMobile ? '1 0 100%' : 1, padding: '0.8rem', borderRadius: '0.75rem', border: 'none',
                 background: status === 'success' ? '#10b981' : 'var(--admin-accent)',
                 color: 'white', fontWeight: 600, cursor: 'pointer'
               }}
             >
               {status === 'idle' && 'Save Learning Content'}
               {status === 'submitting' && 'Processing...'}
-              {status === 'success' && 'Archived Successfully! ✨'}
+              {status === 'success' && 'Saved! ✨'}
               {status === 'error' && 'Retry'}
             </button>
           </div>

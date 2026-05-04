@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { uploadToTelegramDirect } from '@/lib/telegram';
 import { compressAudioIfNeeded } from '@/lib/audio-compressor';
+import { useDeviceDetection } from '@/hooks/useDeviceDetection';
 
 const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwcxlw11xxkbmWFiVZUX4jRgA0Xugbwl7lnSdMi9gO0BhXY4TAgfIjqqTX_xyvwwbfwsA/exec";
 const UPLOAD_WEB_APP_URL = "https://script.google.com/macros/s/AKfycby7FOqHLZN24sWCwl7XP4maUSi_iCxEFcg6REG-F8qp2C33aJL0US1Ye8XTZ7qUBDC8fw/exec";
@@ -39,6 +40,7 @@ export default function EditContentModal({
   const [uploadProgress, setUploadProgress] = useState<string>('');
   const [activeUploadType, setActiveUploadType] = useState<'audio' | 'attachment' | null>(null);
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error' | 'deleting'>('idle');
+  const { isMobile } = useDeviceDetection();
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'audio' | 'attachment') => {
     const files = Array.from(e.target.files || []);
@@ -192,7 +194,7 @@ export default function EditContentModal({
         </div>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
-           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '1rem' }}>
             <div>
               <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.4rem', color: 'var(--admin-text-muted)' }}>Date</label>
               <input 
@@ -250,7 +252,7 @@ export default function EditContentModal({
             />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '1.5rem' }}>
             <div>
               <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.4rem', color: 'var(--admin-text-muted)' }}>Audio Lecture (MP3)</label>
               <input 
@@ -287,7 +289,7 @@ export default function EditContentModal({
               )}
               <div style={{ marginTop: '0.5rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
                 {formData.attachments.map((url, i) => (
-                  <div key={i} style={{ background: '#f1f5f9', padding: '4px 8px', borderRadius: '4px', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <div key={i} style={{ background: 'var(--admin-bg-soft)', padding: '4px 8px', borderRadius: '4px', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '0.4rem', border: '1px solid var(--admin-border)' }}>
                     <span>📎 {decodeURIComponent(url.split('#')[1] || 'File')}</span>
                     <button type="button" onClick={() => removeAttachment(url)} style={{ background: 'none', border: 'none', color: '#ef4444', fontWeight: 'bold', cursor: 'pointer' }}>✕</button>
                   </div>
@@ -296,20 +298,20 @@ export default function EditContentModal({
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem', borderTop: '1px solid var(--admin-border)', paddingTop: '1.5rem' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', marginTop: '1.5rem', borderTop: '1px solid var(--admin-border)', paddingTop: '1.5rem' }}>
             <button 
               type="button" 
               onClick={handleDelete}
               disabled={status === 'submitting' || status === 'deleting' || isUploading}
-              style={{ padding: '0.8rem 1.2rem', borderRadius: '0.75rem', border: 'none', background: '#fee2e2', color: '#ef4444', fontWeight: 600, cursor: 'pointer' }}
+              style={{ flex: isMobile ? 1 : 'none', padding: '0.8rem 1.2rem', borderRadius: '0.75rem', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', fontWeight: 600, cursor: 'pointer' }}
             >
-              {status === 'deleting' ? 'Deleting...' : 'Delete Content'}
+              {status === 'deleting' ? 'Deleting...' : 'Delete'}
             </button>
-            <div style={{ flex: 1 }}></div>
+            {!isMobile && <div style={{ flex: 1 }}></div>}
             <button 
               type="button" 
               onClick={onClose}
-              style={{ padding: '0.8rem 2rem', borderRadius: '0.75rem', border: '1px solid var(--admin-border)', background: 'none', cursor: 'pointer' }}
+              style={{ flex: isMobile ? 1 : 'none', padding: '0.8rem 2rem', borderRadius: '0.75rem', border: '1px solid var(--admin-border)', background: 'none', color: 'var(--admin-text-main)', cursor: 'pointer' }}
             >
               Cancel
             </button>
@@ -317,14 +319,14 @@ export default function EditContentModal({
               type="submit" 
               disabled={status === 'submitting' || status === 'deleting' || isUploading}
               style={{ 
-                padding: '0.8rem 2rem', borderRadius: '0.75rem', border: 'none', 
+                flex: isMobile ? '1 0 100%' : 'none', padding: '0.8rem 2rem', borderRadius: '0.75rem', border: 'none', 
                 background: status === 'success' ? '#10b981' : 'var(--admin-accent)', 
                 color: 'white', fontWeight: 600, cursor: 'pointer' 
               }}
             >
               {status === 'idle' && 'Save Changes'}
               {status === 'submitting' && 'Processing...'}
-              {status === 'success' && 'Archived Successfully! ✨'}
+              {status === 'success' && 'Saved! ✨'}
               {status === 'error' && 'Retry'}
             </button>
           </div>
