@@ -117,7 +117,7 @@ export default function ContentArchiveEditor() {
                       {item.subject}
                     </span>
                   </div>
-                  <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--admin-primary)', margin: 0 }}>{item.title}</h3>
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--admin-text-main)', margin: 0 }}>{item.title}</h3>
                   <div style={{ fontSize: '0.85rem', color: 'var(--admin-text-muted)', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                     <MarkdownRenderer content={item.description} />
                   </div>
@@ -161,7 +161,7 @@ export default function ContentArchiveEditor() {
                       <div style={{ fontSize: '0.75rem', color: 'var(--admin-text-muted)' }}>ID: {item.id}</div>
                     </td>
                     <td style={{ verticalAlign: 'top' }}>
-                      <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--admin-primary)', marginBottom: '0.25rem' }}>{item.title}</div>
+                      <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--admin-text-main)', marginBottom: '0.25rem' }}>{item.title}</div>
                       <div style={{ fontSize: '0.85rem', color: 'var(--admin-text-muted)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                         <MarkdownRenderer content={item.description} />
                       </div>
