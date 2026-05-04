@@ -5,10 +5,12 @@ import { useData } from '@/components/DataProvider';
 import AdminQuickCreate from '@/components/AdminQuickCreate';
 import CreateHomeworkModal from '@/components/CreateHomeworkModal';
 import CreateContentModal from '@/components/CreateContentModal';
+import { useDeviceDetection } from '@/hooks/useDeviceDetection';
 
 export default function AdminDashboard() {
   const { allHomework, allUsers, learningContent, allProgress, refreshData } = useData();
   const [activeModal, setActiveModal] = useState<'homework' | 'content' | null>(null);
+  const { isMobile } = useDeviceDetection();
 
   const metrics = useMemo(() => {
     const today = new Date();
@@ -65,7 +67,11 @@ export default function AdminDashboard() {
         />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '2rem' }}>
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: isMobile ? '1fr' : '2fr 1fr', 
+        gap: '2rem' 
+      }}>
          {/* Recent Activity Table */}
         <div className="admin-card">
           <h2 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.5rem' }}>Latest Activity Log</h2>
@@ -86,8 +92,9 @@ export default function AdminDashboard() {
                   <td>
                     <span style={{ 
                       padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700,
-                      background: activity.status === 'done' ? '#dcfce7' : '#fef9c3',
-                      color: activity.status === 'done' ? '#166534' : '#854d0e'
+                      background: activity.status === 'done' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)',
+                      color: activity.status === 'done' ? '#10b981' : '#f59e0b',
+                      border: `1px solid ${activity.status === 'done' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`
                     }}>
                       {activity.status.toUpperCase()}
                     </span>

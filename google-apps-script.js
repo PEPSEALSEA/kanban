@@ -516,7 +516,7 @@ function sendDailySummaryToDiscord() {
         log("Starting Daily Summary generation...");
         const summaryText = generateDailySummary();
         log("Summary generated successfully.");
-        
+
         // Discord content limit is 2000 characters
         let finalContent = summaryText;
         if (finalContent.length > 2000) {
@@ -529,7 +529,7 @@ function sendDailySummaryToDiscord() {
         };
 
         log("Sending summary to Discord (" + finalContent.length + " chars)...");
-        
+
         let response;
         let retries = 5; // Reduced from 10 to be faster for manual trigger
         let waitTime = 2000;
@@ -541,7 +541,7 @@ function sendDailySummaryToDiscord() {
                 payload: JSON.stringify(payload),
                 muteHttpExceptions: true
             });
-            
+
             const code = response.getResponseCode();
             if (code === 429) {
                 log("Discord is rate limiting (429). Retrying in " + waitTime + "ms... (" + retries + " attempts left)");
@@ -652,12 +652,12 @@ function generateDailySummary() {
     const keys = [];
     const todayReset = _getMidnightGMT7(now);
     const tomorrowReset = new Date(todayReset.getTime() + 1 * 24 * 60 * 60 * 1000);
-    
+
     sortedHw.forEach(hw => {
         if (!hw.deadline) return;
         const deadlineDate = new Date(hw.deadline);
         const deadlineReset = _getMidnightGMT7(deadlineDate);
-        
+
         if (deadlineReset <= threshold && deadlineReset >= tomorrowReset) {
             const dateStr = `${String(deadlineReset.getDate()).padStart(2, '0')}/${String(deadlineReset.getMonth() + 1).padStart(2, '0')}`;
             const dayName = thaiDays[deadlineReset.getDay()];
@@ -716,8 +716,8 @@ function getLearningContent(date, id) {
             const itemDate = new Date(item.date);
             const filterDate = new Date(date);
             return itemDate.getFullYear() === filterDate.getFullYear() &&
-                   itemDate.getMonth() === filterDate.getMonth() &&
-                   itemDate.getDate() === filterDate.getDate();
+                itemDate.getMonth() === filterDate.getMonth() &&
+                itemDate.getDate() === filterDate.getDate();
         });
     }
     return data;
@@ -730,20 +730,20 @@ function addLearningContent(date, subject, title, description, audioFileId, audi
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const sheet = ss.getSheetByName(SHEETS.LEARNING_CONTENT);
     const id = "LC-" + Date.now().toString();
-    
+
     sheet.appendRow([
-        id, 
-        date || new Date(), 
-        subject || "", 
-        title || "", 
-        description || "", 
-        audioFileId || "", 
-        audioUrl || "", 
-        attachments || "", 
-        links || "", 
+        id,
+        date || new Date(),
+        subject || "",
+        title || "",
+        description || "",
+        audioFileId || "",
+        audioUrl || "",
+        attachments || "",
+        links || "",
         new Date()
     ]);
-    
+
     return id;
 }
 

@@ -5,6 +5,7 @@ import { useData } from '@/components/DataProvider';
 import CreateContentModal from '@/components/CreateContentModal';
 import EditContentModal from '@/components/EditContentModal';
 import MarkdownRenderer from '@/components/MarkdownRenderer';
+import { useDeviceDetection } from '@/hooks/useDeviceDetection';
 
 type LearningContent = {
   id: string;
@@ -23,6 +24,7 @@ export default function ContentArchiveEditor() {
   const [searchTerm, setSearchTerm] = useState('');
   const [subjectFilter, setSubjectFilter] = useState('All');
   const [activeModal, setActiveModal] = useState<{ type: 'create' | 'edit', content?: any } | null>(null);
+  const { isMobile } = useDeviceDetection();
 
   const filteredContent = useMemo(() => {
     return learningContent.filter((item: LearningContent) => {
@@ -90,67 +92,115 @@ export default function ContentArchiveEditor() {
       </div>
 
       {/* Content List */}
-      <div className="admin-card" style={{ padding: 0, overflow: 'hidden' }}>
-        <table className="admin-table">
-          <thead>
-            <tr>
-              <th style={{ width: '120px' }}>Date</th>
-              <th>Topic & Description</th>
-              <th style={{ width: '120px' }}>Subject</th>
-              <th style={{ width: '100px' }}>Media</th>
-              <th style={{ width: '80px', textAlign: 'center' }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
+      <div className="admin-card" style={{ padding: isMobile ? '1rem' : 0, overflow: 'hidden' }}>
+        {isMobile ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             {filteredContent.length > 0 ? (
               filteredContent.map((item: LearningContent) => (
-                <tr key={item.id}>
-                  <td style={{ verticalAlign: 'top' }}>
-                    <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{new Date(item.date).toLocaleDateString()}</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--admin-text-muted)' }}>ID: {item.id}</div>
-                  </td>
-                  <td style={{ verticalAlign: 'top' }}>
-                    <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--admin-primary)', marginBottom: '0.25rem' }}>{item.title}</div>
-                    <div style={{ fontSize: '0.85rem', color: 'var(--admin-text-muted)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                      <MarkdownRenderer content={item.description} />
-                    </div>
-                  </td>
-                  <td style={{ verticalAlign: 'top' }}>
+                <div key={item.id} style={{ 
+                  background: 'rgba(255, 255, 255, 0.03)', 
+                  border: '1px solid var(--admin-border)', 
+                  borderRadius: '1rem', 
+                  padding: '1.25rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.75rem'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ fontSize: '0.85rem', fontWeight: 700 }}>{new Date(item.date).toLocaleDateString()}</div>
                     <span style={{ 
-                      display: 'inline-block', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700,
-                      background: 'var(--admin-bg-soft)', color: 'var(--admin-primary)', border: '1px solid var(--admin-border)'
+                      padding: '2px 8px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 700,
+                      background: 'rgba(99, 102, 241, 0.2)', color: 'var(--admin-primary)', border: '1px solid var(--admin-border)'
                     }}>
                       {item.subject}
                     </span>
-                  </td>
-                  <td style={{ verticalAlign: 'top' }}>
-                    <div style={{ display: 'flex', gap: '8px' }}>
+                  </div>
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--admin-primary)', margin: 0 }}>{item.title}</h3>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--admin-text-muted)', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                    <MarkdownRenderer content={item.description} />
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
+                    <div style={{ display: 'flex', gap: '12px' }}>
                       {item.audio_file_id && <span title="Has Audio" style={{ fontSize: '1.2rem' }}>🎵</span>}
                       {item.attachments && <span title="Has Attachments" style={{ fontSize: '1.2rem' }}>📎</span>}
-                      {!item.audio_file_id && !item.attachments && <span style={{ color: 'var(--admin-text-muted)', fontSize: '0.8rem' }}>None</span>}
                     </div>
-                  </td>
-                  <td style={{ verticalAlign: 'top', textAlign: 'center' }}>
                     <button 
                       onClick={() => setActiveModal({ type: 'edit', content: item })}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem', padding: '0.5rem', borderRadius: '4px' }}
-                      className="admin-nav-item"
+                      style={{ background: 'var(--admin-primary)', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '0.5rem', fontWeight: 700, cursor: 'pointer' }}
                     >
-                      ✏️
+                      Edit Content
                     </button>
-                  </td>
-                </tr>
+                  </div>
+                </div>
               ))
             ) : (
-              <tr>
-                <td colSpan={5} style={{ padding: '4rem', textAlign: 'center', color: 'var(--admin-text-muted)' }}>
-                  <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📂</div>
-                  <div>No content found matching your filters.</div>
-                </td>
-              </tr>
+              <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--admin-text-muted)' }}>
+                No content found.
+              </div>
             )}
-          </tbody>
-        </table>
+          </div>
+        ) : (
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th style={{ width: '120px' }}>Date</th>
+                <th>Topic & Description</th>
+                <th style={{ width: '120px' }}>Subject</th>
+                <th style={{ width: '100px' }}>Media</th>
+                <th style={{ width: '80px', textAlign: 'center' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredContent.length > 0 ? (
+                filteredContent.map((item: LearningContent) => (
+                  <tr key={item.id}>
+                    <td style={{ verticalAlign: 'top' }}>
+                      <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{new Date(item.date).toLocaleDateString()}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--admin-text-muted)' }}>ID: {item.id}</div>
+                    </td>
+                    <td style={{ verticalAlign: 'top' }}>
+                      <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--admin-primary)', marginBottom: '0.25rem' }}>{item.title}</div>
+                      <div style={{ fontSize: '0.85rem', color: 'var(--admin-text-muted)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                        <MarkdownRenderer content={item.description} />
+                      </div>
+                    </td>
+                    <td style={{ verticalAlign: 'top' }}>
+                      <span style={{ 
+                        display: 'inline-block', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700,
+                        background: 'rgba(99, 102, 241, 0.2)', color: 'var(--admin-primary)', border: '1px solid var(--admin-border)'
+                      }}>
+                        {item.subject}
+                      </span>
+                    </td>
+                    <td style={{ verticalAlign: 'top' }}>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        {item.audio_file_id && <span title="Has Audio" style={{ fontSize: '1.2rem' }}>🎵</span>}
+                        {item.attachments && <span title="Has Attachments" style={{ fontSize: '1.2rem' }}>📎</span>}
+                        {!item.audio_file_id && !item.attachments && <span style={{ color: 'var(--admin-text-muted)', fontSize: '0.8rem' }}>None</span>}
+                      </div>
+                    </td>
+                    <td style={{ verticalAlign: 'top', textAlign: 'center' }}>
+                      <button 
+                        onClick={() => setActiveModal({ type: 'edit', content: item })}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem', padding: '0.5rem', borderRadius: '4px' }}
+                        className="admin-nav-item"
+                      >
+                        ✏️
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={5} style={{ padding: '4rem', textAlign: 'center', color: 'var(--admin-text-muted)' }}>
+                    <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📂</div>
+                    <div>No content found matching your filters.</div>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        )}
       </div>
 
       {/* Modals */}

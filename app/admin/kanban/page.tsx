@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { useData, GAS_WEB_APP_URL } from '@/components/DataProvider';
 import EditHomeworkModal from '@/components/EditHomeworkModal';
+import { useDeviceDetection } from '@/hooks/useDeviceDetection';
 
 export default function KanbanEditor() {
   const { allHomework, refreshData } = useData();
@@ -10,37 +11,38 @@ export default function KanbanEditor() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isSendingSummary, setIsSendingSummary] = useState(false);
   const [summaryLogs, setSummaryLogs] = useState<string | null>(null);
+  const { isMobile } = useDeviceDetection();
 
   const filteredHomework = useMemo(() => {
     let tasks = [...allHomework];
-    
+
     // Sort by created date descending (newest first)
     tasks.sort((a, b) => new Date((b as any).created_at || 0).getTime() - new Date((a as any).created_at || 0).getTime());
-    
+
     if (searchTerm) {
       const lowerTerm = searchTerm.toLowerCase();
-      tasks = tasks.filter(hw => 
-        (hw.title || '').toLowerCase().includes(lowerTerm) || 
+      tasks = tasks.filter(hw =>
+        (hw.title || '').toLowerCase().includes(lowerTerm) ||
         (hw.subject || '').toLowerCase().includes(lowerTerm) ||
         (hw.description || '').toLowerCase().includes(lowerTerm)
       );
     }
-    
+
     return tasks;
   }, [allHomework, searchTerm]);
-  
+
   const handleSendSummary = async () => {
     if (!confirm('Are you sure you want to send the daily summary to Discord now?')) return;
-    
+
     setIsSendingSummary(true);
     setSummaryLogs('Sending...');
-    
+
     try {
       // We use a POST request with the action parameter
       const response = await fetch(`${GAS_WEB_APP_URL}?action=sendSummary`, {
         method: 'POST',
       });
-      
+
       const data = await response.json();
       if (data.success) {
         setSummaryLogs(data.data || 'Summary sent successfully.');
@@ -61,15 +63,15 @@ export default function KanbanEditor() {
         <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--admin-text-main)' }}>Kanban Editor</h1>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
           <p style={{ color: 'var(--admin-text-muted)', margin: 0 }}>Manage and edit existing Kanban tasks.</p>
-          <button 
+          <button
             onClick={handleSendSummary}
             disabled={isSendingSummary}
-            style={{ 
+            style={{
               background: '#5865F2', // Discord color
-              color: 'white', 
-              border: 'none', 
-              padding: '10px 20px', 
-              borderRadius: '0.75rem', 
+              color: 'white',
+              border: 'none',
+              padding: '10px 20px',
+              borderRadius: '0.75rem',
               cursor: isSendingSummary ? 'not-allowed' : 'pointer',
               fontWeight: 700,
               fontSize: '0.9rem',
@@ -89,19 +91,19 @@ export default function KanbanEditor() {
         <div className="admin-card" style={{ marginBottom: '2rem', borderLeft: '4px solid #5865F2', position: 'relative' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
             <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700 }}>Execution Logs</h3>
-            <button 
+            <button
               onClick={() => setSummaryLogs(null)}
               style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--admin-text-muted)', fontWeight: 600 }}
             >
               Close
             </button>
           </div>
-          <pre style={{ 
-            background: '#0f172a', 
-            color: '#38bdf8', 
-            padding: '1.5rem', 
-            borderRadius: '0.5rem', 
-            fontSize: '0.85rem', 
+          <pre style={{
+            background: '#0f172a',
+            color: '#38bdf8',
+            padding: '1.5rem',
+            borderRadius: '0.5rem',
+            fontSize: '0.85rem',
             overflowX: 'auto',
             maxHeight: '300px',
             fontFamily: 'monospace',
@@ -113,15 +115,15 @@ export default function KanbanEditor() {
       )}
 
       <div className="admin-card" style={{ marginBottom: '2rem' }}>
-        <input 
-          type="text" 
-          placeholder="Search tasks by title, subject, or description..." 
+        <input
+          type="text"
+          placeholder="Search tasks by title, subject, or description..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          style={{ 
-            width: '100%', 
-            padding: '1rem', 
-            borderRadius: '0.75rem', 
+          style={{
+            width: '100%',
+            padding: '1rem',
+            borderRadius: '0.75rem',
             border: '1px solid var(--admin-border)',
             fontSize: '1rem',
             outline: 'none',
@@ -130,71 +132,123 @@ export default function KanbanEditor() {
         />
 
         <div style={{ overflowX: 'auto' }}>
-          <table className="admin-table" style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr>
-                <th style={{ padding: '1rem', borderBottom: '2px solid var(--admin-border)' }}>Subject</th>
-                <th style={{ padding: '1rem', borderBottom: '2px solid var(--admin-border)' }}>Title</th>
-                <th style={{ padding: '1rem', borderBottom: '2px solid var(--admin-border)' }}>Deadline</th>
-                <th style={{ padding: '1rem', borderBottom: '2px solid var(--admin-border)' }}>Attachments</th>
-                <th style={{ padding: '1rem', borderBottom: '2px solid var(--admin-border)' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
+          {isMobile ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               {filteredHomework.map((hw) => (
-                <tr key={hw.id} style={{ borderBottom: '1px solid var(--admin-border)' }}>
-                  <td style={{ padding: '1rem' }}>
+                <div key={hw.id} style={{ 
+                  background: 'rgba(255, 255, 255, 0.03)', 
+                  border: '1px solid var(--admin-border)', 
+                  borderRadius: '1rem', 
+                  padding: '1.25rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.75rem'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <span style={{ 
-                      background: '#f1f5f9', padding: '4px 8px', borderRadius: '4px', fontSize: '0.85rem', fontWeight: 600, color: '#334155'
+                      background: 'rgba(99, 102, 241, 0.2)', padding: '4px 10px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700, color: 'var(--admin-primary)'
                     }}>
                       {hw.subject}
                     </span>
-                  </td>
-                  <td style={{ padding: '1rem', fontWeight: 600, color: 'var(--admin-text-main)' }}>{hw.title}</td>
-                  <td style={{ padding: '1rem', color: 'var(--admin-text-muted)' }}>
-                    {hw.deadline ? new Date(hw.deadline).toLocaleDateString() : 'No deadline'}
-                  </td>
-                  <td style={{ padding: '1rem' }}>
-                    <span style={{ color: '#64748b' }}>
-                      {(hw.link_image ? hw.link_image.split(',').filter(Boolean) : []).length} items
+                    <span style={{ fontSize: '0.8rem', color: 'var(--admin-text-muted)' }}>
+                      {hw.deadline ? new Date(hw.deadline).toLocaleDateString() : 'No deadline'}
                     </span>
-                  </td>
-                  <td style={{ padding: '1rem' }}>
-                    <button 
-                      onClick={() => setEditingHomework(hw)}
-                      style={{ 
-                        background: 'var(--admin-primary)', 
-                        color: 'white', 
-                        border: 'none', 
-                        padding: '6px 14px', 
-                        borderRadius: '0.5rem', 
-                        cursor: 'pointer',
-                        fontWeight: 600,
-                        fontSize: '0.85rem'
-                      }}
-                    >
-                      Edit Task
-                    </button>
-                  </td>
-                </tr>
+                  </div>
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--admin-text-main)', margin: 0 }}>{hw.title}</h3>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--admin-text-muted)', marginBottom: '0.5rem' }}>
+                    {(hw.link_image ? hw.link_image.split(',').filter(Boolean) : []).length} items attached
+                  </div>
+                  <button 
+                    onClick={() => setEditingHomework(hw)}
+                    style={{ 
+                      background: 'var(--admin-primary)', 
+                      color: 'white', 
+                      border: 'none', 
+                      padding: '12px', 
+                      borderRadius: '0.75rem', 
+                      cursor: 'pointer',
+                      fontWeight: 700,
+                      fontSize: '0.9rem',
+                      width: '100%'
+                    }}
+                  >
+                    Edit Task
+                  </button>
+                </div>
               ))}
               {filteredHomework.length === 0 && (
-                <tr>
-                  <td colSpan={5} style={{ padding: '2rem', textAlign: 'center', color: 'var(--admin-text-muted)' }}>
-                    No tasks found matching your search.
-                  </td>
-                </tr>
+                <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--admin-text-muted)' }}>
+                  No tasks found matching your search.
+                </div>
               )}
-            </tbody>
-          </table>
+            </div>
+          ) : (
+            <table className="admin-table" style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th style={{ padding: '1rem', borderBottom: '2px solid var(--admin-border)' }}>Subject</th>
+                  <th style={{ padding: '1rem', borderBottom: '2px solid var(--admin-border)' }}>Title</th>
+                  <th style={{ padding: '1rem', borderBottom: '2px solid var(--admin-border)' }}>Deadline</th>
+                  <th style={{ padding: '1rem', borderBottom: '2px solid var(--admin-border)' }}>Attachments</th>
+                  <th style={{ padding: '1rem', borderBottom: '2px solid var(--admin-border)' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredHomework.map((hw) => (
+                  <tr key={hw.id} style={{ borderBottom: '1px solid var(--admin-border)' }}>
+                    <td style={{ padding: '1rem' }}>
+                      <span style={{ 
+                        background: 'rgba(99, 102, 241, 0.2)', padding: '4px 8px', borderRadius: '4px', fontSize: '0.85rem', fontWeight: 600, color: 'var(--admin-primary)'
+                      }}>
+                        {hw.subject}
+                      </span>
+                    </td>
+                    <td style={{ padding: '1rem', fontWeight: 600, color: 'var(--admin-text-main)' }}>{hw.title}</td>
+                    <td style={{ padding: '1rem', color: 'var(--admin-text-muted)' }}>
+                      {hw.deadline ? new Date(hw.deadline).toLocaleDateString() : 'No deadline'}
+                    </td>
+                    <td style={{ padding: '1rem' }}>
+                      <span style={{ color: 'var(--admin-text-muted)' }}>
+                        {(hw.link_image ? hw.link_image.split(',').filter(Boolean) : []).length} items
+                      </span>
+                    </td>
+                    <td style={{ padding: '1rem' }}>
+                      <button 
+                        onClick={() => setEditingHomework(hw)}
+                        style={{ 
+                          background: 'var(--admin-primary)', 
+                          color: 'white', 
+                          border: 'none', 
+                          padding: '6px 14px', 
+                          borderRadius: '0.5rem', 
+                          cursor: 'pointer',
+                          fontWeight: 600,
+                          fontSize: '0.85rem'
+                        }}
+                      >
+                        Edit Task
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {filteredHomework.length === 0 && (
+                  <tr>
+                    <td colSpan={5} style={{ padding: '2rem', textAlign: 'center', color: 'var(--admin-text-muted)' }}>
+                      No tasks found matching your search.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
 
       {editingHomework && (
-        <EditHomeworkModal 
-          homework={editingHomework} 
-          onClose={() => setEditingHomework(null)} 
-          onRefresh={refreshData} 
+        <EditHomeworkModal
+          homework={editingHomework}
+          onClose={() => setEditingHomework(null)}
+          onRefresh={refreshData}
         />
       )}
     </div>
