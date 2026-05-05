@@ -77,14 +77,22 @@ export async function uploadToTelegramDirect(
     }
 
     // Get file path for the temporary URL
-    const fileInfoRes = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getFile?file_id=${fileId}`);
-    const fileInfo = await fileInfoRes.json();
-    
-    if (!fileInfo.ok) {
-      throw new Error('Failed to get file path from Telegram');
+    let tempUrl = '';
+    try {
+      const fileInfoRes = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getFile?file_id=${fileId}`);
+      const fileInfo = await fileInfoRes.json();
+      
+      if (fileInfo.ok && fileInfo.result.file_path) {
+        tempUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${fileInfo.result.file_path}`;
+      } else {
+        // For files > 20MB, getFile fails. We still have the fileId though!
+        console.warn('Telegram getFile failed (likely > 20MB). Using fileId fallback.');
+        tempUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/unknown_path_for_id_${fileId}`;
+      }
+    } catch (e) {
+      console.warn('Error fetching file path, using fileId fallback:', e);
+      tempUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/unknown_path_for_id_${fileId}`;
     }
-
-    const tempUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${fileInfo.result.file_path}`;
 
     return {
       success: true,

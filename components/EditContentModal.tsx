@@ -55,9 +55,9 @@ export default function EditContentModal({
       for (const file of files) {
         let fileToUpload = file;
         
-        // Audio Compression Step
-        if (type === 'audio' && file.size > 20 * 1024 * 1024) {
-          setUploadProgress('✂️ Large file. Optimizing...');
+        // Audio Compression Step (Only if over 45MB)
+        if (type === 'audio' && file.size > 45 * 1024 * 1024) {
+          setUploadProgress('✂️ Very large file. Optimizing...');
           try {
             const compressionResult = await compressAudioIfNeeded(file, (p) => {
               setUploadProgress(`✂️ Compressing: ${p}%`);
@@ -94,6 +94,9 @@ export default function EditContentModal({
           }
         } else {
           // Fallback to GAS (Slow)
+          const errorMsg = result.error || 'Direct Upload Failed';
+          setUploadProgress(`🐢 Slow Fallback (${errorMsg})...`);
+          
           const reader = new FileReader();
           const base64Promise = new Promise<string>((resolve) => {
             reader.onload = () => resolve((reader.result as string).split(',')[1]);
