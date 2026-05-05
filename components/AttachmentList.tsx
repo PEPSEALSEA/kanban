@@ -405,7 +405,7 @@ export default function AttachmentList({
             ) : (
               <div className="relative z-10 w-[95%] h-[90%] bg-white rounded-2xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
                 <iframe 
-                  src={`${selectedPreview.url}${selectedPreview.url.includes('?') ? '&' : '?'}view=fitH`}
+                  src={`https://docs.google.com/viewer?url=${encodeURIComponent(selectedPreview.url)}&embedded=true`}
                   className="w-full h-full border-none"
                   onLoad={() => setIsPreviewLoading(false)}
                   title={selectedPreview.title}
