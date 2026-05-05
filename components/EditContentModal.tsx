@@ -76,7 +76,7 @@ export default function EditContentModal({
         const result = await uploadToTelegramDirect(fileToUpload, type === 'audio' ? 'audio' : 'document');
         
         if (result.success) {
-          // Register in database sheet (background)
+          // ... (existing success logic)
           fetch(`${UPLOAD_WEB_APP_URL}?action=registerUpload`, {
             method: 'POST',
             body: JSON.stringify({
@@ -93,30 +93,49 @@ export default function EditContentModal({
             setFormData(prev => ({ ...prev, attachments: [...prev.attachments, `${result.url}#${encodeURIComponent(file.name)}#${result.fileId}`] }));
           }
         } else {
-          // Fallback to GAS (Slow)
-          const errorMsg = result.error || 'Direct Upload Failed';
-          setUploadProgress(`🐢 Slow Fallback (${errorMsg})...`);
-          
-          const reader = new FileReader();
-          const base64Promise = new Promise<string>((resolve) => {
-            reader.onload = () => resolve((reader.result as string).split(',')[1]);
-            reader.readAsDataURL(file);
-          });
+          // Optimized Fallback to GAS (Fast Binary Upload)
+          const errorMsg = result.error || 'CORS/Direct Upload Restricted';
+          console.warn('Fast upload failed, switching to Binary GAS Proxy:', errorMsg);
+          setUploadProgress(`📤 Switching to Fast Binary Upload...`);
 
-          const base64Data = await base64Promise;
-          const response = await fetch(`${UPLOAD_WEB_APP_URL}?action=upload&filename=${encodeURIComponent(file.name)}&contentType=${encodeURIComponent(file.type || 'application/octet-stream')}`, {
-            method: 'POST',
-            body: base64Data
-          });
+          // Use XHR for real-time progress
+          await new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            const formData = new FormData();
+            formData.append('myFile', file);
+            formData.append('action', 'upload');
+            formData.append('filename', file.name);
+            formData.append('contentType', file.type || 'application/octet-stream');
 
-          const res = await response.json();
-          if (res.success) {
-            if (type === 'audio') {
-              setFormData(prev => ({ ...prev, audio_url: res.url, audio_file_id: res.id }));
-            } else {
-              setFormData(prev => ({ ...prev, attachments: [...prev.attachments, `${res.url}#${encodeURIComponent(file.name)}#${res.id}`] }));
-            }
-          }
+            xhr.upload.addEventListener('progress', (event) => {
+              if (event.lengthComputable) {
+                const percent = Math.round((event.loaded / event.total) * 100);
+                setUploadProgress(`📤 Uploading: ${percent}%`);
+              }
+            });
+
+            xhr.addEventListener('load', () => {
+              try {
+                const res = JSON.parse(xhr.responseText);
+                if (res.success) {
+                  if (type === 'audio') {
+                    setFormData(prev => ({ ...prev, audio_url: res.url, audio_file_id: res.id }));
+                  } else {
+                    setFormData(prev => ({ ...prev, attachments: [...prev.attachments, `${res.url}#${encodeURIComponent(file.name)}#${res.id}`] }));
+                  }
+                  resolve(res);
+                } else {
+                  reject(new Error(res.message || 'Upload failed'));
+                }
+              } catch (e) {
+                reject(new Error('Invalid response from server'));
+              }
+            });
+
+            xhr.addEventListener('error', () => reject(new Error('Network error during upload')));
+            xhr.open('POST', UPLOAD_WEB_APP_URL);
+            xhr.send(formData);
+          });
         }
       }
     } catch (error) {
