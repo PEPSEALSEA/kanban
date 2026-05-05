@@ -378,6 +378,7 @@ export default function LearningContentPage() {
           })}
         </div>
       </div>
+    )}
 
       {/* Date Overview Modal */}
       {selectedDate && (
