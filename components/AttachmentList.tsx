@@ -22,8 +22,8 @@ export default function AttachmentList({
   contentType?: 'learning_content' | 'homework';
 }) {
   const [localAttachments, setLocalAttachments] = useState<Attachment[]>(attachments);
-  const [selectedImage, setSelectedImage] = useState<Attachment | null>(null);
-  const [isImageLoading, setIsImageLoading] = useState(true);
+  const [selectedPreview, setSelectedPreview] = useState<Attachment | null>(null);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState<Record<string, boolean>>({});
   const [refreshAttempted, setRefreshAttempted] = useState<Record<string, boolean>>({});
 
@@ -44,14 +44,14 @@ export default function AttachmentList({
     
     if (!fileId) {
       console.warn("Cannot refresh: Missing both fileId and filename for", targetImg.title);
-      setIsImageLoading(false);
+      setIsPreviewLoading(false);
       return;
     }
 
     const uniqueKey = `${fileId}_${targetImg.url}`;
 
     if ((refreshAttempted[uniqueKey] && !force) || isRefreshing[uniqueKey]) {
-      setIsImageLoading(false);
+      setIsPreviewLoading(false);
       return;
     }
 
@@ -96,7 +96,7 @@ export default function AttachmentList({
               };
               newArr[currentIdx] = updated;
               
-              setSelectedImage(currentSelected => {
+              setSelectedPreview(currentSelected => {
                 if (currentSelected && currentSelected.url === targetImg.url) {
                   return updated;
                 }
@@ -107,19 +107,19 @@ export default function AttachmentList({
           });
         } else {
           console.error("All refresh methods failed for", targetImg.title);
-          setIsImageLoading(false);
+          setIsPreviewLoading(false);
         }
       } catch (err) {
         console.error('Refresh error:', err);
-        setIsImageLoading(false);
+        setIsPreviewLoading(false);
       } finally {
         setIsRefreshing(prev => ({ ...prev, [uniqueKey]: false }));
       }
     } else if (targetImg.url.includes('drive.google.com')) {
       console.warn("Google Drive link failed - likely bandwidth quota exceeded.");
-      setIsImageLoading(false);
+      setIsPreviewLoading(false);
     } else {
-      setIsImageLoading(false);
+      setIsPreviewLoading(false);
     }
   };
   const [zoomLevel, setZoomLevel] = useState(1);
@@ -141,8 +141,8 @@ export default function AttachmentList({
   };
 
   const closeModal = () => {
-    setSelectedImage(null);
-    setIsImageLoading(true);
+    setSelectedPreview(null);
+    setIsPreviewLoading(true);
     setZoomLevel(1);
     setPosition({ x: 0, y: 0 });
     isDraggingRef.current = false;
@@ -153,11 +153,11 @@ export default function AttachmentList({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') closeModal();
     };
-    if (selectedImage) {
+    if (selectedPreview) {
       window.addEventListener('keydown', handleKeyDown);
     }
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedImage]);
+  }, [selectedPreview]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (zoomLevel <= 1) return;
@@ -212,14 +212,23 @@ export default function AttachmentList({
                   </span>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <a
-                    href={file.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-3 py-1.5 text-sm font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors flex items-center gap-1.5"
-                  >
-                    View
-                  </a>
+                  {file.title?.toLowerCase().endsWith('.pdf') ? (
+                    <button
+                      onClick={() => setSelectedPreview(file)}
+                      className="px-3 py-1.5 text-sm font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors flex items-center gap-1.5"
+                    >
+                      View
+                    </button>
+                  ) : (
+                    <a
+                      href={file.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3 py-1.5 text-sm font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors flex items-center gap-1.5"
+                    >
+                      View
+                    </a>
+                  )}
                   <a
                     href={file.url}
                     download
@@ -259,7 +268,7 @@ export default function AttachmentList({
             {images.map((img, idx) => (
               <div 
                 key={idx} 
-                onClick={() => setSelectedImage(img)}
+                onClick={() => setSelectedPreview(img)}
                 className="group relative aspect-square rounded-xl overflow-hidden cursor-pointer border border-slate-200 bg-slate-100 shadow-sm hover:shadow-md hover:ring-2 ring-indigo-400 transition-all"
               >
                 <img 
@@ -301,7 +310,7 @@ export default function AttachmentList({
       )}
 
       {/* Fullscreen Image Modal - Using Portal to ensure it's not clipped by parent containers */}
-      {selectedImage && typeof document !== 'undefined' && require('react-dom').createPortal(
+      {selectedPreview && typeof document !== 'undefined' && require('react-dom').createPortal(
         <div 
           className="fixed inset-0 z-[100000] flex items-center justify-center bg-slate-950/90 backdrop-blur-3xl transition-opacity duration-300 animate-in fade-in"
           style={{
@@ -309,7 +318,7 @@ export default function AttachmentList({
           }}
         >
           {/* Loading Spinner */}
-          {isImageLoading && (
+          {isPreviewLoading && (
             <div className="absolute inset-0 flex items-center justify-center z-[100001]">
               <div className="w-12 h-12 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin"></div>
             </div>
@@ -318,42 +327,44 @@ export default function AttachmentList({
           <div className="absolute top-0 inset-x-0 p-6 flex justify-between items-center bg-gradient-to-b from-black/80 via-black/40 to-transparent z-[100002]">
             <div className="flex flex-col">
               <h3 className="text-white text-xl font-bold tracking-tight truncate pr-4 drop-shadow-lg">
-                {selectedImage.title || 'Image Viewer'}
+                {selectedPreview.title || 'File Viewer'}
               </h3>
               <p className="text-slate-400 text-xs font-medium uppercase tracking-widest mt-0.5 opacity-80">
-                Preview Mode
+                {selectedPreview.type === 'link_image' ? 'Image Preview' : 'Document Preview'}
               </p>
             </div>
             
             <div className="flex items-center gap-3">
-              {/* Zoom Controls */}
-              <div className="flex items-center bg-slate-800/40 rounded-xl backdrop-blur-xl border border-white/10 mr-4 shadow-xl overflow-hidden">
-                <button 
-                  onClick={handleZoomOut} 
-                  className="p-2.5 text-slate-300 hover:text-white hover:bg-white/10 transition-all disabled:opacity-30 disabled:cursor-not-allowed" 
-                  disabled={zoomLevel <= 1}
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M20 12H4" /></svg>
-                </button>
-                <div className="px-4 text-white text-sm font-bold w-20 text-center border-x border-white/5 select-none tabular-nums">
-                  {Math.round(zoomLevel * 100)}%
+              {/* Zoom Controls (Images Only) */}
+              {selectedPreview.type === 'link_image' && (
+                <div className="flex items-center bg-slate-800/40 rounded-xl backdrop-blur-xl border border-white/10 mr-4 shadow-xl overflow-hidden">
+                  <button 
+                    onClick={handleZoomOut} 
+                    className="p-2.5 text-slate-300 hover:text-white hover:bg-white/10 transition-all disabled:opacity-30 disabled:cursor-not-allowed" 
+                    disabled={zoomLevel <= 1}
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M20 12H4" /></svg>
+                  </button>
+                  <div className="px-4 text-white text-sm font-bold w-20 text-center border-x border-white/5 select-none tabular-nums">
+                    {Math.round(zoomLevel * 100)}%
+                  </div>
+                  <button 
+                    onClick={handleResetZoom} 
+                    className="px-3 py-2 text-white hover:bg-white/10 transition-all text-xs font-black disabled:opacity-30 disabled:cursor-not-allowed border-r border-white/5" 
+                    title="Reset Zoom" 
+                    disabled={zoomLevel === 1}
+                  >
+                    1:1
+                  </button>
+                  <button 
+                    onClick={handleZoomIn} 
+                    className="p-2.5 text-slate-300 hover:text-white hover:bg-white/10 transition-all disabled:opacity-30 disabled:cursor-not-allowed" 
+                    disabled={zoomLevel >= 4}
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>
+                  </button>
                 </div>
-                <button 
-                  onClick={handleResetZoom} 
-                  className="px-3 py-2 text-white hover:bg-white/10 transition-all text-xs font-black disabled:opacity-30 disabled:cursor-not-allowed border-r border-white/5" 
-                  title="Reset Zoom" 
-                  disabled={zoomLevel === 1}
-                >
-                  1:1
-                </button>
-                <button 
-                  onClick={handleZoomIn} 
-                  className="p-2.5 text-slate-300 hover:text-white hover:bg-white/10 transition-all disabled:opacity-30 disabled:cursor-not-allowed" 
-                  disabled={zoomLevel >= 4}
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>
-                </button>
-              </div>
+              )}
     
               {/* Close Button */}
               <button 
@@ -366,48 +377,59 @@ export default function AttachmentList({
             </div>
           </div>
     
-          {/* Interactive Image Container */}
+          {/* Interactive Container */}
           <div 
-            className="absolute inset-0 w-full h-full flex items-center justify-center overflow-hidden" 
+            className="absolute inset-0 w-full h-full flex items-center justify-center overflow-hidden pt-20" 
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
             onMouseMove={handleMouseMove}
           >
-            {/* Clickable bounding box for closing modal (only triggers if image isn't dragged/clicked) */}
+            {/* Clickable bounding box for closing modal */}
             <div className="absolute inset-0 z-0" onMouseUp={closeModal} />
             
-            <img 
-              src={isRefreshing[`${selectedImage.fileId}_${selectedImage.url}`] ? TRANSPARENT_PIXEL : selectedImage.url} 
-              alt={selectedImage.title} 
-              onMouseDown={handleMouseDown}
-              onLoad={() => setIsImageLoading(false)}
-              onError={() => handleImageError(selectedImage)}
-              className={`w-full h-full object-contain drop-shadow-[0_0_50px_rgba(0,0,0,0.5)] relative z-10 animate-in zoom-in-95 duration-300 ease-out transition-opacity ${isImageLoading ? 'opacity-0' : 'opacity-100'}`}
-              style={{ 
-                transform: `translate(${position.x}px, ${position.y}px) scale(${zoomLevel})`,
-                cursor: zoomLevel > 1 ? (isDragging ? 'grabbing' : 'grab') : 'auto',
-                transition: isDragging ? 'none' : 'transform 0.2s cubic-bezier(0.2, 0, 0, 1)'
-              }}
-              draggable={false}
-            />
+            {selectedPreview.type === 'link_image' ? (
+              <img 
+                src={isRefreshing[`${selectedPreview.fileId}_${selectedPreview.url}`] ? TRANSPARENT_PIXEL : selectedPreview.url} 
+                alt={selectedPreview.title} 
+                onMouseDown={handleMouseDown}
+                onLoad={() => setIsPreviewLoading(false)}
+                onError={() => handleImageError(selectedPreview)}
+                className={`w-full h-full object-contain drop-shadow-[0_0_50px_rgba(0,0,0,0.5)] relative z-10 animate-in zoom-in-95 duration-300 ease-out transition-opacity ${isPreviewLoading ? 'opacity-0' : 'opacity-100'}`}
+                style={{ 
+                  transform: `translate(${position.x}px, ${position.y}px) scale(${zoomLevel})`,
+                  cursor: zoomLevel > 1 ? (isDragging ? 'grabbing' : 'grab') : 'auto',
+                  transition: isDragging ? 'none' : 'transform 0.2s cubic-bezier(0.2, 0, 0, 1)'
+                }}
+                draggable={false}
+              />
+            ) : (
+              <div className="relative z-10 w-[95%] h-[90%] bg-white rounded-2xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
+                <iframe 
+                  src={`${selectedPreview.url}${selectedPreview.url.includes('?') ? '&' : '?'}view=fitH`}
+                  className="w-full h-full border-none"
+                  onLoad={() => setIsPreviewLoading(false)}
+                  title={selectedPreview.title}
+                />
+              </div>
+            )}
 
             {/* Manual Refresh Button for Modal */}
-            {refreshAttempted[`${selectedImage.fileId}_${selectedImage.url}`] && !isRefreshing[`${selectedImage.fileId}_${selectedImage.url}`] && (
+            {refreshAttempted[`${selectedPreview.fileId}_${selectedPreview.url}`] && !isRefreshing[`${selectedPreview.fileId}_${selectedPreview.url}`] && (
               <div className="absolute inset-0 flex items-center justify-center z-[100003] pointer-events-none">
                 <div className="bg-slate-900/80 backdrop-blur-md p-6 rounded-2xl border border-white/10 flex flex-col items-center gap-4 pointer-events-auto shadow-2xl">
                   <div className="p-3 bg-red-500/20 text-red-400 rounded-full">
                     <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
                   </div>
                   <div className="text-center">
-                    <p className="text-white font-bold">Failed to load high-res image</p>
+                    <p className="text-white font-bold">Failed to load preview</p>
                     <p className="text-slate-400 text-sm">The link may have expired or Google quota was hit.</p>
                   </div>
                   <button 
-                    onClick={() => handleImageError(selectedImage, true)}
+                    onClick={() => handleImageError(selectedPreview, true)}
                     className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-lg transition-all flex items-center gap-2 active:scale-95"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                    Refresh Image Link
+                    Refresh File Link
                   </button>
                 </div>
               </div>
