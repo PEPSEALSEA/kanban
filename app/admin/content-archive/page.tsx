@@ -19,6 +19,96 @@ type LearningContent = {
   links: string;
 };
 
+const ContentItem = React.memo(({ item, subjects, onEdit, isMobile }: { item: LearningContent, subjects: any[], onEdit: (item: any) => void, isMobile: boolean }) => {
+  const subjectColor = subjects.find(s => s.name.trim().toLowerCase() === (item.subject || '').trim().toLowerCase())?.color || 'var(--admin-primary)';
+  
+  if (isMobile) {
+    return (
+      <div style={{ 
+        background: 'rgba(255, 255, 255, 0.03)', 
+        border: '1px solid var(--admin-border)', 
+        borderRadius: '1rem', 
+        padding: '1.25rem',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '0.75rem'
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ fontSize: '0.85rem', fontWeight: 700 }}>{new Date(item.date).toLocaleDateString()}</div>
+          <span style={{ 
+            padding: '2px 8px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 700,
+            background: `${subjectColor}22`,
+            color: subjectColor,
+            border: `1px solid ${subjectColor}44`
+          }}>
+            {item.subject}
+          </span>
+        </div>
+        <div style={{ fontSize: '0.7rem', color: 'var(--admin-text-muted)', marginBottom: '-0.5rem' }}>ID: {item.id}</div>
+        <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--admin-text-main)', margin: 0 }}>{item.title}</h3>
+        <div style={{ fontSize: '0.85rem', color: 'var(--admin-text-muted)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+          {item.description}
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            {item.audio_file_id && <span title="Has Audio" style={{ fontSize: '1.2rem' }}>🎵</span>}
+            {item.attachments && <span title="Has Attachments" style={{ fontSize: '1.2rem' }}>📎</span>}
+          </div>
+          <button 
+            onClick={() => onEdit(item)}
+            style={{ background: 'var(--admin-primary)', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '0.5rem', fontWeight: 700, cursor: 'pointer' }}
+          >
+            Edit Content
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <tr>
+      <td style={{ verticalAlign: 'top' }}>
+        <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{new Date(item.date).toLocaleDateString()}</div>
+        <div style={{ fontSize: '0.75rem', color: 'var(--admin-text-muted)' }}>ID: {item.id}</div>
+      </td>
+      <td style={{ verticalAlign: 'top' }}>
+        <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--admin-text-main)', marginBottom: '0.25rem' }}>{item.title}</div>
+        <div style={{ fontSize: '0.85rem', color: 'var(--admin-text-muted)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+          {item.description}
+        </div>
+      </td>
+      <td style={{ verticalAlign: 'top' }}>
+        <span style={{ 
+          display: 'inline-block', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700,
+          background: `${subjectColor}22`,
+          color: subjectColor,
+          border: `1px solid ${subjectColor}44`
+        }}>
+          {item.subject}
+        </span>
+      </td>
+      <td style={{ verticalAlign: 'top' }}>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          {item.audio_file_id && <span title="Has Audio" style={{ fontSize: '1.2rem' }}>🎵</span>}
+          {item.attachments && <span title="Has Attachments" style={{ fontSize: '1.2rem' }}>📎</span>}
+          {!item.audio_file_id && !item.attachments && <span style={{ color: 'var(--admin-text-muted)', fontSize: '0.8rem' }}>None</span>}
+        </div>
+      </td>
+      <td style={{ verticalAlign: 'top', textAlign: 'center' }}>
+        <button 
+          onClick={() => onEdit(item)}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem', padding: '0.5rem', borderRadius: '4px' }}
+          className="admin-nav-item"
+        >
+          ✏️
+        </button>
+      </td>
+    </tr>
+  );
+});
+
+ContentItem.displayName = 'ContentItem';
+
 export default function ContentArchiveEditor() {
   const { learningContent, isLoading, refreshData, subjects } = useData();
   const [searchTerm, setSearchTerm] = useState('');
@@ -27,12 +117,23 @@ export default function ContentArchiveEditor() {
   const { isMobile } = useDeviceDetection();
 
   const filteredContent = useMemo(() => {
+    const term = searchTerm.toLowerCase().trim();
+    const subFilter = subjectFilter.trim().toLowerCase();
+
     return learningContent.filter((item: LearningContent) => {
-      const matchesSearch = 
-        item.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        item.description.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesSubject = subjectFilter === 'All' || item.subject.trim().toLowerCase() === subjectFilter.trim().toLowerCase();
-      return matchesSearch && matchesSubject;
+      // Filter by dropdown subject first (most efficient)
+      const matchesSubjectFilter = subFilter === 'all' || item.subject.trim().toLowerCase() === subFilter;
+      if (!matchesSubjectFilter) return false;
+
+      // Search by term
+      if (!term) return true;
+
+      return (
+        item.title.toLowerCase().includes(term) || 
+        item.description.toLowerCase().includes(term) ||
+        item.id.toLowerCase().includes(term) ||
+        item.subject.toLowerCase().includes(term)
+      );
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [learningContent, searchTerm, subjectFilter]);
 
@@ -71,7 +172,7 @@ export default function ContentArchiveEditor() {
               <span style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', opacity: 0.4 }}>🔍</span>
               <input 
                 type="text" 
-                placeholder="Search by title or description..." 
+                placeholder="Search by ID (LC-...), Subject, or Title..." 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 style={{ width: '100%', padding: '0.7rem 0.7rem 0.7rem 2.5rem', borderRadius: '0.5rem', border: '1px solid var(--admin-border)', outline: 'none' }}
@@ -97,43 +198,13 @@ export default function ContentArchiveEditor() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             {filteredContent.length > 0 ? (
               filteredContent.map((item: LearningContent) => (
-                <div key={item.id} style={{ 
-                  background: 'rgba(255, 255, 255, 0.03)', 
-                  border: '1px solid var(--admin-border)', 
-                  borderRadius: '1rem', 
-                  padding: '1.25rem',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '0.75rem'
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ fontSize: '0.85rem', fontWeight: 700 }}>{new Date(item.date).toLocaleDateString()}</div>
-                    <span style={{ 
-                      padding: '2px 8px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 700,
-                      background: `${subjects.find(s => s.name.trim().toLowerCase() === (item.subject || '').trim().toLowerCase())?.color || 'var(--admin-primary)'}22`,
-                      color: subjects.find(s => s.name.trim().toLowerCase() === (item.subject || '').trim().toLowerCase())?.color || 'var(--admin-primary)',
-                      border: `1px solid ${subjects.find(s => s.name.trim().toLowerCase() === (item.subject || '').trim().toLowerCase())?.color || 'var(--admin-primary)'}44`
-                    }}>
-                      {item.subject}
-                    </span>
-                  </div>
-                  <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--admin-text-main)', margin: 0 }}>{item.title}</h3>
-                  <div style={{ fontSize: '0.85rem', color: 'var(--admin-text-muted)', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                    <MarkdownRenderer content={item.description} />
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
-                    <div style={{ display: 'flex', gap: '12px' }}>
-                      {item.audio_file_id && <span title="Has Audio" style={{ fontSize: '1.2rem' }}>🎵</span>}
-                      {item.attachments && <span title="Has Attachments" style={{ fontSize: '1.2rem' }}>📎</span>}
-                    </div>
-                    <button 
-                      onClick={() => setActiveModal({ type: 'edit', content: item })}
-                      style={{ background: 'var(--admin-primary)', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '0.5rem', fontWeight: 700, cursor: 'pointer' }}
-                    >
-                      Edit Content
-                    </button>
-                  </div>
-                </div>
+                <ContentItem 
+                  key={item.id} 
+                  item={item} 
+                  subjects={subjects} 
+                  isMobile={isMobile} 
+                  onEdit={(item) => setActiveModal({ type: 'edit', content: item })} 
+                />
               ))
             ) : (
               <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--admin-text-muted)' }}>
@@ -155,44 +226,13 @@ export default function ContentArchiveEditor() {
             <tbody>
               {filteredContent.length > 0 ? (
                 filteredContent.map((item: LearningContent) => (
-                  <tr key={item.id}>
-                    <td style={{ verticalAlign: 'top' }}>
-                      <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{new Date(item.date).toLocaleDateString()}</div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--admin-text-muted)' }}>ID: {item.id}</div>
-                    </td>
-                    <td style={{ verticalAlign: 'top' }}>
-                      <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--admin-text-main)', marginBottom: '0.25rem' }}>{item.title}</div>
-                      <div style={{ fontSize: '0.85rem', color: 'var(--admin-text-muted)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                        <MarkdownRenderer content={item.description} />
-                      </div>
-                    </td>
-                    <td style={{ verticalAlign: 'top' }}>
-                      <span style={{ 
-                        display: 'inline-block', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700,
-                        background: `${subjects.find(s => s.name.trim().toLowerCase() === (item.subject || '').trim().toLowerCase())?.color || 'var(--admin-primary)'}22`,
-                        color: subjects.find(s => s.name.trim().toLowerCase() === (item.subject || '').trim().toLowerCase())?.color || 'var(--admin-primary)',
-                        border: `1px solid ${subjects.find(s => s.name.trim().toLowerCase() === (item.subject || '').trim().toLowerCase())?.color || 'var(--admin-primary)'}44`
-                      }}>
-                        {item.subject}
-                      </span>
-                    </td>
-                    <td style={{ verticalAlign: 'top' }}>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        {item.audio_file_id && <span title="Has Audio" style={{ fontSize: '1.2rem' }}>🎵</span>}
-                        {item.attachments && <span title="Has Attachments" style={{ fontSize: '1.2rem' }}>📎</span>}
-                        {!item.audio_file_id && !item.attachments && <span style={{ color: 'var(--admin-text-muted)', fontSize: '0.8rem' }}>None</span>}
-                      </div>
-                    </td>
-                    <td style={{ verticalAlign: 'top', textAlign: 'center' }}>
-                      <button 
-                        onClick={() => setActiveModal({ type: 'edit', content: item })}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem', padding: '0.5rem', borderRadius: '4px' }}
-                        className="admin-nav-item"
-                      >
-                        ✏️
-                      </button>
-                    </td>
-                  </tr>
+                  <ContentItem 
+                    key={item.id} 
+                    item={item} 
+                    subjects={subjects} 
+                    isMobile={isMobile} 
+                    onEdit={(item) => setActiveModal({ type: 'edit', content: item })} 
+                  />
                 ))
               ) : (
                 <tr>
