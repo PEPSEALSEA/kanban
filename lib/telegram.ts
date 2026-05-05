@@ -20,8 +20,23 @@ export async function uploadToTelegramDirect(
   file: File,
   type: 'image' | 'audio' | 'document' = 'document'
 ): Promise<TelegramUploadResult> {
+  // Debug log (Safe)
+  console.log('Telegram Upload Context:', {
+    hasToken: !!BOT_TOKEN,
+    hasChatId: !!CHAT_ID,
+    tokenPrefix: BOT_TOKEN ? BOT_TOKEN.substring(0, 5) + '...' : 'none',
+    fileName: file.name,
+    fileSize: (file.size / 1024 / 1024).toFixed(2) + 'MB',
+    type
+  });
+
   if (!BOT_TOKEN || !CHAT_ID) {
-    return { success: false, fileId: '', url: '', error: 'Telegram credentials missing in environment' };
+    return { 
+      success: false, 
+      fileId: '', 
+      url: '', 
+      error: 'Telegram credentials missing in environment (.env.local)' 
+    };
   }
 
   try {
@@ -40,16 +55,26 @@ export async function uploadToTelegramDirect(
     formData.append('chat_id', CHAT_ID);
     formData.append(field, file);
     
-    const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/${method}`, {
-      method: 'POST',
-      body: formData,
-    });
+    let response;
+    try {
+      response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/${method}`, {
+        method: 'POST',
+        body: formData,
+      });
+    } catch (fetchErr: any) {
+      // This usually happens for CORS or Network errors
+      console.error('Fetch error during Telegram upload:', fetchErr);
+      if (fetchErr.message === 'Failed to fetch') {
+        throw new Error('Network error or CORS blocked. Direct Telegram upload is only possible if your browser allows it or via a proxy.');
+      }
+      throw fetchErr;
+    }
 
     let result = await response.json();
 
     // If sendAudio/sendPhoto fails, retry as a generic document (more reliable for large files)
     if (!result.ok && method !== 'sendDocument') {
-      console.warn(`Telegram ${method} failed, retrying as sendDocument...`);
+      console.warn(`Telegram ${method} failed (${result.description}), retrying as sendDocument...`);
       const retryFormData = new FormData();
       retryFormData.append('chat_id', CHAT_ID);
       retryFormData.append('document', file);
@@ -85,8 +110,8 @@ export async function uploadToTelegramDirect(
       if (fileInfo.ok && fileInfo.result.file_path) {
         tempUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${fileInfo.result.file_path}`;
       } else {
-        // For files > 20MB, getFile fails. We still have the fileId though!
-        console.warn('Telegram getFile failed (likely > 20MB). Using fileId fallback.');
+        // For files > 20MB, getFile fails for bots sometimes. We still have the fileId though!
+        console.warn('Telegram getFile failed (likely > 20MB or Bot limitation). Using fileId fallback.');
         tempUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/unknown_path_for_id_${fileId}`;
       }
     } catch (e) {
