@@ -44,6 +44,7 @@ export default function LearningContentPage() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [activeContent, setActiveContent] = useState<LearningContent | null>(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [searchTerm, setSearchTerm] = useState('');
   const [mounted, setMounted] = useState(false);
   const { isMobile, isTablet } = useDeviceDetection();
 
@@ -108,6 +109,16 @@ export default function LearningContentPage() {
              itemDate.getDate() === d.getDate();
     });
   };
+  const searchResults = useMemo(() => {
+    if (!searchTerm.trim()) return [];
+    const term = searchTerm.toLowerCase().trim();
+    return learningContent.filter((c: LearningContent) => 
+      c.title.toLowerCase().includes(term) || 
+      c.subject.toLowerCase().includes(term) || 
+      c.id.toLowerCase().includes(term) ||
+      c.description.toLowerCase().includes(term)
+    ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [learningContent, searchTerm]);
 
   // --- PARSER LOGIC ---
   const parseDescription = (desc: string) => {
@@ -256,7 +267,79 @@ export default function LearningContentPage() {
         </div>
       </header>
 
-      <div className="glass" style={{ padding: isMobile ? '1rem' : '2rem', borderRadius: isMobile ? '1.5rem' : '2rem' }}>
+      <div className="glass" style={{ padding: isMobile ? '1.25rem' : '1.5rem', borderRadius: '1.5rem', marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <span style={{ fontSize: '1.2rem', opacity: 0.5 }}>🔍</span>
+        <input 
+          type="text" 
+          placeholder="ค้นหาด้วย ID (LC-...), วิชา หรือชื่อเรื่อง..." 
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: '#fff', fontSize: isMobile ? '0.9rem' : '1.1rem', fontWeight: 500 }}
+        />
+        {searchTerm && (
+          <button 
+            onClick={() => setSearchTerm('')}
+            style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', width: '24px', height: '24px', borderRadius: '50%', cursor: 'pointer', fontSize: '0.7rem' }}
+          >
+            ✕
+          </button>
+        )}
+      </div>
+
+      {searchTerm.trim() ? (
+        <div className="animate-slide-up">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 800 }}>ผลการค้นหา ({searchResults.length})</h2>
+            <button onClick={() => setSearchTerm('')} style={{ background: 'none', border: 'none', color: '#818cf8', fontWeight: 700, cursor: 'pointer' }}>เคลียร์การค้นหา</button>
+          </div>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {searchResults.length > 0 ? (
+              searchResults.map((c: LearningContent) => (
+                <button 
+                  key={c.id} 
+                  onClick={() => { window.location.hash = `#/view?id=${c.id}`; setSearchTerm(''); }}
+                  className="glass-hover"
+                  style={{ 
+                    width: '100%', 
+                    padding: '1.25rem', 
+                    background: 'rgba(255,255,255,0.03)', 
+                    border: '1px solid rgba(255,255,255,0.08)', 
+                    borderRadius: '1.25rem', 
+                    color: '#fff', 
+                    textAlign: 'left', 
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '1.5rem',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  <div style={{ width: '45px', height: '45px', borderRadius: '12px', background: `${SUBJECT_COLORS[c.subject] || SUBJECT_COLORS['Other']}25`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: SUBJECT_COLORS[c.subject] || SUBJECT_COLORS['Other'], fontWeight: 800, fontSize: '0.8rem' }}>
+                    {c.subject.charAt(0)}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '0.7rem', fontWeight: 700, opacity: 0.5 }}>{c.id}</span>
+                      <span style={{ width: '3px', height: '3px', borderRadius: '50%', background: 'rgba(255,255,255,0.2)' }} />
+                      <span style={{ fontSize: '0.7rem', fontWeight: 700, color: SUBJECT_COLORS[c.subject] || SUBJECT_COLORS['Other'] }}>{c.subject}</span>
+                    </div>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 700 }}>{c.title}</div>
+                    <div style={{ fontSize: '0.8rem', opacity: 0.5, marginTop: '2px' }}>{new Date(c.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+                  </div>
+                  <span style={{ opacity: 0.3 }}>→</span>
+                </button>
+              ))
+            ) : (
+              <div className="glass" style={{ padding: '4rem', textAlign: 'center', borderRadius: '2rem' }}>
+                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🔍</div>
+                <div style={{ fontWeight: 700, opacity: 0.5 }}>ไม่พบข้อมูลที่ตรงกับการค้นหา</div>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="glass animate-slide-up" style={{ padding: isMobile ? '1rem' : '2rem', borderRadius: isMobile ? '1.5rem' : '2rem' }}>
         {/* Calendar Nav */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
           <h2 style={{ fontSize: isMobile ? '1rem' : '1.25rem', fontWeight: 800 }}>
