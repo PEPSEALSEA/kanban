@@ -35,6 +35,7 @@ type LearningContent = {
 export default function LearningContentPage() {
   const { 
     learningContent, 
+    subjects,
     isLoading, 
     error, 
     refreshData 
@@ -45,6 +46,7 @@ export default function LearningContentPage() {
   const [activeContent, setActiveContent] = useState<LearningContent | null>(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedSubject, setSelectedSubject] = useState('All');
   const [mounted, setMounted] = useState(false);
   const { isMobile, isTablet } = useDeviceDetection();
 
@@ -110,15 +112,21 @@ export default function LearningContentPage() {
     });
   };
   const searchResults = useMemo(() => {
-    if (!searchTerm.trim()) return [];
+    if (!searchTerm.trim() && selectedSubject === 'All') return [];
+    
     const term = searchTerm.toLowerCase().trim();
-    return learningContent.filter((c: LearningContent) => 
-      c.title.toLowerCase().includes(term) || 
-      c.subject.toLowerCase().includes(term) || 
-      c.id.toLowerCase().includes(term) ||
-      c.description.toLowerCase().includes(term)
-    ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [learningContent, searchTerm]);
+    return learningContent.filter((c: LearningContent) => {
+      const matchesSearch = !term || 
+        c.title.toLowerCase().includes(term) || 
+        c.subject.toLowerCase().includes(term) || 
+        c.id.toLowerCase().includes(term) ||
+        c.description.toLowerCase().includes(term);
+        
+      const matchesSubject = selectedSubject === 'All' || c.subject === selectedSubject;
+      
+      return matchesSearch && matchesSubject;
+    }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [learningContent, searchTerm, selectedSubject]);
 
   // --- PARSER LOGIC ---
   const parseDescription = (desc: string) => {
@@ -267,30 +275,46 @@ export default function LearningContentPage() {
         </div>
       </header>
 
-      <div className="glass" style={{ padding: isMobile ? '1.25rem' : '1.5rem', borderRadius: '1.5rem', marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-        <span style={{ fontSize: '1.2rem', opacity: 0.5 }}>🔍</span>
-        <input 
-          type="text" 
-          placeholder="ค้นหาด้วย ID (LC-...), วิชา หรือชื่อเรื่อง..." 
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: '#fff', fontSize: isMobile ? '0.9rem' : '1.1rem', fontWeight: 500 }}
-        />
-        {searchTerm && (
-          <button 
-            onClick={() => setSearchTerm('')}
-            style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', width: '24px', height: '24px', borderRadius: '50%', cursor: 'pointer', fontSize: '0.7rem' }}
+      <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', flexDirection: isMobile ? 'column' : 'row' }}>
+        <div className="glass" style={{ flex: 1, padding: isMobile ? '1.25rem' : '1.5rem', borderRadius: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <span style={{ fontSize: '1.2rem', opacity: 0.5 }}>🔍</span>
+          <input 
+            type="text" 
+            placeholder="ค้นหาด้วย ID (LC-...), วิชา หรือชื่อเรื่อง..." 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: '#fff', fontSize: isMobile ? '0.9rem' : '1.1rem', fontWeight: 500 }}
+          />
+          {searchTerm && (
+            <button 
+              onClick={() => setSearchTerm('')}
+              style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', width: '24px', height: '24px', borderRadius: '50%', cursor: 'pointer', fontSize: '0.7rem' }}
+            >
+              ✕
+            </button>
+          )}
+        </div>
+
+        <div className="glass" style={{ minWidth: isMobile ? '100%' : '200px', padding: isMobile ? '1.25rem' : '0.5rem 1.5rem', borderRadius: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <span style={{ fontSize: '1.1rem', opacity: 0.5 }}>📚</span>
+          <select 
+            value={selectedSubject} 
+            onChange={(e) => setSelectedSubject(e.target.value)}
+            style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: '#fff', fontSize: isMobile ? '0.9rem' : '1rem', fontWeight: 600, cursor: 'pointer' }}
           >
-            ✕
-          </button>
-        )}
+            <option value="All" style={{ background: '#0f172a' }}>ทุกวิชา (All)</option>
+            {subjects.map(s => (
+              <option key={s.id} value={s.name} style={{ background: '#0f172a' }}>{s.name}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
-      {searchTerm.trim() ? (
+      {searchTerm.trim() || selectedSubject !== 'All' ? (
         <div className="animate-slide-up">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
             <h2 style={{ fontSize: '1.25rem', fontWeight: 800 }}>ผลการค้นหา ({searchResults.length})</h2>
-            <button onClick={() => setSearchTerm('')} style={{ background: 'none', border: 'none', color: '#818cf8', fontWeight: 700, cursor: 'pointer' }}>เคลียร์การค้นหา</button>
+            <button onClick={() => { setSearchTerm(''); setSelectedSubject('All'); }} style={{ background: 'none', border: 'none', color: '#818cf8', fontWeight: 700, cursor: 'pointer' }}>เคลียร์การค้นหา</button>
           </div>
           
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -298,7 +322,7 @@ export default function LearningContentPage() {
               searchResults.map((c: LearningContent) => (
                 <button 
                   key={c.id} 
-                  onClick={() => { window.location.hash = `#/view?id=${c.id}`; setSearchTerm(''); }}
+                  onClick={() => { window.location.hash = `#/view?id=${c.id}`; setSearchTerm(''); setSelectedSubject('All'); }}
                   className="glass-hover"
                   style={{ 
                     width: '100%', 
