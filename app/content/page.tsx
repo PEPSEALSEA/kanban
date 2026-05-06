@@ -124,8 +124,17 @@ export default function LearningContentPage() {
         
       const matchesSubject = selectedSubject === 'All' || c.subject === selectedSubject;
       
-      return matchesSearch && matchesSubject;
-    }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    }).sort((a, b) => {
+      const dateA = new Date(a.date).getTime();
+      const dateB = new Date(b.date).getTime();
+      if (dateA !== dateB) return dateB - dateA; // Newest first
+
+      const subA = (a.subject || '').toLowerCase();
+      const subB = (b.subject || '').toLowerCase();
+      if (subA !== subB) return subA.localeCompare(subB, 'th');
+
+      return String(a.id).localeCompare(String(b.id), undefined, { numeric: true });
+    });
   }, [learningContent, searchTerm, selectedSubject]);
 
   // --- PARSER LOGIC ---

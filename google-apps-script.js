@@ -604,6 +604,11 @@ function generateDailySummary() {
         const itemDate = item.date instanceof Date ? item.date : new Date(item.date);
         if (isNaN(itemDate.getTime())) return false; // Ignore invalid dates
         return Utilities.formatDate(itemDate, "GMT+7", "yyyy-MM-dd") === gmt7Date;
+    }).sort((a, b) => {
+        const subA = (a.subject || "").toString().toLowerCase();
+        const subB = (b.subject || "").toString().toLowerCase();
+        if (subA !== subB) return subA.localeCompare(subB, 'th');
+        return String(a.id).localeCompare(String(b.id), undefined, { numeric: true });
     });
 
     // Format Header Date: DD/MM/YY (Buddhist Era) using UTC+7
@@ -620,9 +625,22 @@ function generateDailySummary() {
     const longTerm = [];
 
     const sortedHw = homework.sort((a, b) => {
-        const dateA = new Date(a.deadline);
-        const dateB = new Date(b.deadline);
-        return dateA - dateB;
+        const dA = a.deadline ? new Date(a.deadline) : null;
+        const dB = b.deadline ? new Date(b.deadline) : null;
+        
+        const tA = (dA && !isNaN(dA.getTime())) ? _getMidnightGMT7(dA).getTime() : Infinity;
+        const tB = (dB && !isNaN(dB.getTime())) ? _getMidnightGMT7(dB).getTime() : Infinity;
+
+        // 1. Sort by Date (Midnight)
+        if (tA !== tB) return tA - tB;
+        
+        // 2. Sort by Subject
+        const subA = (a.subject || "").toString().toLowerCase();
+        const subB = (b.subject || "").toString().toLowerCase();
+        if (subA !== subB) return subA.localeCompare(subB, 'th');
+        
+        // 3. Sort by ID
+        return String(a.id).localeCompare(String(b.id), undefined, { numeric: true });
     });
 
     const oneWeekInMs = 7 * 24 * 60 * 60 * 1000;

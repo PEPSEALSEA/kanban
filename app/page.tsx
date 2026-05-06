@@ -415,7 +415,25 @@ export default function StudyFlow() {
       else if (diffDays <= 7) categorized.week.push(hw);
       else categorized.backlog.push(hw);
     });
-    const sortFn = (a: Homework, b: Homework) => (a.my_status === 'done' ? 1 : 0) - (b.my_status === 'done' ? 1 : 0);
+    const sortFn = (a: Homework, b: Homework) => {
+      // 1. Status (Done at bottom)
+      const statusA = a.my_status === 'done' ? 1 : 0;
+      const statusB = b.my_status === 'done' ? 1 : 0;
+      if (statusA !== statusB) return statusA - statusB;
+
+      // 2. Deadline
+      const dateA = new Date(a.deadline).getTime();
+      const dateB = new Date(b.deadline).getTime();
+      if (dateA !== dateB) return dateA - dateB;
+
+      // 3. Subject
+      const subA = (a.subject || '').toLowerCase();
+      const subB = (b.subject || '').toLowerCase();
+      if (subA !== subB) return subA.localeCompare(subB, 'th');
+
+      // 4. ID
+      return String(a.id).localeCompare(String(b.id), undefined, { numeric: true });
+    };
     return { soon: categorized.soon.sort(sortFn), week: categorized.week.sort(sortFn), backlog: categorized.backlog.sort(sortFn) };
   }, [homeworkWithStatus]);
 
