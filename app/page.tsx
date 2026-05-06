@@ -606,6 +606,14 @@ export default function StudyFlow() {
                   const dayTasks = homeworkWithStatus.filter(hw => {
                     const hwDate = new Date(hw.deadline);
                     return hwDate.getDate() === d.day && hwDate.getMonth() === d.month && hwDate.getFullYear() === d.year;
+                  }).sort((a, b) => {
+                    const statusA = a.my_status === 'done' ? 1 : 0;
+                    const statusB = b.my_status === 'done' ? 1 : 0;
+                    if (statusA !== statusB) return statusA - statusB;
+                    const subA = (a.subject || '').toLowerCase();
+                    const subB = (b.subject || '').toLowerCase();
+                    if (subA !== subB) return subA.localeCompare(subB, 'th');
+                    return String(a.id).localeCompare(String(b.id), undefined, { numeric: true });
                   });
                   
                   return (
@@ -660,9 +668,18 @@ export default function StudyFlow() {
                            hwDate.getFullYear() === d.getFullYear();
                   })
                   .sort((a, b) => {
-                    if (a.my_status === 'done' && b.my_status !== 'done') return 1;
-                    if (a.my_status !== 'done' && b.my_status === 'done') return -1;
-                    return 0;
+                    // 1. Status (Done at bottom)
+                    const statusA = a.my_status === 'done' ? 1 : 0;
+                    const statusB = b.my_status === 'done' ? 1 : 0;
+                    if (statusA !== statusB) return statusA - statusB;
+
+                    // 2. Subject
+                    const subA = (a.subject || '').toLowerCase();
+                    const subB = (b.subject || '').toLowerCase();
+                    if (subA !== subB) return subA.localeCompare(subB, 'th');
+
+                    // 3. ID
+                    return String(a.id).localeCompare(String(b.id), undefined, { numeric: true });
                   });
 
                 // Only render days that have tasks to keep the timeline concise, 
