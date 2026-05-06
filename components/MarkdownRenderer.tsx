@@ -14,10 +14,10 @@ interface MarkdownRendererProps {
 
 /**
  * Preprocess content to auto-detect and wrap LaTeX in $$ delimiters.
- * Pass 1: Standalone lines containing LaTeX commands get wrapped in $$...$$
- * Pass 2: {LaTeX} brace blocks get wrapped in $$...$$ (brace-depth tracking)
+ * Pass 1: Standalone lines containing LaTeX or chemistry notations get wrapped in $$...$$
+ * Pass 2: Inline notations get wrapped in $...$
  */
-const LATEX_COMMAND_RE = /\\(?:frac|left|right|sqrt|sum|prod|int|lim|dots|cdots|ldots|text|mathbb|mathcal|mathbf|mathrm|begin|end|over|under|hat|bar|vec|tilde|infty|alpha|beta|gamma|delta|epsilon|theta|lambda|mu|sigma|omega|pi|phi|psi|rho|tau|chi|nu|xi|zeta|eta|kappa|iota|partial|nabla|forall|exists|neq|notin|subset|supset|cup|cap|wedge|vee|neg|implies|iff|to|mapsto|circ|times|div|pm|mp|leq|geq|approx|equiv|sim|cong|propto|perp|parallel|angle|triangle|square|diamond|star|bullet|oplus|otimes|bigoplus|bigotimes|binom|choose|atop|cos|sin|tan|log|ln|exp|det|min|max|sup|limsup|liminf)(?![a-zA-Z])/;
+const MATH_OR_CHEM_RE = /(?:\\(?:frac|left|right|sqrt|sum|prod|int|lim|dots|cdots|ldots|text|mathbb|mathcal|mathbf|mathrm|begin|end|over|under|hat|bar|vec|tilde|infty|alpha|beta|gamma|delta|epsilon|theta|lambda|mu|sigma|omega|pi|phi|psi|rho|tau|chi|nu|xi|zeta|eta|kappa|iota|partial|nabla|forall|exists|neq|notin|subset|supset|cup|cap|wedge|vee|neg|implies|iff|to|mapsto|circ|times|div|pm|mp|leq|geq|approx|equiv|sim|cong|propto|perp|parallel|angle|triangle|square|diamond|star|bullet|oplus|otimes|bigoplus|bigotimes|binom|choose|atop|cos|sin|tan|log|ln|exp|det|min|max|sup|limsup|liminf|rightarrow|leftarrow|leftrightarrow|Rightarrow|Leftarrow|Leftrightarrow|rightleftharpoons|rightharpoondown|rightharpoonup|leftharpoondown|leftharpoonup)(?![a-zA-Z]))|(?:[A-Z][a-z]?[\^_](?:\{[0-9+\-]+\}|[0-9+\-]))/;
 
 function preprocessLatex(text: string): string {
   if (!text) return text;
@@ -34,8 +34,8 @@ function preprocessLatex(text: string): string {
       return line;
     }
 
-    // Skip if no LaTeX commands found
-    if (!LATEX_COMMAND_RE.test(trimmed)) return line;
+    // Skip if no LaTeX or chemistry notations found
+    if (!MATH_OR_CHEM_RE.test(trimmed)) return line;
 
     // Ensure line is predominantly math, not natural language with some LaTeX.
     // If it contains characters outside the standard ASCII set (like Thai, CJK), 
@@ -74,7 +74,7 @@ function wrapInlineLatex(text: string): string {
     if (index % 2 !== 0) return part;
     
     let segment = part;
-    const COMMAND_PATTERN = new RegExp(LATEX_COMMAND_RE.source, 'g');
+    const COMMAND_PATTERN = new RegExp(MATH_OR_CHEM_RE.source, 'g');
     const isMath = new Array(segment.length).fill(false);
     let match;
     
