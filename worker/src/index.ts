@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { cors } from 'hono/cors';
 import { JWT } from 'google-auth-library';
 
 type Bindings = {
@@ -10,6 +11,8 @@ type Bindings = {
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
+
+app.use('*', cors());
 
 const SHEETS = {
   HOMEWORK: "Homework",
