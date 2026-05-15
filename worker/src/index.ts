@@ -363,7 +363,13 @@ app.get('/', async (c) => {
 
 app.post('/', async (c) => {
   try {
-    const body = await c.req.json();
+    let body: any;
+    const contentType = c.req.header('content-type');
+    if (contentType?.includes('application/json')) {
+      body = await c.req.json();
+    } else {
+      body = await c.req.parseBody();
+    }
     const action = body.action || c.req.query('action');
     const getVal = (key: string) => body[key] || c.req.query(key);
     
