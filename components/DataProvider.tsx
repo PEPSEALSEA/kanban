@@ -2,7 +2,9 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
-export const GAS_WEB_APP_URL = process.env.NEXT_PUBLIC_GAS_WEB_APP_URL || "https://script.google.com/macros/s/AKfycbwcxlw11xxkbmWFiVZUX4jRgA0Xugbwl7lnSdMi9gO0BhXY4TAgfIjqqTX_xyvwwbfwsA/exec";
+import { API_URL } from '@/lib/config';
+
+export const GAS_WEB_APP_URL = API_URL;
 
 type UserInfo = {
   email: string;
@@ -105,7 +107,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await fetch(`${GAS_WEB_APP_URL}?action=batchData`);
       if (!res.ok) throw new Error("Cloud synchronization failed");
-      const data = await res.json();
+      const data = (await res.json()) as any;
       
       if (data.success) {
         const payload = data.data;

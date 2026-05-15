@@ -10,7 +10,7 @@ export type Attachment = {
   fileId?: string;
 };
 
-const UPLOAD_WEB_APP_URL = "https://script.google.com/macros/s/AKfycby7FOqHLZN24sWCwl7XP4maUSi_iCxEFcg6REG-F8qp2C33aJL0US1Ye8XTZ7qUBDC8fw/exec";
+import { UPLOAD_SERVICE_URL } from '@/lib/config';
 
 export default function AttachmentList({ 
   attachments, 
@@ -66,16 +66,16 @@ export default function AttachmentList({
         // 2. Fallback to GAS if direct fetch fails (usually for legacy filename-based IDs)
         if (!freshUrl) {
           console.log(`[Heal] Direct fetch failed for ${targetImg.title}, using GAS recovery...`);
-          const refreshUrl = `${UPLOAD_WEB_APP_URL}?action=getFreshLink&fileId=${encodeURIComponent(fileId)}&refresh=true&contentId=${encodeURIComponent(contentId || '')}&contentType=${encodeURIComponent(contentType || '')}`;
+          const refreshUrl = `${UPLOAD_SERVICE_URL}?action=getFreshLink&fileId=${encodeURIComponent(fileId)}&refresh=true&contentId=${encodeURIComponent(contentId || '')}&contentType=${encodeURIComponent(contentType || '')}`;
           const res = await fetch(refreshUrl);
-          const data = await res.json();
+          const data = (await res.json()) as any;
           if (data.success && data.url) {
             freshUrl = data.url;
             if (data.fileId) fileId = data.fileId;
           }
         } else {
           // Notify GAS in background to update spreadsheet
-          fetch(`${UPLOAD_WEB_APP_URL}?action=getFreshLink&fileId=${encodeURIComponent(fileId)}&refresh=true&contentId=${encodeURIComponent(contentId || '')}&contentType=${encodeURIComponent(contentType || '')}`).catch(() => {});
+          fetch(`${UPLOAD_SERVICE_URL}?action=getFreshLink&fileId=${encodeURIComponent(fileId)}&refresh=true&contentId=${encodeURIComponent(contentId || '')}&contentType=${encodeURIComponent(contentType || '')}`).catch(() => {});
         }
         
         if (freshUrl) {

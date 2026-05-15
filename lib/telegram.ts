@@ -70,7 +70,7 @@ export async function uploadToTelegramDirect(
       throw fetchErr;
     }
 
-    let result = await response.json();
+    let result = (await response.json()) as any;
 
     // If sendAudio/sendPhoto fails, retry as a generic document (more reliable for large files)
     if (!result.ok && method !== 'sendDocument') {
@@ -83,7 +83,7 @@ export async function uploadToTelegramDirect(
         method: 'POST',
         body: retryFormData,
       });
-      result = await retryRes.json();
+      result = (await retryRes.json()) as any;
       method = 'sendDocument';
     }
 
@@ -105,7 +105,7 @@ export async function uploadToTelegramDirect(
     let tempUrl = '';
     try {
       const fileInfoRes = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getFile?file_id=${fileId}`);
-      const fileInfo = await fileInfoRes.json();
+      const fileInfo = (await fileInfoRes.json()) as any;
       
       if (fileInfo.ok && fileInfo.result.file_path) {
         tempUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${fileInfo.result.file_path}`;
@@ -144,7 +144,7 @@ export async function getFreshTelegramUrl(fileId: string): Promise<string | null
   
   try {
     const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getFile?file_id=${fileId}`);
-    const result = await response.json();
+    const result = (await response.json()) as any;
     
     if (result.ok && result.result.file_path) {
       return `https://api.telegram.org/file/bot${BOT_TOKEN}/${result.result.file_path}`;

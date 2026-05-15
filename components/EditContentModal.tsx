@@ -6,8 +6,10 @@ import { compressAudioIfNeeded } from '@/lib/audio-compressor';
 import { useDeviceDetection } from '@/hooks/useDeviceDetection';
 import { useData } from '@/components/DataProvider';
 
-const GAS_WEB_APP_URL = process.env.NEXT_PUBLIC_GAS_WEB_APP_URL || "https://script.google.com/macros/s/AKfycbwcxlw11xxkbmWFiVZUX4jRgA0Xugbwl7lnSdMi9gO0BhXY4TAgfIjqqTX_xyvwwbfwsA/exec";
-const UPLOAD_WEB_APP_URL = process.env.NEXT_PUBLIC_UPLOAD_WEB_APP_URL || "https://script.google.com/macros/s/AKfycby7FOqHLZN24sWCwl7XP4maUSi_iCxEFcg6REG-F8qp2C33aJL0US1Ye8XTZ7qUBDC8fw/exec";
+import { API_URL, UPLOAD_SERVICE_URL } from '@/lib/config';
+
+const GAS_WEB_APP_URL = API_URL;
+const UPLOAD_WEB_APP_URL = UPLOAD_SERVICE_URL;
 
 export default function EditContentModal({ 
   content, 
@@ -109,7 +111,7 @@ export default function EditContentModal({
             body: base64Data
           });
 
-          const res = await response.json();
+          const res = (await response.json()) as any;
           if (res.success) {
             if (type === 'audio') {
               setFormData(prev => ({ ...prev, audio_url: res.url, audio_file_id: res.id }));

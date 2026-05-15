@@ -43,7 +43,7 @@ export default function KanbanEditor() {
         method: 'POST',
       });
 
-      const data = await response.json();
+      const data = (await response.json()) as any;
       if (data.success) {
         setSummaryLogs(data.data || 'Summary sent successfully.');
       } else {

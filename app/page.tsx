@@ -7,9 +7,11 @@ import { jwtDecode } from 'jwt-decode';
 import { useData } from '@/components/DataProvider';
 import AttachmentList from '@/components/AttachmentList';
 import MarkdownRenderer from '@/components/MarkdownRenderer';
+import { API_URL, UPLOAD_SERVICE_URL } from '@/lib/config';
+
 // --- CONFIGURATION ---
-const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwcxlw11xxkbmWFiVZUX4jRgA0Xugbwl7lnSdMi9gO0BhXY4TAgfIjqqTX_xyvwwbfwsA/exec";
-const UPLOAD_WEB_APP_URL = "https://script.google.com/macros/s/AKfycby7FOqHLZN24sWCwl7XP4maUSi_iCxEFcg6REG-F8qp2C33aJL0US1Ye8XTZ7qUBDC8fw/exec";
+const GAS_WEB_APP_URL = API_URL;
+const UPLOAD_WEB_APP_URL = UPLOAD_SERVICE_URL;
 const ADMIN_EMAILS = ['pepsealsea@gmail.com', 'iampep2009@gmail.com', 'sealseapep@gmail.com'];
 
 function getSubjectColor(subjectName: string, subjects: any[]): string {
@@ -279,7 +281,7 @@ export default function StudyFlow() {
   const fetchComments = useCallback(async (hwId: string) => {
     try {
       const res = await fetch(`${GAS_WEB_APP_URL}?action=comments&homework_id=${hwId}`);
-      const data = await res.json();
+      const data = (await res.json()) as any;
       if (data.success) setComments(data.data);
     } catch (e) { }
   }, []);
@@ -375,7 +377,7 @@ export default function StudyFlow() {
         method: 'POST',
         body: base64Data
       });
-      const result = await res.json();
+      const result = (await res.json()) as any;
       if (result.success) {
         setEditForm(prev => {
           const currentLinks = prev.link_image ? prev.link_image.split(',').filter(Boolean) : [];

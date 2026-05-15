@@ -8,8 +8,10 @@ import AudioPlayer from '@/components/AudioPlayer';
 import MarkdownRenderer from '@/components/MarkdownRenderer';
 import { useDeviceDetection } from '@/hooks/useDeviceDetection';
 
+import { API_URL } from '@/lib/config';
+
 // --- CONFIGURATION ---
-const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwcxlw11xxkbmWFiVZUX4jRgA0Xugbwl7lnSdMi9gO0BhXY4TAgfIjqqTX_xyvwwbfwsA/exec";
+const GAS_WEB_APP_URL = API_URL;
 const SUBJECT_COLORS: Record<string, string> = {
   'Math': '#6366f1',
   'Science': '#10b981',

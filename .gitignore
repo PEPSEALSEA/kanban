@@ -20,9 +20,13 @@
 # production
 /build
 
-# misc
-.DS_Store
-*.pem
+# Cloudflare Worker
+worker/wrangler.toml
+worker/.dev.vars
+.dev.vars
+
+# Google Service Account
+wongjraja-1d31c83429ea.json
 
 # debug
 npm-debug.log*
