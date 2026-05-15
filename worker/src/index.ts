@@ -127,6 +127,22 @@ async function getAllProgress(env: Bindings) {
   return toObjects(rows, ["email", "homework_id", "status", "image_url", "updated_at"]);
 }
 
+async function getProgressByEmail(env: Bindings, email: string) {
+  const all = await getAllProgress(env);
+  if (!email) return all;
+  return all.filter((r: any) => String(r.email).toLowerCase() === email.toLowerCase());
+}
+
+async function getHomeworkWithProgress(env: Bindings, email: string) {
+  const [homework, progress] = await Promise.all([
+    getHomeworkList(env),
+    getProgressByEmail(env, email)
+  ]);
+  const progressMap: any = {};
+  progress.forEach((p: any) => { progressMap[p.homework_id] = p.status; });
+  return homework.map((hw: any) => ({ ...hw, my_status: progressMap[hw.id] || "pending" }));
+}
+
 async function getLearningContent(env: Bindings, date?: string, id?: string) {
   const rows = await getSheetValues(env, `${SHEETS.LEARNING_CONTENT}!A2:J`);
   const data = toObjects(rows, ["id", "date", "subject", "title", "description", "audio_file_id", "audio_url", "attachments", "links", "created_at"]);
@@ -432,6 +448,9 @@ app.get('/', async (c) => {
   const email = c.req.query('email') || "";
   
   try {
+    if (!action) {
+      return c.json({ success: true, message: "StudyFlow Cloudflare Worker is online 🚀" });
+    }
     let result: any;
     switch (action) {
       case "list": result = await getHomeworkList(c.env); break;
