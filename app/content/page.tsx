@@ -113,6 +113,14 @@ export default function LearningContentPage() {
              itemDate.getDate() === d.getDate();
     });
   };
+  const dynamicSubjectColors = useMemo(() => {
+    const map: Record<string, string> = { ...SUBJECT_COLORS };
+    subjects.forEach(s => {
+      if (s.name && s.color) map[s.name] = s.color;
+    });
+    return map;
+  }, [subjects]);
+
   const searchResults = useMemo(() => {
     if (!searchTerm.trim() && selectedSubject === 'All') return [];
     
@@ -124,8 +132,9 @@ export default function LearningContentPage() {
         c.id.toLowerCase().includes(term) ||
         c.description.toLowerCase().includes(term);
         
-      const matchesSubject = selectedSubject === 'All' || c.subject === selectedSubject;
+      const matchesSubject = selectedSubject === 'All' || c.subject.trim() === selectedSubject.trim();
       
+      return matchesSearch && matchesSubject;
     }).sort((a, b) => {
       const dateA = new Date(a.date).getTime();
       const dateB = new Date(b.date).getTime();
@@ -212,7 +221,7 @@ export default function LearningContentPage() {
 
         <div className="glass" style={{ padding: isMobile ? '1.5rem' : '3rem', borderRadius: isMobile ? '1.5rem' : '2.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
-            <span style={{ padding: '4px 12px', borderRadius: '8px', background: `${SUBJECT_COLORS[activeContent.subject] || SUBJECT_COLORS['Other']}25`, color: SUBJECT_COLORS[activeContent.subject] || SUBJECT_COLORS['Other'], fontSize: isMobile ? '0.65rem' : '0.7rem', fontWeight: 800, border: '1px solid rgba(255,255,255,0.1)' }}>
+            <span style={{ padding: '4px 12px', borderRadius: '8px', background: `${dynamicSubjectColors[activeContent.subject] || dynamicSubjectColors['Other']}25`, color: dynamicSubjectColors[activeContent.subject] || dynamicSubjectColors['Other'], fontSize: isMobile ? '0.65rem' : '0.7rem', fontWeight: 800, border: '1px solid rgba(255,255,255,0.1)' }}>
               {activeContent.subject}
             </span>
             <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
@@ -350,14 +359,14 @@ export default function LearningContentPage() {
                     transition: 'all 0.2s ease'
                   }}
                 >
-                  <div style={{ width: '45px', height: '45px', borderRadius: '12px', background: `${SUBJECT_COLORS[c.subject] || SUBJECT_COLORS['Other']}25`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: SUBJECT_COLORS[c.subject] || SUBJECT_COLORS['Other'], fontWeight: 800, fontSize: '0.8rem' }}>
+                  <div style={{ width: '45px', height: '45px', borderRadius: '12px', background: `${dynamicSubjectColors[c.subject] || dynamicSubjectColors['Other']}25`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: dynamicSubjectColors[c.subject] || dynamicSubjectColors['Other'], fontWeight: 800, fontSize: '0.8rem' }}>
                     {c.subject.charAt(0)}
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '4px' }}>
                       <span style={{ fontSize: '0.7rem', fontWeight: 700, opacity: 0.5 }}>{c.id}</span>
                       <span style={{ width: '3px', height: '3px', borderRadius: '50%', background: 'rgba(255,255,255,0.2)' }} />
-                      <span style={{ fontSize: '0.7rem', fontWeight: 700, color: SUBJECT_COLORS[c.subject] || SUBJECT_COLORS['Other'] }}>{c.subject}</span>
+                      <span style={{ fontSize: '0.7rem', fontWeight: 700, color: dynamicSubjectColors[c.subject] || dynamicSubjectColors['Other'] }}>{c.subject}</span>
                     </div>
                     <div style={{ fontSize: '1.05rem', fontWeight: 700 }}>{c.title}</div>
                     <div style={{ fontSize: '0.8rem', opacity: 0.5, marginTop: '2px' }}>{new Date(c.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
@@ -405,7 +414,7 @@ export default function LearningContentPage() {
                 <div style={{ fontSize: '0.85rem', fontWeight: d.isCurrent ? 700 : 400 }}>{d.day}</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                   {dateContents.map((c: LearningContent, ci: number) => (
-                  <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: SUBJECT_COLORS[c.subject] || SUBJECT_COLORS['Other'] }} title={c.title} />
+                  <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: dynamicSubjectColors[c.subject] || dynamicSubjectColors['Other'] }} title={c.title} />
                   ))}
                 </div>
               </div>
@@ -448,7 +457,7 @@ export default function LearningContentPage() {
                     gap: '12px'
                   }}
                 >
-                  <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: SUBJECT_COLORS[c.subject] || SUBJECT_COLORS['Other'] }} />
+                  <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: dynamicSubjectColors[c.subject] || dynamicSubjectColors['Other'] }} />
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: '0.9rem', fontWeight: 700 }}>{c.title}</div>
                     <div style={{ fontSize: '0.7rem', opacity: 0.5 }}>{c.subject}</div>
