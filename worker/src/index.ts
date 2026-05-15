@@ -274,13 +274,13 @@ async function updateSpreadsheetLink(env: Bindings, contentId: string, contentTy
 
 // --- DAILY SUMMARY (Ported from google-apps-script.js) ---
 
-async function generateDailySummary(env: Bindings) {
+async function generateDailySummary(env: Bindings, targetDate?: string) {
   const [homework, learningContent] = await Promise.all([
     getHomeworkList(env),
     getLearningContent(env)
   ]);
   
-  const now = new Date();
+  const now = targetDate ? new Date(targetDate) : new Date();
   const gmt7Now = getMidnightGMT7(now);
   const tomorrow = new Date(gmt7Now.getTime() + 86400000);
   const oneWeekLater = new Date(gmt7Now.getTime() + 7 * 86400000);
@@ -519,7 +519,7 @@ app.get('/', async (c) => {
       case "learningContent": result = await getLearningContent(c.env, c.req.query('date'), c.req.query('id')); break;
       case "subjects": result = await getSubjects(c.env); break;
       case "dailySummary": 
-        const summary = await generateDailySummary(c.env);
+        const summary = await generateDailySummary(c.env, c.req.query('date'));
         if (c.req.query('send') === 'true') {
           await fetch(c.env.SUMMARY_WEBHOOK_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: summary }) });
         }
@@ -565,6 +565,15 @@ app.post('/', async (c) => {
       case "addSubject": result = await addSubject(c.env, getVal('name'), getVal('color')); break;
       case "deleteSubject": result = await deleteRowById(c.env, SHEETS.SUBJECTS, getVal('id')); break;
       case "addComment": result = await addComment(c.env, getVal('homework_id'), getVal('owner_email'), getVal('commenter_email'), getVal('text')); break;
+      case "sendSummary":
+        const summaryText = await generateDailySummary(c.env, getVal('date'));
+        await fetch(c.env.SUMMARY_WEBHOOK_URL, { 
+          method: "POST", 
+          headers: { "Content-Type": "application/json" }, 
+          body: JSON.stringify({ content: summaryText }) 
+        });
+        result = "Summary sent to Discord successfully! 📢";
+        break;
       case "registerUpload":
         const uploadRow = [Date.now().toString(), getVal('filename'), getVal('contentType'), getVal('url'), new Date().toISOString(), "", getVal('fileId')];
         await appendSheetRow(c.env, `${SHEETS.URLS}!A:G`, uploadRow);

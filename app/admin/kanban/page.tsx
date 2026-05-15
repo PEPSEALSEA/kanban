@@ -11,6 +11,10 @@ export default function KanbanEditor() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isSendingSummary, setIsSendingSummary] = useState(false);
   const [summaryLogs, setSummaryLogs] = useState<string | null>(null);
+  const [summaryDate, setSummaryDate] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  });
   const { isMobile } = useDeviceDetection();
 
   const filteredHomework = useMemo(() => {
@@ -49,7 +53,7 @@ export default function KanbanEditor() {
 
     try {
       // We use a POST request with the action parameter
-      const response = await fetch(`${GAS_WEB_APP_URL}?action=sendSummary`, {
+      const response = await fetch(`${GAS_WEB_APP_URL}?action=sendSummary&date=${summaryDate}`, {
         method: 'POST',
       });
 
@@ -73,27 +77,47 @@ export default function KanbanEditor() {
         <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--admin-text-main)' }}>Kanban Editor</h1>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
           <p style={{ color: 'var(--admin-text-muted)', margin: 0 }}>Manage and edit existing Kanban tasks.</p>
-          <button
-            onClick={handleSendSummary}
-            disabled={isSendingSummary}
-            style={{
-              background: '#5865F2', // Discord color
-              color: 'white',
-              border: 'none',
-              padding: '10px 20px',
-              borderRadius: '0.75rem',
-              cursor: isSendingSummary ? 'not-allowed' : 'pointer',
-              fontWeight: 700,
-              fontSize: '0.9rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              opacity: isSendingSummary ? 0.7 : 1,
-              transition: 'all 0.2s ease'
-            }}
-          >
-            {isSendingSummary ? '⌛ Sending...' : '📢 Send Daily Summary to Discord'}
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--admin-text-muted)' }}>Target Date:</span>
+              <input
+                type="date"
+                value={summaryDate}
+                onChange={(e) => setSummaryDate(e.target.value)}
+                style={{
+                  padding: '10px 14px',
+                  borderRadius: '0.75rem',
+                  border: '1px solid var(--admin-border)',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  color: 'var(--admin-text-main)',
+                  fontSize: '0.9rem',
+                  outline: 'none',
+                  fontWeight: 600
+                }}
+              />
+            </div>
+            <button
+              onClick={handleSendSummary}
+              disabled={isSendingSummary}
+              style={{
+                background: '#5865F2', // Discord color
+                color: 'white',
+                border: 'none',
+                padding: '10px 20px',
+                borderRadius: '0.75rem',
+                cursor: isSendingSummary ? 'not-allowed' : 'pointer',
+                fontWeight: 700,
+                fontSize: '0.9rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                opacity: isSendingSummary ? 0.7 : 1,
+                transition: 'all 0.2s ease'
+              }}
+            >
+              {isSendingSummary ? '⌛ Sending...' : '📢 Send Daily Summary to Discord'}
+            </button>
+          </div>
         </div>
       </header>
 
