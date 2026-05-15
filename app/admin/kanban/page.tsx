@@ -16,8 +16,18 @@ export default function KanbanEditor() {
   const filteredHomework = useMemo(() => {
     let tasks = [...allHomework];
 
-    // Sort by created date descending (newest first)
-    tasks.sort((a, b) => new Date((b as any).created_at || 0).getTime() - new Date((a as any).created_at || 0).getTime());
+    // Sort by deadline descending (latest first)
+    tasks.sort((a, b) => {
+      const dateA = (a as any).deadline ? new Date((a as any).deadline).getTime() : 0;
+      const dateB = (b as any).deadline ? new Date((b as any).deadline).getTime() : 0;
+      
+      if (dateB !== dateA) {
+        return dateB - dateA;
+      }
+      
+      // Secondary sort by id descending (assuming newer tasks have larger IDs)
+      return String((b as any).id).localeCompare(String((a as any).id));
+    });
 
     if (searchTerm) {
       const lowerTerm = searchTerm.toLowerCase();
