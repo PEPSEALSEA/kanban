@@ -860,9 +860,17 @@ export default function StudyFlow() {
                           <button onClick={(e) => uploadOrReplaceProof(e, activeHomework.id)} className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-slate-600 transition-colors">
                             <span className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-sm">🖼️</span> PHOTO
                           </button>
-                          <button onClick={() => handleShareSubmission()} className="px-6 py-2 rounded-xl text-xs font-bold bg-sky-500 text-white hover:bg-sky-600 transition-all shadow-md shadow-sky-200">
-                            POST
-                          </button>
+                          <div className="flex items-center gap-3">
+                            <button 
+                              onClick={(e) => toggleComplete(e, activeHomework.id, homeworkWithStatus.find(h => h.id === activeHomework.id)?.my_status)} 
+                              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm ${homeworkWithStatus.find(h => h.id === activeHomework.id)?.my_status === 'done' ? 'bg-slate-100 text-slate-500 hover:bg-slate-200' : 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-emerald-200'}`}
+                            >
+                              {homeworkWithStatus.find(h => h.id === activeHomework.id)?.my_status === 'done' ? 'MARK AS PENDING' : 'MARK AS FINISHED'}
+                            </button>
+                            <button onClick={() => handleShareSubmission()} className="px-6 py-2 rounded-xl text-xs font-bold bg-sky-500 text-white hover:bg-sky-600 transition-all shadow-md shadow-sky-200">
+                              POST
+                            </button>
+                          </div>
                         </div>
                       </div>
                      )}
