@@ -7,7 +7,6 @@ import { usePathname } from 'next/navigation';
 export default function HeaderNav() {
   const pathname = usePathname();
 
-  // Helper to check if a path is active
   const isActive = (path: string) => {
     if (path === '/') return pathname === '/' || pathname === '/kanban' || pathname === '';
     return pathname.startsWith(path);
@@ -18,17 +17,17 @@ export default function HeaderNav() {
       <nav className="header-nav">
         <Link 
           href="/" 
-          className={`nav-item ${isActive('/') ? 'active' : ''}`}
+          className={`nav-item uppercase tracking-tighter ${isActive('/') ? 'active' : ''}`}
         >
-          <span style={{ fontSize: '1.2rem' }}>📋</span>
-          Kanban Board
+          <span className="text-xl">📋</span>
+          KANBAN
         </Link>
         <Link 
           href="/content" 
-          className={`nav-item ${isActive('/content') ? 'active' : ''}`}
+          className={`nav-item uppercase tracking-tighter ${isActive('/content') ? 'active' : ''}`}
         >
-          <span style={{ fontSize: '1.2rem' }}>📅</span>
-          Content Archive
+          <span className="text-xl">📅</span>
+          ARCHIVE
         </Link>
       </nav>
     </div>

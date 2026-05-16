@@ -128,32 +128,12 @@ export default function AudioPlayer({ contentId, contentType = 'learning_content
   if (!currentSrc) return null;
 
   return (
-    <div className="glass audio-player-card" style={{ 
-      padding: '1.5rem', 
-      borderRadius: '1.5rem', 
-      background: 'rgba(255,255,255,0.03)',
-      position: 'relative',
-      overflow: 'hidden'
-    }}>
+    <div className="bg-white border-4 border-black p-6 shadow-[6px_6px_0px_0px_#000] relative overflow-hidden">
       {/* Refresh Overlay */}
       {isRefreshing && (
-        <div style={{
-          position: 'absolute',
-          inset: 0,
-          zIndex: 10,
-          background: 'rgba(0,0,0,0.7)',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          backdropFilter: 'blur(4px)'
-        }}>
-          <div className="loading-spinner" style={{ 
-            width: '24px', height: '24px', border: '2px solid rgba(255,255,255,0.3)', 
-            borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 1s linear infinite' 
-          }} />
-          <div style={{ marginTop: '10px', fontSize: '0.8rem', fontWeight: 500 }}>Refreshing link...</div>
-          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        <div className="absolute inset-0 z-10 bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center">
+          <div className="sync-spinner mb-4"></div>
+          <div className="text-sm font-black uppercase">Refreshing link...</div>
         </div>
       )}
 
@@ -170,59 +150,48 @@ export default function AudioPlayer({ contentId, contentType = 'learning_content
       />
 
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+      <div className="flex justify-between items-center mb-6">
         <div>
-          <div style={{ fontSize: '0.65rem', fontWeight: 800, opacity: 0.5, letterSpacing: '1px' }}>PLAYER SOURCE: {audioUrl?.includes('telegram') ? 'TELEGRAM ⚡' : 'DRIVE ☁️'}</div>
-          {showStatus && <div style={{ fontSize: '0.7rem', color: '#818cf8', marginTop: '2px' }}>{showStatus}</div>}
+          <div className="text-[10px] font-black uppercase bg-black text-white px-2 py-0.5 inline-block">SOURCE: {audioUrl?.includes('telegram') ? 'TELEGRAM ⚡' : 'DRIVE ☁️'}</div>
+          {showStatus && <div className="text-xs font-black text-blue-600 mt-2 uppercase">{showStatus}</div>}
         </div>
-        <a href={currentSrc} target="_blank" rel="noreferrer" style={{ fontSize: '0.7rem', color: '#94a3b8', textDecoration: 'none' }}>↗ Download</a>
+        <a href={currentSrc} target="_blank" rel="noreferrer" className="text-xs font-black uppercase border-b-2 border-black hover:bg-yellow-300">Download ↗</a>
       </div>
 
       {/* Custom Progress Bar */}
       <div 
         onClick={handleProgressClick}
-        style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', cursor: 'pointer', position: 'relative', marginBottom: '1rem' }}
+        className="w-full h-6 bg-gray-100 border-4 border-black cursor-pointer relative mb-6 overflow-hidden"
       >
-        <div style={{ 
-          position: 'absolute', left: 0, top: 0, bottom: 0, 
-          width: `${(currentTime / duration) * 100}%`, 
-          background: 'linear-gradient(90deg, #818cf8, #f43f5e)', 
-          borderRadius: '4px',
-          transition: 'width 0.1s linear'
-        }} />
+        <div 
+          className="absolute left-0 top-0 bottom-0 bg-yellow-300 border-r-4 border-black transition-[width] duration-100 linear"
+          style={{ width: `${(currentTime / duration) * 100}%` }} 
+        />
       </div>
 
       {/* Controls */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ fontSize: '0.8rem', opacity: 0.6, width: '50px' }}>{formatTime(currentTime)}</div>
+      <div className="flex justify-between items-center">
+        <div className="text-sm font-black w-12">{formatTime(currentTime)}</div>
         
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-          <button onClick={() => skip(-10)} className="btn-skip" style={{ background: 'none', border: 'none', color: '#fff', fontSize: '1.2rem', cursor: 'pointer', opacity: 0.8 }}>-10s</button>
+        <div className="flex items-center gap-6">
+          <button onClick={() => skip(-10)} className="neo-button px-3 py-1 text-xs">-10S</button>
           
           <button 
             onClick={togglePlay} 
-            className="btn-play"
-            style={{ 
-              width: '50px', height: '50px', borderRadius: '25px', 
-              background: '#fff', border: 'none', 
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', transition: 'transform 0.2s'
-            }}
+            className="w-16 h-16 neo-button flex items-center justify-center text-2xl"
+            style={{ borderRadius: '50%' }}
           >
             {isPlaying ? (
-              <div style={{ display: 'flex', gap: '4px' }}>
-                <div style={{ width: '4px', height: '16px', background: '#000', borderRadius: '2px' }} />
-                <div style={{ width: '4px', height: '16px', background: '#000', borderRadius: '2px' }} />
-              </div>
+              <span className="font-black">||</span>
             ) : (
-              <div style={{ marginLeft: '4px', width: '0', height: '0', borderTop: '8px solid transparent', borderBottom: '8px solid transparent', borderLeft: '12px solid #000' }} />
+              <span className="ml-1 font-black">▶</span>
             )}
           </button>
 
-          <button onClick={() => skip(10)} className="btn-skip" style={{ background: 'none', border: 'none', color: '#fff', fontSize: '1.2rem', cursor: 'pointer', opacity: 0.8 }}>+10s</button>
+          <button onClick={() => skip(10)} className="neo-button px-3 py-1 text-xs">+10S</button>
         </div>
 
-        <div style={{ fontSize: '0.8rem', opacity: 0.6, width: '50px', textAlign: 'right' }}>{formatTime(duration)}</div>
+        <div className="text-sm font-black w-12 text-right">{formatTime(duration)}</div>
       </div>
     </div>
   );

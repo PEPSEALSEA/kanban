@@ -452,45 +452,55 @@ export default function StudyFlow() {
     <main style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       {/* Global Upload Overlay */}
       {uploadQueue.length > 0 && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(15, 23, 42, 0.85)', backdropFilter: 'blur(10px)', zIndex: 20000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div className="glass" style={{ width: '90%', maxWidth: '400px', padding: '2rem', borderRadius: '2rem', textAlign: 'center' }}>
-            <h3 style={{ marginBottom: '1rem' }}>Uploading Proof...</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[20000] flex items-center justify-center p-4">
+          <div className="neo-card w-full max-w-sm p-8 text-center bg-white">
+            <h3 className="text-xl font-black uppercase mb-6 tracking-tighter">Uploading Proof...</h3>
+            <div className="flex flex-col gap-3">
               {uploadQueue.map(f => (
-                <div key={f.id} style={{ display: 'flex', justifyContent: 'space-between', background: 'rgba(0,0,0,0.2)', padding: '10px', borderRadius: '10px' }}>
-                  <span>{f.name}</span>
-                  <span>{f.status === 'uploading' ? '⌛' : (f.status === 'done' ? '✅' : '❌')}</span>
+                <div key={f.id} className="flex justify-between items-center bg-gray-100 border-2 border-black p-3 font-bold">
+                  <span className="truncate mr-2 uppercase text-xs">{f.name}</span>
+                  <span className="text-xl">{f.status === 'uploading' ? '⌛' : (f.status === 'done' ? '✅' : '❌')}</span>
                 </div>
               ))}
             </div>
-            {uploadQueue.every(f => f.status !== 'uploading') && <button onClick={() => setUploadQueue([])} className="glass" style={{ marginTop: '1.5rem', padding: '0.8rem 2rem', borderRadius: '1rem', border: 'none', background: 'var(--primary)', color: '#fff', cursor: 'pointer' }}>Close</button>}
+            {uploadQueue.every(f => f.status !== 'uploading') && (
+              <button onClick={() => setUploadQueue([])} className="neo-button w-full mt-8 py-3 bg-green-400 font-black">
+                CLOSE
+              </button>
+            )}
           </div>
         </div>
       )}
 
-      <header style={{ padding: '1rem 2.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(15, 23, 42, 0.8)', position: 'sticky', top: 0, backdropFilter: 'blur(10px)', zIndex: 100 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <span style={{ fontSize: '1.5rem' }}>🎓</span>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 900, background: 'linear-gradient(to right, #818cf8, #f43f5e)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>StudyFlow</h1>
+      <header className="sticky top-0 z-[100] px-6 py-4 flex justify-between items-center bg-white border-b-4 border-black">
+        <div className="flex items-center gap-3">
+          <span className="text-3xl">🎓</span>
+          <h1 className="text-2xl font-black italic tracking-tighter">STUDYFLOW</h1>
         </div>
         {!user ? (
-          <GoogleLogin onSuccess={handleLoginSuccess} onError={() => {}} />
+          <div className="neo-button px-4 py-2">
+            <GoogleLogin onSuccess={handleLoginSuccess} onError={() => {}} />
+          </div>
         ) : (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <img src={user.picture} style={{ width: '32px', height: '32px', borderRadius: '50%' }} alt="" />
-            <button onClick={handleLogout} style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: '0.8rem' }}>Logout</button>
+          <div className="flex items-center gap-4">
+            <img src={user.picture} className="w-10 h-10 border-2 border-black" alt="" />
+            <button onClick={handleLogout} className="neo-button px-3 py-1 text-sm">LOGOUT</button>
           </div>
         )}
       </header>
 
       {/* View Switcher Controls */}
-      <div style={{ display: 'flex', justifyContent: 'center', marginTop: '1.5rem', marginBottom: '1rem', padding: '0 1rem' }}>
-        <div className="glass" style={{ display: 'flex', padding: '4px', borderRadius: '14px', gap: '4px' }}>
+      <div className="flex justify-center mt-8 mb-4 px-4">
+        <div className="bg-white border-4 border-black p-1 flex gap-1 shadow-[4px_4px_0px_0px_#000]">
           {(['kanban', 'calendar', 'timeline'] as const).map((mode) => (
             <button
               key={mode}
               onClick={() => setViewMode(mode)}
-              className={`view-switcher-btn ${viewMode === mode ? 'active' : ''}`}
+              className={`px-4 py-2 font-black uppercase text-sm transition-all flex items-center gap-2 border-2 ${
+                viewMode === mode 
+                ? 'bg-yellow-300 border-black translate-x-[-2px] translate-y-[-2px] shadow-[2px_2px_0px_0px_#000]' 
+                : 'border-transparent hover:bg-sky-100'
+              }`}
             >
               {mode === 'kanban' && '📋'}
               {mode === 'calendar' && '📅'}
@@ -503,7 +513,7 @@ export default function StudyFlow() {
 
       {/* Calendar/Timeline Navigation Controls */}
       {(viewMode === 'calendar' || viewMode === 'timeline') && (
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '1.5rem', marginBottom: '2rem' }}>
+        <div className="flex justify-center items-center gap-6 mb-8 px-4">
           <button 
             onClick={() => {
               const d = new Date(focusDate);
@@ -511,10 +521,9 @@ export default function StudyFlow() {
               else d.setDate(d.getDate() - 7);
               setFocusDate(d);
             }}
-            className="glass"
-            style={{ width: '40px', height: '40px', borderRadius: '50%', border: 'none', color: '#fff', cursor: 'pointer' }}
+            className="neo-button w-12 h-12 flex items-center justify-center text-xl"
           >←</button>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 800, minWidth: '180px', textAlign: 'center' }}>
+          <h2 className="text-xl md:text-2xl font-black min-w-[180px] text-center uppercase tracking-tighter">
             {viewMode === 'calendar' 
               ? focusDate.toLocaleDateString('th-TH', { month: 'long', year: 'numeric' })
               : `Week of ${new Date(focusDate).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}`
@@ -527,45 +536,62 @@ export default function StudyFlow() {
               else d.setDate(d.getDate() + 7);
               setFocusDate(d);
             }}
-            className="glass"
-            style={{ width: '40px', height: '40px', borderRadius: '50%', border: 'none', color: '#fff', cursor: 'pointer' }}
+            className="neo-button w-12 h-12 flex items-center justify-center text-xl"
           >→</button>
           <button 
             onClick={() => setFocusDate(new Date())}
-            className="glass"
-            style={{ padding: '0.5rem 1rem', borderRadius: '1rem', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '0.8rem' }}
-          >Today</button>
+            className="neo-button px-4 py-2 text-xs"
+          >TODAY</button>
         </div>
       )}
 
       {/* Board Views Content */}
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {viewMode === 'kanban' && (
-          <div className="kanban-container" style={{ padding: isMobile ? '1rem' : '1rem 2.5rem 2.5rem', display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '2rem', overflowX: 'auto' }}>
+          <div className="kanban-container px-6 py-8" style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '2rem', overflowX: 'auto' }}>
             {[
               { key: 'soon', title: '🔥 3 วันก่อนส่ง', items: columns.soon, color: '#f43f5e' },
               { key: 'week', title: '📅 7 วันก่อนส่ง', items: columns.week, color: '#f59e0b' },
               { key: 'backlog', title: '🐚 งานดองเค็ม', items: columns.backlog, color: '#6366f1' }
             ].map(col => (
-              <div key={col.key} className="column glass" style={{ minWidth: isMobile ? '100%' : '360px', borderTop: `4px solid ${col.color}`, padding: '1.5rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                  <h3 style={{ fontSize: '1.2rem', fontWeight: 800 }}>{col.title}</h3>
+              <div key={col.key} className="column" style={{ minWidth: isMobile ? '100%' : '360px', borderTop: `12px solid ${col.color}` }}>
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-xl font-black uppercase tracking-tight">{col.title}</h3>
                   <span className="badge">{col.items.length}</span>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div className="flex flex-col gap-4">
                   {col.items.map(hw => {
                     const isDone = hw.my_status === 'done';
+                    const subColor = getSubjectColor(hw.subject, subjects);
                     return (
-                      <div key={hw.id} className="card glass" onClick={() => setActiveHomework(hw)} style={{ opacity: isDone ? 0.5 : 1, borderLeft: `6px solid ${isDone ? '#10b981' : getSubjectColor(hw.subject, subjects)}`, padding: '1.25rem', cursor: 'pointer' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <div 
+                        key={hw.id} 
+                        className={`card relative overflow-hidden ${isDone ? 'opacity-60 grayscale-[0.5]' : ''}`} 
+                        onClick={() => setActiveHomework(hw)}
+                        style={{ borderLeft: `8px solid ${subColor}` }}
+                      >
+                        <div className="flex justify-between items-start">
                           <div>
-                            <span style={{ fontSize: '0.7rem', fontWeight: 800, color: getSubjectColor(hw.subject, subjects), textTransform: 'uppercase' }}>{hw.subject}</span>
-                            <h4 style={{ margin: '4px 0', textDecoration: isDone ? 'line-through' : 'none' }}>{hw.title}</h4>
+                            <span 
+                              className="text-[10px] font-black uppercase px-2 py-0.5 border-2 border-black mb-2 inline-block shadow-[1px_1px_0px_0px_#000]" 
+                              style={{ backgroundColor: `${subColor}40`, color: '#000' }}
+                            >
+                              {hw.subject}
+                            </span>
+                            <h4 className={`text-lg font-extrabold leading-tight ${isDone ? 'line-through' : ''}`}>
+                              {hw.title}
+                            </h4>
+                            <div className="text-xs font-bold mt-2 opacity-70">
+                              📅 {new Date(hw.deadline).toLocaleDateString('th-TH')}
+                            </div>
                           </div>
                           {user && (
-                            <div onClick={(e) => { e.stopPropagation(); toggleComplete(e, hw.id, hw.my_status); }} style={{ width: '24px', height: '24px', borderRadius: '4px', border: '2px solid var(--primary)', background: isDone ? 'var(--primary)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                              {isDone && <span style={{ color: '#fff', fontWeight: 900 }}>✓</span>}
-                            </div>
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); toggleComplete(e, hw.id, hw.my_status); }} 
+                              className={`w-8 h-8 border-3 border-black flex items-center justify-center transition-all ${isDone ? 'bg-green-400 shadow-none translate-x-[1px] translate-y-[1px]' : 'bg-white shadow-[2px_2px_0px_0px_#000] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[3px_3px_0px_0px_#000]'}`}
+                            >
+                              {isDone && <span className="font-black">✓</span>}
+                            </button>
                           )}
                         </div>
                       </div>
@@ -578,18 +604,10 @@ export default function StudyFlow() {
         )}
 
         {viewMode === 'calendar' && (
-          <div style={{ padding: '0 2.5rem 2.5rem' }}>
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: 'repeat(7, 1fr)', 
-              gap: '1px', 
-              background: 'var(--card-border)', 
-              borderRadius: '1.5rem', 
-              overflow: 'hidden',
-              border: '1px solid var(--card-border)'
-            }}>
-              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
-                <div key={d} style={{ padding: '1rem', textAlign: 'center', fontSize: '0.75rem', fontWeight: 900, color: 'var(--text-muted)', background: 'rgba(255,255,255,0.02)' }}>{d}</div>
+          <div className="px-6 pb-12">
+            <div className="calendar-grid">
+              {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map(d => (
+                <div key={d} className="p-4 text-center text-xs font-black bg-sky-100 border-b-2 border-black">{d}</div>
               ))}
               {(() => {
                 const year = focusDate.getFullYear();
@@ -612,10 +630,7 @@ export default function StudyFlow() {
                     const statusA = a.my_status === 'done' ? 1 : 0;
                     const statusB = b.my_status === 'done' ? 1 : 0;
                     if (statusA !== statusB) return statusA - statusB;
-                    const subA = (a.subject || '').toLowerCase();
-                    const subB = (b.subject || '').toLowerCase();
-                    if (subA !== subB) return subA.localeCompare(subB, 'th');
-                    return String(a.id).localeCompare(String(b.id), undefined, { numeric: true });
+                    return 0;
                   });
                   
                   return (
@@ -623,24 +638,20 @@ export default function StudyFlow() {
                       key={i} 
                       className={`calendar-day ${!d.current ? 'not-current' : ''} ${isToday ? 'today' : ''}`}
                       style={{ 
-                        opacity: d.current ? 1 : 0.4,
                         display: 'flex', flexDirection: 'column', gap: '4px', overflowY: 'auto'
                       }}
                     >
-                      <span style={{ fontSize: '0.85rem', fontWeight: d.current ? 700 : 400 }}>{d.day}</span>
+                      <span className={`text-sm font-black ${d.current ? 'text-black' : 'text-gray-400'}`}>{d.day}</span>
                       {dayTasks.map(task => (
                         <div 
                           key={task.id} 
                           onClick={() => setActiveHomework(task)}
+                          className="text-[10px] p-1 border-2 border-black font-bold truncate cursor-pointer shadow-[1px_1px_0px_0px_#000] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[2px_2px_0px_0px_#000]"
                           style={{ 
-                            fontSize: '0.65rem', 
-                            padding: '2px 6px', 
-                           borderRadius: '4px', 
-                            background: `${getSubjectColor(task.subject, subjects)}30`, 
-                            color: getSubjectColor(task.subject, subjects), 
-                            borderLeft: `2px solid ${getSubjectColor(task.subject, subjects)}`,
-                            whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', cursor: 'pointer',
-                            textDecoration: task.my_status === 'done' ? 'line-through' : 'none'
+                            background: getSubjectColor(task.subject, subjects),
+                            color: '#000',
+                            textDecoration: task.my_status === 'done' ? 'line-through' : 'none',
+                            opacity: task.my_status === 'done' ? 0.6 : 1
                           }}>
                           {task.title}
                         </div>
@@ -654,14 +665,13 @@ export default function StudyFlow() {
         )}
 
         {viewMode === 'timeline' && (
-          <div style={{ padding: '0 1rem 2.5rem' }}>
+          <div className="px-6 pb-12">
             <div className="timeline-v-container">
               {Array.from({ length: 30 }).map((_, i) => {
                 const d = new Date(focusDate);
-                d.setDate(d.getDate() + i); // Start from focusDate (Today by default)
+                d.setDate(d.getDate() + i); 
                 const isToday = new Date().toDateString() === d.toDateString();
                 
-                // Filter and sort tasks for this day
                 const dayTasks = homeworkWithStatus
                   .filter(hw => {
                     const hwDate = new Date(hw.deadline);
@@ -670,58 +680,47 @@ export default function StudyFlow() {
                            hwDate.getFullYear() === d.getFullYear();
                   })
                   .sort((a, b) => {
-                    // 1. Status (Done at bottom)
                     const statusA = a.my_status === 'done' ? 1 : 0;
                     const statusB = b.my_status === 'done' ? 1 : 0;
                     if (statusA !== statusB) return statusA - statusB;
-
-                    // 2. Subject
-                    const subA = (a.subject || '').toLowerCase();
-                    const subB = (b.subject || '').toLowerCase();
-                    if (subA !== subB) return subA.localeCompare(subB, 'th');
-
-                    // 3. ID
-                    return String(a.id).localeCompare(String(b.id), undefined, { numeric: true });
+                    return 0;
                   });
 
-                // Only render days that have tasks to keep the timeline concise, 
-                // OR render all days if we want a continuous line. 
-                // Given the sketch has a line, let's render all but emphasize those with tasks.
-                
                 return (
                   <div key={i} className="timeline-v-item">
                     <div className="timeline-v-left">
                       <div className="timeline-v-date">
-                        <div className="timeline-v-date-day" style={{ color: isToday ? 'var(--primary)' : 'inherit' }}>
+                        <div className={`text-2xl font-black leading-none ${isToday ? 'text-black' : 'text-gray-500'}`}>
                           {d.getDate()}
                         </div>
-                        <div className="timeline-v-date-month">
+                        <div className="text-[10px] font-black uppercase text-gray-400">
                           {d.toLocaleDateString('th-TH', { month: 'short' })}
                         </div>
                       </div>
                       <div className="timeline-v-path">
-                        <div className={`timeline-v-dot ${isToday ? 'active' : ''}`} style={{ background: isToday ? 'var(--primary)' : 'rgba(255,255,255,0.2)', boxShadow: isToday ? '0 0 15px var(--primary)' : 'none' }} />
+                        <div className={`timeline-v-dot ${isToday ? 'bg-yellow-300' : 'bg-white'}`} style={{ border: '2px solid #000', boxShadow: isToday ? '2px 2px 0px 0px #000' : 'none' }} />
                       </div>
                     </div>
 
                     <div className="timeline-v-right">
                       {dayTasks.length > 0 ? (
-                        <div className="timeline-v-cards">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                           {dayTasks.map(task => {
                             const isDone = task.my_status === 'done';
+                            const subColor = getSubjectColor(task.subject, subjects);
                             return (
                               <div 
                                 key={task.id} 
                                 onClick={() => setActiveHomework(task)}
-                                className={`timeline-card-v ${isDone ? 'done' : ''}`}
+                                className={`neo-card p-4 cursor-pointer relative overflow-hidden ${isDone ? 'opacity-60' : ''}`}
                                 style={{ 
-                                  borderLeft: `6px solid ${isDone ? '#10b981' : getSubjectColor(task.subject, subjects)}`,
+                                  borderLeft: `8px solid ${subColor}`,
                                 }}
                               >
-                                <div className="timeline-card-v-subject" style={{ color: getSubjectColor(task.subject, subjects) }}>
+                                <div className="text-[10px] font-black uppercase mb-1" style={{ color: subColor }}>
                                   {task.subject}
                                 </div>
-                                <div className="timeline-card-v-title" style={{ textDecoration: isDone ? 'line-through' : 'none' }}>
+                                <div className={`text-sm font-black leading-tight ${isDone ? 'line-through' : ''}`}>
                                   {task.title}
                                 </div>
                               </div>
@@ -729,7 +728,7 @@ export default function StudyFlow() {
                           })}
                         </div>
                       ) : (
-                        <div style={{ color: 'rgba(255,255,255,0.1)', fontSize: '0.8rem', fontStyle: 'italic', padding: '10px 0' }}>
+                        <div className="py-4 text-xs font-bold text-gray-400 italic">
                           No tasks due
                         </div>
                       )}
@@ -744,55 +743,79 @@ export default function StudyFlow() {
 
       {/* Homework Detail Modal */}
       {activeHomework && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setActiveHomework(null)}>
-          <div className="glass" style={{ width: '90%', maxWidth: '900px', maxHeight: '90vh', overflowY: 'auto', borderRadius: '2rem', padding: '2.5rem' }} onClick={e => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem' }}>
-              <div>
-                <h2 style={{ fontSize: '2rem', fontWeight: 900 }}>{activeHomework.title}</h2>
-                <div style={{ display: 'flex', gap: '1rem', color: 'rgba(255,255,255,0.5)', fontSize: '0.9rem' }}>
-                  <span>📅 {new Date(activeHomework.deadline).toLocaleDateString('th-TH')}</span>
-                  <span>📁 {activeHomework.subject}</span>
-                </div>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[10000] flex items-center justify-center p-4" onClick={() => setActiveHomework(null)}>
+          <div className="neo-card w-full max-w-4xl max-h-[90vh] overflow-y-auto p-6 md:p-10 relative" onClick={e => e.stopPropagation()}>
+            <button 
+              onClick={() => setActiveHomework(null)} 
+              className="absolute top-4 right-4 neo-button w-10 h-10 flex items-center justify-center text-xl"
+            >✕</button>
+
+            <div className="mb-8">
+              <span 
+                className="text-xs font-black uppercase px-3 py-1 border-2 border-black mb-3 inline-block shadow-[2px_2px_0px_0px_#000]" 
+                style={{ backgroundColor: `${getSubjectColor(activeHomework.subject, subjects)}40` }}
+              >
+                {activeHomework.subject}
+              </span>
+              <h2 className="text-3xl md:text-4xl font-black mb-2 uppercase tracking-tighter">{activeHomework.title}</h2>
+              <div className="flex gap-4 text-sm font-bold opacity-60">
+                <span>📅 DEADLINE: {new Date(activeHomework.deadline).toLocaleDateString('th-TH')}</span>
               </div>
-              <button onClick={() => setActiveHomework(null)} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', width: '40px', height: '40px', borderRadius: '50%', cursor: 'pointer' }}>✕</button>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.5fr 1fr', gap: '2rem' }}>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <div>
-                <h3 style={{ marginBottom: '1rem' }}>Instructions</h3>
-                <div style={{ marginBottom: '1.5rem' }}>
+                <h3 className="text-xl font-black mb-4 uppercase border-b-4 border-black inline-block">Instructions</h3>
+                <div className="mb-6">
                   <AttachmentList 
                     contentId={activeHomework.id}
                     contentType="homework"
                     attachments={memoizedHomeworkAttachments} 
                   />
                 </div>
-                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1.5rem', borderRadius: '1.5rem', lineHeight: 1.6 }}>
+                <div className="bg-sky-50 border-3 border-black p-6 shadow-[4px_4px_0px_0px_#000] leading-relaxed">
                   <MarkdownRenderer content={activeHomework.description || ''} />
                 </div>
               </div>
 
               <div>
-                <h3 style={{ marginBottom: '1rem' }}>Submissions</h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <h3 className="text-xl font-black mb-4 uppercase border-b-4 border-black inline-block">Submissions</h3>
+                <div className="flex flex-col gap-4">
                    {user && (
-                    <div className="glass" style={{ padding: '1rem', borderRadius: '1rem' }}>
-                      <textarea placeholder="Say something about your work..." value={shareText} onChange={e => setShareText(e.target.value)} style={{ width: '100%', background: 'none', border: 'none', color: '#fff', resize: 'none', outline: 'none' }} />
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1rem' }}>
-                        <button onClick={(e) => uploadOrReplaceProof(e, activeHomework.id)} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', padding: '0.5rem 1rem', borderRadius: '0.5rem', cursor: 'pointer' }}>🖼️ Upload</button>
-                        <button onClick={() => handleShareSubmission()} style={{ background: 'var(--primary)', border: 'none', color: '#fff', padding: '0.5rem 1rem', borderRadius: '0.5rem', cursor: 'pointer' }}>Post</button>
+                    <div className="bg-yellow-50 border-3 border-black p-4 shadow-[4px_4px_0px_0px_#000]">
+                      <textarea 
+                        placeholder="Say something about your work..." 
+                        value={shareText} 
+                        onChange={e => setShareText(e.target.value)} 
+                        className="w-100 bg-transparent border-none focus:ring-0 text-black font-bold resize-none outline-none h-24"
+                      />
+                      <div className="flex justify-between mt-4">
+                        <button onClick={(e) => uploadOrReplaceProof(e, activeHomework.id)} className="neo-button px-4 py-2 text-xs flex items-center gap-2">
+                          <span>🖼️</span> UPLOAD IMAGE
+                        </button>
+                        <button onClick={() => handleShareSubmission()} className="neo-button px-6 py-2 text-xs bg-green-400 hover:bg-green-500">
+                          POST NOW
+                        </button>
                       </div>
                     </div>
                    )}
                    {getFinishedUsers(activeHomework.id).map((student, i) => (
-                    <div key={i} style={{ display: 'flex', gap: '10px', background: 'rgba(255,255,255,0.02)', padding: '10px', borderRadius: '1rem' }}>
-                      <img src={student.picture} style={{ width: '32px', height: '32px', borderRadius: '8px' }} alt="" />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ fontWeight: 700, fontSize: '0.8rem' }}>{student.name}</span>
-                          <span style={{ fontSize: '0.6rem', opacity: 0.5 }}>DONE</span>
+                    <div key={i} className="flex gap-4 bg-white border-2 border-black p-3 shadow-[2px_2px_0px_0px_#000]">
+                      <img src={student.picture} className="w-10 h-10 border-2 border-black" alt="" />
+                      <div className="flex-1">
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="font-black text-sm uppercase">{student.name}</span>
+                          <span className="text-[10px] font-black bg-green-400 border-2 border-black px-1">DONE</span>
                         </div>
-                        {student.proof && <div style={{ marginTop: '5px' }}>{student.proof.split(',').map((url, idx) => (url.startsWith('http') ? <img key={idx} src={url} style={{ width: '100%', borderRadius: '4px', marginTop: '4px' }} alt="" /> : <p key={idx} style={{ fontSize: '0.8rem' }}>{url}</p>))}</div>}
+                        {student.proof && (
+                          <div className="mt-2 flex flex-col gap-2">
+                            {student.proof.split(',').map((url, idx) => (
+                              url.startsWith('http') 
+                              ? <img key={idx} src={url} className="w-full border-2 border-black shadow-[2px_2px_0px_0px_#000]" alt="" /> 
+                              : <p key={idx} className="text-xs font-bold border-l-4 border-black pl-2 italic">{url}</p>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                    ))}

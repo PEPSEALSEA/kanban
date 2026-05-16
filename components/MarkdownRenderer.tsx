@@ -161,37 +161,37 @@ export default function MarkdownRenderer({ content, className }: MarkdownRendere
         components={{
           // Ensure links open in a new tab
           a: ({ node, ...props }) => (
-            <a {...props} target="_blank" rel="noopener noreferrer" style={{ color: '#818cf8', textDecoration: 'underline' }} />
+            <a {...props} target="_blank" rel="noopener noreferrer" className="text-black font-black underline decoration-4 underline-offset-2 hover:bg-yellow-300" />
           ),
           // Style headers
-          h1: ({ node, ...props }) => <h1 {...props} style={{ fontSize: '1.5rem', fontWeight: 800, margin: '1rem 0 0.5rem' }} />,
-          h2: ({ node, ...props }) => <h2 {...props} style={{ fontSize: '1.25rem', fontWeight: 700, margin: '0.8rem 0 0.4rem' }} />,
-          h3: ({ node, ...props }) => <h3 {...props} style={{ fontSize: '1.1rem', fontWeight: 700, margin: '0.6rem 0 0.3rem' }} />,
+          h1: ({ node, ...props }) => <h1 {...props} className="text-2xl font-black uppercase mt-8 mb-4 border-b-4 border-black inline-block" />,
+          h2: ({ node, ...props }) => <h2 {...props} className="text-xl font-black uppercase mt-6 mb-3" />,
+          h3: ({ node, ...props }) => <h3 {...props} className="text-lg font-black uppercase mt-4 mb-2" />,
           // Paragraph styles for spacing
-          p: ({ node, ...props }) => <p {...props} style={{ marginBottom: '0.75rem' }} />,
+          p: ({ node, ...props }) => <p {...props} className="mb-4 font-bold" />,
           // List styles
-          ul: ({ node, ...props }) => <ul {...props} style={{ paddingLeft: '1.5rem', marginBottom: '1rem', listStyleType: 'disc' }} />,
-          ol: ({ node, ...props }) => <ol {...props} style={{ paddingLeft: '1.5rem', marginBottom: '1rem', listStyleType: 'decimal' }} />,
-          li: ({ node, ...props }) => <li {...props} style={{ marginBottom: '0.25rem' }} />,
+          ul: ({ node, ...props }) => <ul {...props} className="pl-6 mb-4 list-disc font-bold" />,
+          ol: ({ node, ...props }) => <ol {...props} className="pl-6 mb-4 list-decimal font-bold" />,
+          li: ({ node, ...props }) => <li {...props} className="mb-2" />,
           // Code blocks
           code: ({ node, ...props }) => (
-            <code {...props} style={{ background: 'rgba(255,255,255,0.1)', padding: '0.2rem 0.4rem', borderRadius: '4px', fontSize: '0.9em' }} />
+            <code {...props} className="bg-gray-200 border-2 border-black px-1.5 py-0.5 font-mono text-sm" />
           ),
           pre: ({ node, ...props }) => (
-            <pre {...props} style={{ background: 'rgba(0,0,0,0.3)', padding: '1rem', borderRadius: '1rem', overflowX: 'auto', marginBottom: '1rem' }} />
+            <pre {...props} className="bg-white border-3 border-black p-4 mb-4 overflow-x-auto shadow-[4px_4px_0px_0px_#000]" />
           ),
           // Blockquote
           blockquote: ({ node, ...props }) => (
-            <blockquote {...props} style={{ borderLeft: '4px solid var(--primary)', paddingLeft: '1rem', fontStyle: 'italic', opacity: 0.8, margin: '1rem 0' }} />
+            <blockquote {...props} className="border-l-8 border-black pl-4 italic mb-4 font-bold bg-yellow-50 p-2" />
           ),
           // Table
           table: ({ node, ...props }) => (
-            <div style={{ overflowX: 'auto', marginBottom: '1rem' }}>
-              <table {...props} style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid rgba(255,255,255,0.1)' }} />
+            <div className="overflow-x-auto mb-6">
+              <table {...props} className="w-full border-4 border-black" />
             </div>
           ),
-          th: ({ node, ...props }) => <th {...props} style={{ border: '1px solid rgba(255,255,255,0.1)', padding: '0.5rem', background: 'rgba(255,255,255,0.05)' }} />,
-          td: ({ node, ...props }) => <td {...props} style={{ border: '1px solid rgba(255,255,255,0.1)', padding: '0.5rem' }} />,
+          th: ({ node, ...props }) => <th {...props} className="border-2 border-black p-3 bg-black text-white font-black uppercase text-sm" />,
+          td: ({ node, ...props }) => <td {...props} className="border-2 border-black p-3 font-bold" />,
         }}
       >
         {processedContent}

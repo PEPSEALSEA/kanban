@@ -10,17 +10,17 @@ export default function SyncToast() {
 
   return (
     <div className="sync-toast" style={{ 
-      border: error ? '1px solid rgba(244, 63, 94, 0.3)' : '1px solid rgba(255, 255, 255, 0.1)',
-      background: error ? 'rgba(244, 63, 94, 0.1)' : 'rgba(15, 23, 42, 0.8)'
+      background: error ? '#fecaca' : '#fde047',
+      borderColor: '#000'
     }}>
       {isSyncing ? (
         <>
           <div className="sync-spinner"></div>
-          <span>Updating data...</span>
+          <span className="font-black uppercase text-xs">Updating data...</span>
         </>
       ) : error ? (
         <>
-          <span style={{ color: 'var(--accent)' }}>⚠️ Sync Error</span>
+          <span className="font-black uppercase text-xs">⚠️ Sync Error</span>
         </>
       ) : null}
     </div>

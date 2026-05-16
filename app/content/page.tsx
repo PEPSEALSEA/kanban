@@ -214,28 +214,34 @@ export default function LearningContentPage() {
   if (view === 'detail' && activeContent) {
     const { intro, cards } = parseDescription(activeContent.description);
     return (
-      <div className="animate-slide-in" style={{ padding: isMobile ? '1rem' : '2rem', maxWidth: '900px', margin: '0 auto' }}>
-        <button onClick={() => window.location.hash = ''} className="glass" style={{ padding: isMobile ? '0.5rem 1rem' : '0.75rem 1.5rem', borderRadius: '1rem', border: 'none', color: '#fff', cursor: 'pointer', marginBottom: '2rem', fontSize: isMobile ? '0.8rem' : '1rem' }}>
-          ← Back
+      <div className="p-4 md:p-10 max-w-4xl mx-auto">
+        <button 
+          onClick={() => window.location.hash = ''} 
+          className="neo-button px-6 py-2 mb-10 flex items-center gap-2"
+        >
+          ← BACK
         </button>
 
-        <div className="glass" style={{ padding: isMobile ? '1.5rem' : '3rem', borderRadius: isMobile ? '1.5rem' : '2.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
-            <span style={{ padding: '4px 12px', borderRadius: '8px', background: `${dynamicSubjectColors[activeContent.subject] || dynamicSubjectColors['Other']}25`, color: dynamicSubjectColors[activeContent.subject] || dynamicSubjectColors['Other'], fontSize: isMobile ? '0.65rem' : '0.7rem', fontWeight: 800, border: '1px solid rgba(255,255,255,0.1)' }}>
+        <div className="neo-card p-6 md:p-12">
+          <div className="flex flex-wrap items-center gap-4 mb-6">
+            <span 
+              className="text-xs font-black uppercase px-3 py-1 border-2 border-black shadow-[2px_2px_0px_0px_#000]" 
+              style={{ backgroundColor: dynamicSubjectColors[activeContent.subject] || dynamicSubjectColors['Other'] }}
+            >
               {activeContent.subject}
             </span>
-            <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+            <span className="text-sm font-black uppercase text-gray-400">
               {mounted && new Date(activeContent.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}
             </span>
           </div>
 
-          <h1 style={{ fontSize: isMobile ? '1.75rem' : '2.5rem', fontWeight: 900, marginBottom: '2rem', background: 'linear-gradient(to right, #fff, #94a3b8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', lineHeight: 1.2 }}>
+          <h1 className="text-4xl md:text-5xl font-black mb-10 uppercase tracking-tighter leading-none border-b-8 border-black pb-4">
             {activeContent.title}
           </h1>
 
           {/* Audio Player */}
           {memoizedAudioProps && (memoizedAudioProps.url || memoizedAudioProps.fileId) && (
-            <div style={{ marginBottom: '1.5rem' }}>
+            <div className="mb-10">
               <AudioPlayer 
                 contentId={activeContent.id}
                 contentType="learning_content"
@@ -248,7 +254,7 @@ export default function LearningContentPage() {
 
           {/* Attachments via AttachmentList */}
           {(activeContent.links || activeContent.attachments) && (
-            <div style={{ marginBottom: '1rem' }}>
+            <div className="mb-8">
               <AttachmentList 
                 contentId={activeContent.id}
                 contentType="learning_content"
@@ -259,72 +265,70 @@ export default function LearningContentPage() {
 
           {/* Intro Text */}
           {intro && (
-            <div style={{ fontSize: isMobile ? '1rem' : '1.1rem', lineHeight: 1.6, color: '#f8fafc', marginBottom: '2.5rem', opacity: 0.9 }}>
+            <div className="bg-sky-50 border-3 border-black p-6 md:p-10 shadow-[6px_6px_0px_0px_#000] leading-relaxed mb-12">
               <MarkdownRenderer content={intro} />
             </div>
           )}
 
           {/* Cards Section */}
           {cards.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <div className="flex flex-col gap-8">
               {cards.map((card, idx) => (
-                <div key={idx} className="split-card animate-scale-in" style={{ animationDelay: `${idx * 0.1}s` }}>
+                <div key={idx} className="split-card">
                   <div className="split-number">{card.num}</div>
-                  <div style={{ fontSize: '1rem', lineHeight: 1.7, color: '#cbd5e1' }}>
+                  <div className="text-lg font-black leading-relaxed">
                     <MarkdownRenderer content={card.text} />
                   </div>
                 </div>
               ))}
             </div>
           )}
-
-          {/* Old Attachments removed as it is now above the description */}
         </div>
       </div>
     );
   }
 
   return (
-    <div style={{ padding: isMobile ? '1rem' : '2rem', maxWidth: '1200px', margin: '0 auto' }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: isMobile ? '1.5rem' : '3rem' }}>
+    <div className="p-4 md:p-10 max-w-7xl mx-auto">
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
         <div>
-          <h1 style={{ fontSize: isMobile ? '1.5rem' : '2rem', fontWeight: 900, background: 'linear-gradient(to right, #818cf8, #f43f5e)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+          <h1 className="text-4xl md:text-5xl font-black uppercase tracking-tighter italic border-b-8 border-black inline-block mb-2">
             คลังเนื้อหาการเรียน
           </h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: isMobile ? '0.75rem' : '1rem' }}>Learning Content Archive</p>
+          <p className="text-sm font-black uppercase text-gray-500">Learning Content Archive</p>
         </div>
       </header>
 
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', flexDirection: isMobile ? 'column' : 'row' }}>
-        <div className="glass" style={{ flex: 1, padding: isMobile ? '1.25rem' : '1.5rem', borderRadius: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <span style={{ fontSize: '1.2rem', opacity: 0.5 }}>🔍</span>
+      <div className="flex flex-col md:flex-row gap-4 mb-10">
+        <div className="flex-1 bg-white border-4 border-black p-4 shadow-[6px_6px_0px_0px_#000] flex items-center gap-4">
+          <span className="text-2xl">🔍</span>
           <input 
             type="text" 
-            placeholder="ค้นหาด้วย ID (LC-...), วิชา หรือชื่อเรื่อง..." 
+            placeholder="ค้นหาด้วย ID, วิชา หรือชื่อเรื่อง..." 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: '#fff', fontSize: isMobile ? '0.9rem' : '1.1rem', fontWeight: 500 }}
+            className="flex-1 bg-transparent border-none outline-none text-black font-black placeholder:text-gray-400 text-lg"
           />
           {searchTerm && (
             <button 
               onClick={() => setSearchTerm('')}
-              style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', width: '24px', height: '24px', borderRadius: '50%', cursor: 'pointer', fontSize: '0.7rem' }}
+              className="neo-button w-8 h-8 flex items-center justify-center"
             >
               ✕
             </button>
           )}
         </div>
 
-        <div className="glass" style={{ minWidth: isMobile ? '100%' : '200px', padding: isMobile ? '1.25rem' : '0.5rem 1.5rem', borderRadius: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <span style={{ fontSize: '1.1rem', opacity: 0.5 }}>📚</span>
+        <div className="bg-white border-4 border-black p-4 shadow-[6px_6px_0px_0px_#000] flex items-center gap-4 min-w-[240px]">
+          <span className="text-2xl">📚</span>
           <select 
             value={selectedSubject} 
             onChange={(e) => setSelectedSubject(e.target.value)}
-            style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: '#fff', fontSize: isMobile ? '0.9rem' : '1rem', fontWeight: 600, cursor: 'pointer' }}
+            className="flex-1 bg-transparent border-none outline-none text-black font-black text-lg cursor-pointer"
           >
-            <option value="All" style={{ background: '#0f172a' }}>ทุกวิชา (All)</option>
+            <option value="All">ทุกวิชา (ALL)</option>
             {subjects.map(s => (
-              <option key={s.id} value={s.name} style={{ background: '#0f172a' }}>{s.name}</option>
+              <option key={s.id} value={s.name}>{s.name.toUpperCase()}</option>
             ))}
           </select>
         </div>
@@ -332,74 +336,62 @@ export default function LearningContentPage() {
 
       {searchTerm.trim() || selectedSubject !== 'All' ? (
         <div className="animate-slide-up">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 800 }}>ผลการค้นหา ({searchResults.length})</h2>
-            <button onClick={() => { setSearchTerm(''); setSelectedSubject('All'); }} style={{ background: 'none', border: 'none', color: '#818cf8', fontWeight: 700, cursor: 'pointer' }}>เคลียร์การค้นหา</button>
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-black uppercase">ผลการค้นหา ({searchResults.length})</h2>
+            <button onClick={() => { setSearchTerm(''); setSelectedSubject('All'); }} className="text-black font-black border-b-4 border-black hover:bg-yellow-300">CLEAR ALL</button>
           </div>
           
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div className="flex flex-col gap-4">
             {searchResults.length > 0 ? (
               searchResults.map((c: LearningContent) => (
                 <button 
                   key={c.id} 
                   onClick={() => { window.location.hash = `#/view?id=${c.id}`; setSearchTerm(''); setSelectedSubject('All'); }}
-                  className="glass-hover"
-                  style={{ 
-                    width: '100%', 
-                    padding: '1.25rem', 
-                    background: 'rgba(255,255,255,0.03)', 
-                    border: '1px solid rgba(255,255,255,0.08)', 
-                    borderRadius: '1.25rem', 
-                    color: '#fff', 
-                    textAlign: 'left', 
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '1.5rem',
-                    transition: 'all 0.2s ease'
-                  }}
+                  className="neo-card w-full p-6 text-left flex items-center gap-6"
                 >
-                  <div style={{ width: '45px', height: '45px', borderRadius: '12px', background: `${dynamicSubjectColors[c.subject] || dynamicSubjectColors['Other']}25`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: dynamicSubjectColors[c.subject] || dynamicSubjectColors['Other'], fontWeight: 800, fontSize: '0.8rem' }}>
+                  <div 
+                    className="w-16 h-16 border-4 border-black flex items-center justify-center font-black text-xl shadow-[2px_2px_0px_0px_#000]"
+                    style={{ backgroundColor: dynamicSubjectColors[c.subject] || dynamicSubjectColors['Other'] }}
+                  >
                     {c.subject.charAt(0)}
                   </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '4px' }}>
-                      <span style={{ fontSize: '0.7rem', fontWeight: 700, opacity: 0.5 }}>{c.id}</span>
-                      <span style={{ width: '3px', height: '3px', borderRadius: '50%', background: 'rgba(255,255,255,0.2)' }} />
-                      <span style={{ fontSize: '0.7rem', fontWeight: 700, color: dynamicSubjectColors[c.subject] || dynamicSubjectColors['Other'] }}>{c.subject}</span>
+                  <div className="flex-1">
+                    <div className="flex gap-2 items-center mb-1">
+                      <span className="text-xs font-black bg-black text-white px-2 py-0.5">{c.id}</span>
+                      <span className="text-xs font-black uppercase" style={{ color: dynamicSubjectColors[c.subject] || dynamicSubjectColors['Other'] }}>{c.subject}</span>
                     </div>
-                    <div style={{ fontSize: '1.05rem', fontWeight: 700 }}>{c.title}</div>
-                    <div style={{ fontSize: '0.8rem', opacity: 0.5, marginTop: '2px' }}>{new Date(c.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+                    <div className="text-xl font-black uppercase leading-tight">{c.title}</div>
+                    <div className="text-xs font-bold text-gray-500 mt-1">{new Date(c.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
                   </div>
-                  <span style={{ opacity: 0.3 }}>→</span>
+                  <span className="text-3xl font-black">→</span>
                 </button>
               ))
             ) : (
-              <div className="glass" style={{ padding: '4rem', textAlign: 'center', borderRadius: '2rem' }}>
-                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🔍</div>
-                <div style={{ fontWeight: 700, opacity: 0.5 }}>ไม่พบข้อมูลที่ตรงกับการค้นหา</div>
+              <div className="neo-card p-20 text-center">
+                <div className="text-6xl mb-4">🔍</div>
+                <div className="text-xl font-black uppercase">ไม่พบข้อมูลที่ตรงกับการค้นหา</div>
               </div>
             )}
           </div>
         </div>
       ) : (
-        <div className="glass animate-slide-up" style={{ padding: isMobile ? '1rem' : '2rem', borderRadius: isMobile ? '1.5rem' : '2rem' }}>
+        <div className="neo-card p-6 md:p-10">
         {/* Calendar Nav */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-          <h2 style={{ fontSize: isMobile ? '1rem' : '1.25rem', fontWeight: 800 }}>
+        <div className="flex justify-between items-center mb-10">
+          <h2 className="text-2xl md:text-3xl font-black uppercase tracking-tighter">
             {mounted && currentMonth.toLocaleDateString('th-TH', { month: 'long', year: 'numeric' })}
           </h2>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button onClick={() => setCurrentMonth(new Date(currentMonth.setMonth(currentMonth.getMonth() - 1)))} className="glass" style={{ width: isMobile ? '32px' : '40px', height: isMobile ? '32px' : '40px', borderRadius: '10px', border: 'none', color: '#fff', cursor: 'pointer' }}>←</button>
-            <button onClick={() => setCurrentMonth(new Date())} className="glass" style={{ padding: isMobile ? '0 0.5rem' : '0 1rem', borderRadius: '10px', border: 'none', color: '#fff', cursor: 'pointer', fontSize: isMobile ? '0.75rem' : '0.85rem' }}>Today</button>
-            <button onClick={() => setCurrentMonth(new Date(currentMonth.setMonth(currentMonth.getMonth() + 1)))} className="glass" style={{ width: isMobile ? '32px' : '40px', height: isMobile ? '32px' : '40px', borderRadius: '10px', border: 'none', color: '#fff', cursor: 'pointer' }}>→</button>
+          <div className="flex gap-2">
+            <button onClick={() => setCurrentMonth(new Date(currentMonth.setMonth(currentMonth.getMonth() - 1)))} className="neo-button w-12 h-12 flex items-center justify-center text-xl">←</button>
+            <button onClick={() => setCurrentMonth(new Date())} className="neo-button px-6 font-black uppercase">Today</button>
+            <button onClick={() => setCurrentMonth(new Date(currentMonth.setMonth(currentMonth.getMonth() + 1)))} className="neo-button w-12 h-12 flex items-center justify-center text-xl">→</button>
           </div>
         </div>
 
         {/* Calendar Grid */}
         <div className="calendar-grid">
-          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
-            <div key={d} style={{ padding: '1rem', textAlign: 'center', fontSize: '0.75rem', fontWeight: 900, color: 'var(--text-muted)', background: 'rgba(255,255,255,0.02)' }}>{d}</div>
+          {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map(d => (
+            <div key={d} className="p-4 text-center text-xs font-black bg-sky-100 border-b-2 border-black">{d}</div>
           ))}
           {daysInMonth.map((d, i) => {
             const dateContents = getContentsForDate(d.day, d.month, d.year);
@@ -411,10 +403,15 @@ export default function LearningContentPage() {
                 className={`calendar-day ${d.isCurrent ? '' : 'not-current'} ${isToday ? 'today' : ''}`}
                 onClick={() => dateContents.length > 0 && setSelectedDate(new Date(d.year, d.month, d.day).toISOString())}
               >
-                <div style={{ fontSize: '0.85rem', fontWeight: d.isCurrent ? 700 : 400 }}>{d.day}</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                <div className="text-sm font-black">{d.day}</div>
+                <div className="flex flex-wrap gap-1">
                   {dateContents.map((c: LearningContent, ci: number) => (
-                  <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: dynamicSubjectColors[c.subject] || dynamicSubjectColors['Other'] }} title={c.title} />
+                  <span 
+                    key={ci}
+                    className="w-4 h-4 border-2 border-black shadow-[1px_1px_0px_0px_#000]" 
+                    style={{ background: dynamicSubjectColors[c.subject] || dynamicSubjectColors['Other'] }} 
+                    title={c.title} 
+                  />
                   ))}
                 </div>
               </div>

@@ -192,50 +192,40 @@ export default function AttachmentList({
   const TRANSPARENT_PIXEL = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 
   return (
-    <div className="w-full flex flex-col gap-4">
+    <div className="w-full flex flex-col gap-6">
       {/* File Documents Section */}
       {files.length > 0 && (
         <div className="flex flex-col gap-3">
-          <h4 className="text-sm font-semibold text-slate-700 uppercase tracking-wider">Documents & Files</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <h4 className="text-sm font-black uppercase tracking-widest border-b-2 border-black inline-block w-fit">Documents & Files</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {files.map((file, idx) => (
               <div 
                 key={idx} 
-                className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-white border border-slate-200 rounded-xl shadow-sm hover:shadow-md hover:border-indigo-300 transition-all gap-4"
+                className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-white border-3 border-black shadow-[4px_4px_0px_0px_#000] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[5px_5px_0px_0px_#000] transition-all gap-4"
               >
                 <div className="flex items-center gap-3 w-full overflow-hidden">
-                  <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg shrink-0">
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                  <div className="p-2 bg-sky-100 border-2 border-black shrink-0">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                   </div>
-                  <span className="font-medium text-slate-700 truncate" title={file.title}>
+                  <span className="font-black text-sm truncate uppercase tracking-tighter" title={file.title}>
                     {file.title || 'Untitled Document'}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  {file.title?.toLowerCase().endsWith('.pdf') ? (
-                    <button
-                      onClick={() => setSelectedPreview(file)}
-                      className="px-3 py-1.5 text-sm font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors flex items-center gap-1.5"
-                    >
-                      View
-                    </button>
-                  ) : (
-                    <a
-                      href={file.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-3 py-1.5 text-sm font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors flex items-center gap-1.5"
-                    >
-                      View
-                    </a>
-                  )}
+                  <a
+                    href={file.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="neo-button px-3 py-1 text-xs"
+                  >
+                    VIEW
+                  </a>
                   <a
                     href={file.url}
                     download
-                    className="px-3 py-1.5 text-sm font-medium text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors flex items-center gap-1.5"
+                    className="neo-button px-3 py-1 text-xs bg-black text-white hover:bg-gray-800"
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                    Download
+                    DL
                   </a>
                 </div>
               </div>
@@ -248,7 +238,7 @@ export default function AttachmentList({
       {images.length > 0 && (
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between">
-            <h4 className="text-sm font-semibold text-slate-700 uppercase tracking-wider">Image Gallery</h4>
+            <h4 className="text-sm font-black uppercase tracking-widest border-b-2 border-black inline-block w-fit">Image Gallery</h4>
             {images.some(img => refreshAttempted[`${img.fileId}_${img.url}`]) && (
               <button 
                 onClick={() => {
@@ -257,10 +247,9 @@ export default function AttachmentList({
                     if (refreshAttempted[uk]) handleImageError(img, true);
                   });
                 }}
-                className="text-[10px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded-md transition-colors flex items-center gap-1"
+                className="neo-button px-2 py-1 text-[10px] bg-red-100"
               >
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                Refresh All Broken
+                REFRESH BROKEN
               </button>
             )}
           </div>
@@ -269,38 +258,33 @@ export default function AttachmentList({
               <div 
                 key={idx} 
                 onClick={() => setSelectedPreview(img)}
-                className="group relative aspect-square rounded-xl overflow-hidden cursor-pointer border border-slate-200 bg-slate-100 shadow-sm hover:shadow-md hover:ring-2 ring-indigo-400 transition-all"
+                className="relative aspect-square bg-white border-3 border-black shadow-[4px_4px_0px_0px_#000] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[5px_5px_0px_0px_#000] transition-all cursor-pointer overflow-hidden group"
               >
                 <img 
                   src={isRefreshing[`${img.fileId}_${img.url}`] ? TRANSPARENT_PIXEL : img.url} 
                   alt={img.title || 'Preview'} 
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 transition-all"
                   onError={() => handleImageError(img)}
                 />
-                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-3 pt-6 pointer-events-none">
-                  <p className="text-white text-xs font-medium truncate drop-shadow-md">
+                <div className="absolute inset-x-0 bottom-0 bg-white border-t-2 border-black p-2 transform translate-y-full group-hover:translate-y-0 transition-transform">
+                  <p className="text-[10px] font-black uppercase truncate">
                     {img.title || `Image ${idx + 1}`}
                   </p>
-                </div>
-                {/* Overlay Icon */}
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                  <svg className="w-8 h-8 text-white drop-shadow-lg" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" /></svg>
                 </div>
                 
                 {/* Manual Refresh Overlay for failed items */}
                 {refreshAttempted[`${img.fileId}_${img.url}`] && !isRefreshing[`${img.fileId}_${img.url}`] && (
-                  <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-[2px] flex flex-col items-center justify-center p-2 gap-2 z-20">
+                  <div className="absolute inset-0 bg-white/90 flex flex-col items-center justify-center p-2 gap-2 z-20">
                     <button 
                       onClick={(e) => {
                         e.stopPropagation();
                         handleImageError(img, true);
                       }}
-                      className="px-3 py-1.5 bg-indigo-500 hover:bg-indigo-400 text-white text-xs font-bold rounded-lg shadow-lg transition-all flex items-center gap-1.5 active:scale-95"
+                      className="neo-button px-3 py-1 text-[10px]"
                     >
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                      Refresh
+                      REFRESH
                     </button>
-                    <span className="text-[10px] text-slate-300 font-medium text-center leading-tight">Failed to load</span>
+                    <span className="text-[8px] font-black uppercase text-red-500">Failed to load</span>
                   </div>
                 )}
               </div>
