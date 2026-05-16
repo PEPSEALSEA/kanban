@@ -17,6 +17,7 @@ export default function AudioPlayer({ contentId, contentType = 'learning_content
   const [currentTime, setCurrentTime] = useState(0);
   const [isLoaded, setIsLoaded] = useState(false);
   const [showStatus, setShowStatus] = useState<string>('');
+  const [jumpInput, setJumpInput] = useState('');
 
   // 1. Resolve Final Source URL with local state for refreshing
   const [currentSrc, setCurrentSrc] = useState(audioUrl || (driveId ? `https://docs.google.com/uc?id=${driveId}&export=download` : ''));
@@ -45,9 +46,9 @@ export default function AudioPlayer({ contentId, contentType = 'learning_content
           setTimeout(() => {
             if (audioRef.current) {
               audioRef.current.currentTime = lastPos;
-              audioRef.current.play().catch(e => console.log('Auto-play blocked or failed:', e));
             }
-            setShowStatus('');
+            setShowStatus('Link refresh OK!');
+            setTimeout(() => setShowStatus(''), 4000);
           }, 1500);
         }
       } catch (err) {
@@ -125,6 +126,24 @@ export default function AudioPlayer({ contentId, contentType = 'learning_content
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const handleJump = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!audioRef.current || !jumpInput) return;
+    
+    let seconds = 0;
+    if (jumpInput.includes(':')) {
+      const parts = jumpInput.split(':');
+      seconds = parseInt(parts[0] || '0') * 60 + parseInt(parts[1] || '0');
+    } else {
+      seconds = parseInt(jumpInput);
+    }
+    
+    if (!isNaN(seconds) && seconds >= 0) {
+      audioRef.current.currentTime = seconds;
+      setJumpInput('');
+    }
+  };
+
   if (!currentSrc) return null;
 
   return (
@@ -193,6 +212,21 @@ export default function AudioPlayer({ contentId, contentType = 'learning_content
 
         <div className="text-sm font-black w-12 text-right">{formatTime(duration)}</div>
       </div>
+
+      {/* Jump To Time */}
+      <form onSubmit={handleJump} className="mt-6 flex items-center justify-between border-t-2 border-black pt-4">
+        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Jump To Time:</label>
+        <div className="flex items-center gap-2">
+          <input 
+            type="text" 
+            placeholder="e.g. 1:30 or 90" 
+            value={jumpInput}
+            onChange={(e) => setJumpInput(e.target.value)}
+            className="w-28 px-2 py-1 text-xs border-2 border-black font-bold focus:outline-none focus:bg-yellow-100"
+          />
+          <button type="submit" className="neo-button px-3 py-1 text-[10px] bg-sky-200">GO</button>
+        </div>
+      </form>
     </div>
   );
 }
