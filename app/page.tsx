@@ -474,10 +474,10 @@ export default function StudyFlow() {
         </div>
       )}
 
-      <header className="sticky top-0 z-[100] px-8 py-5 flex justify-between items-center bg-white/80 backdrop-blur-md border-b border-slate-200/80">
+      <header className="sticky top-0 z-[100] px-4 md:px-8 py-4 md:py-5 flex justify-between items-center bg-white/80 backdrop-blur-md border-b border-slate-200/80">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-sky-100 rounded-xl flex items-center justify-center text-xl">🎓</div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-800">StudyFlow</h1>
+          <h1 className="text-xl font-bold tracking-tight text-slate-800">Kanban603BPK</h1>
         </div>
         {!user ? (
           <div className="rounded-lg overflow-hidden border border-slate-200">
@@ -564,14 +564,14 @@ export default function StudyFlow() {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 10 }}
             transition={{ duration: 0.2 }}
-            className="kanban-container px-6 py-8" style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '2rem', overflowX: 'auto' }}
+            className="kanban-container flex flex-col md:flex-row gap-6 md:gap-8 px-4 md:px-6 py-6 md:py-8 overflow-x-auto" 
           >
             {[
               { key: 'soon', title: 'Due Soon', subtitle: 'Next 3 days', items: columns.soon, color: '#fee2e2', textColor: '#b91c1c' },
               { key: 'week', title: 'This Week', subtitle: 'Next 7 days', items: columns.week, color: '#fef3c7', textColor: '#b45309' },
               { key: 'backlog', title: 'Upcoming', subtitle: 'Later on', items: columns.backlog, color: '#e0f2fe', textColor: '#0369a1' }
             ].map(col => (
-              <div key={col.key} className="column" style={{ minWidth: isMobile ? '100%' : '360px', backgroundColor: 'rgba(255,255,255,0.4)' }}>
+              <div key={col.key} className="column min-w-full md:min-w-[360px]" style={{ backgroundColor: 'rgba(255,255,255,0.4)' }}>
                 <div className="flex justify-between items-end mb-6 px-1">
                   <div>
                     <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">{col.title}</h3>
@@ -637,9 +637,10 @@ export default function StudyFlow() {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 10 }}
             transition={{ duration: 0.2 }}
-            className="px-6 pb-12"
+            className="px-4 md:px-6 pb-12 w-full overflow-x-auto"
           >
-            <div className="calendar-grid">
+            <div className="min-w-[700px] md:min-w-0">
+              <div className="calendar-grid">
               {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map(d => (
                 <div key={d} className="p-3 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">{d}</div>
               ))}
@@ -695,6 +696,7 @@ export default function StudyFlow() {
                 });
               })()}
             </div>
+            </div>
           </motion.div>
         )}
 
@@ -705,9 +707,10 @@ export default function StudyFlow() {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 10 }}
             transition={{ duration: 0.2 }}
-            className="px-6 pb-12"
+            className="px-4 md:px-6 pb-12 w-full overflow-x-auto"
           >
-            <div className="timeline-v-container">
+            <div className="min-w-[600px] md:min-w-0">
+              <div className="timeline-v-container">
               {Array.from({ length: 30 }).map((_, i) => {
                 const d = new Date(focusDate);
                 d.setDate(d.getDate() + i); 
@@ -781,6 +784,7 @@ export default function StudyFlow() {
                 );
               })}
             </div>
+            </div>
           </motion.div>
         )}
         </AnimatePresence>
@@ -802,7 +806,7 @@ export default function StudyFlow() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="neo-card w-full max-w-sm p-8 shadow-2xl border-none rounded-3xl" 
+            className="neo-card w-full max-w-sm p-6 md:p-8 shadow-2xl border-none rounded-3xl" 
             onClick={e => e.stopPropagation()}
           >
             <div className="flex justify-between items-center mb-8">
@@ -867,12 +871,12 @@ export default function StudyFlow() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="neo-card w-full max-w-5xl max-h-[92vh] overflow-y-auto p-8 md:p-12 relative shadow-2xl border-none rounded-3xl" 
+            className="neo-card w-full max-w-5xl max-h-[92vh] overflow-y-auto p-5 md:p-12 relative shadow-2xl border-none rounded-3xl" 
             onClick={e => e.stopPropagation()}
           >
             <button 
               onClick={() => setActiveHomework(null)} 
-              className="absolute top-8 right-8 w-10 h-10 flex items-center justify-center rounded-full bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-all"
+              className="absolute top-4 right-4 md:top-8 md:right-8 w-10 h-10 flex items-center justify-center rounded-full bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-all"
             >✕</button>
 
             <div className="mb-12">
