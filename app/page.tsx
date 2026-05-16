@@ -72,6 +72,7 @@ export default function StudyFlow() {
   const [isMobile, setIsMobile] = useState(false);
   const [viewMode, setViewMode] = useState<'kanban' | 'calendar' | 'timeline'>('kanban');
   const [focusDate, setFocusDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -644,25 +645,22 @@ export default function StudyFlow() {
                     <div 
                       key={i} 
                       className={`calendar-day ${!d.current ? 'not-current' : ''} ${isToday ? 'today' : ''}`}
-                      style={{ 
-                        display: 'flex', flexDirection: 'column', gap: '4px', overflowY: 'auto'
-                      }}
+                      onClick={() => dayTasks.length > 0 && setSelectedDate(new Date(d.year, d.month, d.day).toISOString())}
                     >
-                      <span className={`text-sm font-black ${d.current ? 'text-black' : 'text-gray-400'}`}>{d.day}</span>
-                      {dayTasks.map(task => (
-                        <div 
-                          key={task.id} 
-                          onClick={() => setActiveHomework(task)}
-                          className="text-[10px] px-2 py-1.5 rounded-md border border-slate-100 font-semibold truncate cursor-pointer transition-all hover:translate-y-[-1px] hover:shadow-sm"
-                          style={{ 
-                            background: `${getSubjectColor(task.subject, subjects)}15`,
-                            color: getSubjectColor(task.subject, subjects),
-                            textDecoration: task.my_status === 'done' ? 'line-through' : 'none',
-                            opacity: task.my_status === 'done' ? 0.5 : 1
-                          }}>
-                          {task.title}
-                        </div>
-                      ))}
+                      <div className="text-sm font-bold">{d.day}</div>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {dayTasks.map(task => (
+                          <span 
+                            key={task.id}
+                            className="w-2.5 h-2.5 rounded-full" 
+                            style={{ 
+                              background: getSubjectColor(task.subject, subjects),
+                              opacity: task.my_status === 'done' ? 0.3 : 1
+                            }} 
+                            title={task.title} 
+                          />
+                        ))}
+                      </div>
                     </div>
                   );
                 });
@@ -747,6 +745,61 @@ export default function StudyFlow() {
           </div>
         )}
       </div>
+
+      {/* Date Overview Modal */}
+      {selectedDate && (
+        <div 
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[9000] flex items-center justify-center p-4 transition-all"
+          onClick={() => setSelectedDate(null)}
+        >
+          <div 
+            className="neo-card w-full max-w-sm p-8 shadow-2xl border-none rounded-3xl" 
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-8">
+              <h3 className="text-xl font-bold uppercase tracking-tight text-slate-800">
+                {new Date(selectedDate).toLocaleDateString('th-TH', { day: 'numeric', month: 'long' })}
+              </h3>
+              <button onClick={() => setSelectedDate(null)} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition-colors">✕</button>
+            </div>
+            <div className="flex flex-col gap-4 max-h-[60vh] overflow-y-auto pr-2">
+              {homeworkWithStatus
+                .filter(hw => {
+                  const hwDate = new Date(hw.deadline);
+                  const sDate = new Date(selectedDate);
+                  return hwDate.getDate() === sDate.getDate() && 
+                         hwDate.getMonth() === sDate.getMonth() && 
+                         hwDate.getFullYear() === sDate.getFullYear();
+                })
+                .sort((a, b) => {
+                  const statusA = a.my_status === 'done' ? 1 : 0;
+                  const statusB = b.my_status === 'done' ? 1 : 0;
+                  if (statusA !== statusB) return statusA - statusB;
+                  return 0;
+                })
+                .map((task: Homework) => {
+                  const isDone = task.my_status === 'done';
+                  return (
+                    <button 
+                      key={task.id} 
+                      onClick={() => { setActiveHomework(task); setSelectedDate(null); }}
+                      className={`w-full p-4 bg-slate-50 hover:bg-slate-100 transition-all rounded-2xl flex items-center gap-4 text-left group ${isDone ? 'opacity-50' : ''}`}
+                    >
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-xs shrink-0" style={{ backgroundColor: `${getSubjectColor(task.subject, subjects)}20`, color: getSubjectColor(task.subject, subjects) }}>
+                        {task.subject.charAt(0)}
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-[10px] font-bold uppercase text-slate-400 mb-0.5 tracking-wider">{task.subject}</div>
+                        <div className={`font-semibold text-sm text-slate-800 leading-tight ${isDone ? 'line-through text-slate-400' : ''}`}>{task.title}</div>
+                      </div>
+                      <span className="text-slate-300 group-hover:text-sky-500">→</span>
+                    </button>
+                  );
+                })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Homework Detail Modal */}
       {activeHomework && (
