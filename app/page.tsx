@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { GoogleLogin, googleLogout } from '@react-oauth/google';
 import { jwtDecode } from 'jwt-decode';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useData } from '@/components/DataProvider';
 import AttachmentList from '@/components/AttachmentList';
 import MarkdownRenderer from '@/components/MarkdownRenderer';
@@ -492,17 +493,24 @@ export default function StudyFlow() {
 
       {/* View Switcher Controls */}
       <div className="flex justify-center mt-10 mb-6 px-4">
-        <div className="bg-white/50 backdrop-blur-sm border border-slate-200/60 p-1.5 flex gap-1 rounded-2xl shadow-sm">
+        <div className="bg-white/50 backdrop-blur-sm border border-slate-200/60 p-1.5 flex gap-1 rounded-2xl shadow-sm relative">
           {(['kanban', 'calendar', 'timeline'] as const).map((mode) => (
             <button
               key={mode}
               onClick={() => setViewMode(mode)}
-              className={`px-5 py-2.5 rounded-xl font-semibold text-xs uppercase tracking-wider transition-all flex items-center gap-2 ${
+              className={`relative px-5 py-2.5 rounded-xl font-semibold text-xs uppercase tracking-wider transition-colors flex items-center gap-2 z-10 active:scale-95 duration-200 ${
                 viewMode === mode 
-                ? 'bg-white text-sky-600 shadow-sm border border-slate-200' 
-                : 'text-slate-500 hover:bg-white/50'
+                ? 'text-sky-600' 
+                : 'text-slate-500 hover:text-slate-700 hover:bg-white/40'
               }`}
             >
+              {viewMode === mode && (
+                <motion.div
+                  layoutId="activeTab"
+                  className="absolute inset-0 bg-white rounded-xl shadow-sm border border-slate-200 -z-10"
+                  transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                />
+              )}
               {mode === 'kanban' && '📋'}
               {mode === 'calendar' && '📅'}
               {mode === 'timeline' && '⏳'}
@@ -547,9 +555,17 @@ export default function StudyFlow() {
       )}
 
       {/* Board Views Content */}
-      <div style={{ flex: 1, overflowY: 'auto' }}>
+      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
+        <AnimatePresence mode="wait">
         {viewMode === 'kanban' && (
-          <div className="kanban-container px-6 py-8" style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '2rem', overflowX: 'auto' }}>
+          <motion.div 
+            key="kanban"
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 10 }}
+            transition={{ duration: 0.2 }}
+            className="kanban-container px-6 py-8" style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '2rem', overflowX: 'auto' }}
+          >
             {[
               { key: 'soon', title: 'Due Soon', subtitle: 'Next 3 days', items: columns.soon, color: '#fee2e2', textColor: '#b91c1c' },
               { key: 'week', title: 'This Week', subtitle: 'Next 7 days', items: columns.week, color: '#fef3c7', textColor: '#b45309' },
@@ -568,10 +584,13 @@ export default function StudyFlow() {
                     const isDone = hw.my_status === 'done';
                     const subColor = getSubjectColor(hw.subject, subjects);
                     return (
-                      <div 
+                      <motion.div 
                         key={hw.id} 
-                        className={`card group ${isDone ? 'opacity-50' : ''}`} 
+                        className={`card group cursor-pointer border border-slate-100 ${isDone ? 'opacity-50' : ''}`} 
                         onClick={() => setActiveHomework(hw)}
+                        whileHover={{ y: -2, boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01)', borderColor: '#e2e8f0' }}
+                        whileTap={{ scale: 0.98 }}
+                        transition={{ duration: 0.2 }}
                       >
                         <div className="flex justify-between items-start gap-4">
                           <div className="flex-1">
@@ -602,17 +621,24 @@ export default function StudyFlow() {
                             </button>
                           )}
                         </div>
-                      </div>
+                      </motion.div>
                     );
                   })}
                 </div>
               </div>
             ))}
-          </div>
+          </motion.div>
         )}
 
         {viewMode === 'calendar' && (
-          <div className="px-6 pb-12">
+          <motion.div 
+            key="calendar"
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 10 }}
+            transition={{ duration: 0.2 }}
+            className="px-6 pb-12"
+          >
             <div className="calendar-grid">
               {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map(d => (
                 <div key={d} className="p-3 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">{d}</div>
@@ -642,10 +668,13 @@ export default function StudyFlow() {
                   });
                   
                   return (
-                    <div 
+                    <motion.div 
                       key={i} 
-                      className={`calendar-day ${!d.current ? 'not-current' : ''} ${isToday ? 'today' : ''}`}
+                      className={`calendar-day cursor-pointer ${!d.current ? 'not-current' : ''} ${isToday ? 'today' : ''}`}
                       onClick={() => dayTasks.length > 0 && setSelectedDate(new Date(d.year, d.month, d.day).toISOString())}
+                      whileHover={{ backgroundColor: dayTasks.length > 0 ? '#f8fafc' : undefined }}
+                      whileTap={dayTasks.length > 0 ? { scale: 0.96 } : {}}
+                      transition={{ duration: 0.15 }}
                     >
                       <div className="text-sm font-bold">{d.day}</div>
                       <div className="flex flex-wrap gap-1 mt-1">
@@ -661,16 +690,23 @@ export default function StudyFlow() {
                           />
                         ))}
                       </div>
-                    </div>
+                    </motion.div>
                   );
                 });
               })()}
             </div>
-          </div>
+          </motion.div>
         )}
 
         {viewMode === 'timeline' && (
-          <div className="px-6 pb-12">
+          <motion.div 
+            key="timeline"
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 10 }}
+            transition={{ duration: 0.2 }}
+            className="px-6 pb-12"
+          >
             <div className="timeline-v-container">
               {Array.from({ length: 30 }).map((_, i) => {
                 const d = new Date(focusDate);
@@ -714,21 +750,24 @@ export default function StudyFlow() {
                             const isDone = task.my_status === 'done';
                             const subColor = getSubjectColor(task.subject, subjects);
                             return (
-                              <div 
+                              <motion.div 
                                 key={task.id} 
                                 onClick={() => setActiveHomework(task)}
-                                className={`neo-card p-4 cursor-pointer relative overflow-hidden ${isDone ? 'opacity-60' : ''}`}
+                                className={`card p-4 cursor-pointer relative overflow-hidden ${isDone ? 'opacity-60' : ''}`}
                                 style={{ 
                                   borderLeft: `8px solid ${subColor}`,
                                 }}
+                                whileHover={{ x: 4, boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.05)' }}
+                                whileTap={{ scale: 0.98 }}
+                                transition={{ duration: 0.2 }}
                               >
-                                <div className="text-[10px] font-black uppercase mb-1" style={{ color: subColor }}>
+                                <div className="text-[10px] font-bold uppercase mb-1" style={{ color: subColor }}>
                                   {task.subject}
                                 </div>
-                                <div className={`text-sm font-black leading-tight ${isDone ? 'line-through' : ''}`}>
+                                <div className={`text-sm font-bold leading-tight ${isDone ? 'line-through text-slate-400' : 'text-slate-800'}`}>
                                   {task.title}
                                 </div>
-                              </div>
+                              </motion.div>
                             );
                           })}
                         </div>
@@ -742,17 +781,27 @@ export default function StudyFlow() {
                 );
               })}
             </div>
-          </div>
+          </motion.div>
         )}
+        </AnimatePresence>
       </div>
 
       {/* Date Overview Modal */}
+      <AnimatePresence>
       {selectedDate && (
-        <div 
-          className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[9000] flex items-center justify-center p-4 transition-all"
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[9000] flex items-center justify-center p-4"
           onClick={() => setSelectedDate(null)}
         >
-          <div 
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+            transition={{ type: "spring", damping: 25, stiffness: 300 }}
             className="neo-card w-full max-w-sm p-8 shadow-2xl border-none rounded-3xl" 
             onClick={e => e.stopPropagation()}
           >
@@ -797,14 +846,30 @@ export default function StudyFlow() {
                   );
                 })}
             </div>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
+      </AnimatePresence>
 
       {/* Homework Detail Modal */}
+      <AnimatePresence>
       {activeHomework && (
-        <div className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-[10000] flex items-center justify-center p-4 transition-all" onClick={() => setActiveHomework(null)}>
-          <div className="neo-card w-full max-w-4xl max-h-[92vh] overflow-y-auto p-8 md:p-14 relative shadow-2xl border-none rounded-3xl" onClick={e => e.stopPropagation()}>
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          className="fixed inset-0 bg-slate-900/30 backdrop-blur-md z-[10000] flex items-center justify-center p-4 md:p-8" 
+          onClick={() => setActiveHomework(null)}
+        >
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            className="neo-card w-full max-w-5xl max-h-[92vh] overflow-y-auto p-8 md:p-12 relative shadow-2xl border-none rounded-3xl" 
+            onClick={e => e.stopPropagation()}
+          >
             <button 
               onClick={() => setActiveHomework(null)} 
               className="absolute top-8 right-8 w-10 h-10 flex items-center justify-center rounded-full bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-all"
@@ -905,9 +970,10 @@ export default function StudyFlow() {
                 </div>
               </div>
             </div>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
+      </AnimatePresence>
 
       {notification && (
         <div className="fixed bottom-8 right-8 z-[20000] animate-bounce-in">
