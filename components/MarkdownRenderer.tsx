@@ -161,37 +161,37 @@ export default function MarkdownRenderer({ content, className }: MarkdownRendere
         components={{
           // Ensure links open in a new tab
           a: ({ node, ...props }) => (
-            <a {...props} target="_blank" rel="noopener noreferrer" className="text-black font-black underline decoration-4 underline-offset-2 hover:bg-yellow-300" />
+            <a {...props} target="_blank" rel="noopener noreferrer" className="text-sky-600 font-semibold underline decoration-sky-200 underline-offset-4 hover:decoration-sky-500 transition-all" />
           ),
           // Style headers
-          h1: ({ node, ...props }) => <h1 {...props} className="text-2xl font-black uppercase mt-8 mb-4 border-b-4 border-black inline-block" />,
-          h2: ({ node, ...props }) => <h2 {...props} className="text-xl font-black uppercase mt-6 mb-3" />,
-          h3: ({ node, ...props }) => <h3 {...props} className="text-lg font-black uppercase mt-4 mb-2" />,
+          h1: ({ node, ...props }) => <h1 {...props} className="text-xl font-bold uppercase tracking-widest text-slate-400 mt-10 mb-6 flex items-center gap-4"><span className="w-8 h-[1px] bg-slate-200"></span> {props.children}</h1>,
+          h2: ({ node, ...props }) => <h2 {...props} className="text-lg font-bold text-slate-800 mt-8 mb-4" />,
+          h3: ({ node, ...props }) => <h3 {...props} className="text-md font-bold text-slate-700 mt-6 mb-3" />,
           // Paragraph styles for spacing
-          p: ({ node, ...props }) => <p {...props} className="mb-4 font-bold" />,
+          p: ({ node, ...props }) => <p {...props} className="mb-5 text-slate-600 font-medium leading-relaxed" />,
           // List styles
-          ul: ({ node, ...props }) => <ul {...props} className="pl-6 mb-4 list-disc font-bold" />,
-          ol: ({ node, ...props }) => <ol {...props} className="pl-6 mb-4 list-decimal font-bold" />,
-          li: ({ node, ...props }) => <li {...props} className="mb-2" />,
+          ul: ({ node, ...props }) => <ul {...props} className="pl-5 mb-5 list-disc text-slate-600 font-medium space-y-2" />,
+          ol: ({ node, ...props }) => <ol {...props} className="pl-5 mb-5 list-decimal text-slate-600 font-medium space-y-2" />,
+          li: ({ node, ...props }) => <li {...props} className="pl-1" />,
           // Code blocks
           code: ({ node, ...props }) => (
-            <code {...props} className="bg-gray-200 border-2 border-black px-1.5 py-0.5 font-mono text-sm" />
+            <code {...props} className="bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded-md font-mono text-sm" />
           ),
           pre: ({ node, ...props }) => (
-            <pre {...props} className="bg-white border-3 border-black p-4 mb-4 overflow-x-auto shadow-[4px_4px_0px_0px_#000]" />
+            <pre {...props} className="bg-slate-50 border border-slate-100 rounded-2xl p-5 mb-6 overflow-x-auto" />
           ),
           // Blockquote
           blockquote: ({ node, ...props }) => (
-            <blockquote {...props} className="border-l-8 border-black pl-4 italic mb-4 font-bold bg-yellow-50 p-2" />
+            <blockquote {...props} className="border-l-4 border-sky-100 pl-5 italic mb-6 text-slate-500 bg-sky-50/30 py-4 pr-4 rounded-r-2xl" />
           ),
           // Table
           table: ({ node, ...props }) => (
-            <div className="overflow-x-auto mb-6">
-              <table {...props} className="w-full border-4 border-black" />
+            <div className="overflow-x-auto mb-8 rounded-xl border border-slate-100">
+              <table {...props} className="w-full text-left border-collapse" />
             </div>
           ),
-          th: ({ node, ...props }) => <th {...props} className="border-2 border-black p-3 bg-black text-white font-black uppercase text-sm" />,
-          td: ({ node, ...props }) => <td {...props} className="border-2 border-black p-3 font-bold" />,
+          th: ({ node, ...props }) => <th {...props} className="p-4 bg-slate-50 border-b border-slate-100 text-slate-500 font-bold uppercase text-[10px] tracking-wider" />,
+          td: ({ node, ...props }) => <td {...props} className="p-4 border-b border-slate-50 text-slate-600 font-medium text-sm" />,
         }}
       >
         {processedContent}

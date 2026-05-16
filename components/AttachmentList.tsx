@@ -195,19 +195,19 @@ export default function AttachmentList({
     <div className="w-full flex flex-col gap-6">
       {/* File Documents Section */}
       {files.length > 0 && (
-        <div className="flex flex-col gap-3">
-          <h4 className="text-sm font-black uppercase tracking-widest border-b-2 border-black inline-block w-fit">Documents & Files</h4>
+        <div className="flex flex-col gap-4">
+          <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Documents & Files</h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {files.map((file, idx) => (
               <div 
                 key={idx} 
-                className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-white border-3 border-black shadow-[4px_4px_0px_0px_#000] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[5px_5px_0px_0px_#000] transition-all gap-4"
+                className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-white border border-slate-100 rounded-2xl shadow-sm hover:shadow-md transition-all gap-4"
               >
                 <div className="flex items-center gap-3 w-full overflow-hidden">
-                  <div className="p-2 bg-sky-100 border-2 border-black shrink-0">
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                  <div className="w-10 h-10 bg-sky-50 rounded-xl flex items-center justify-center text-sky-500 shrink-0">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                   </div>
-                  <span className="font-black text-sm truncate uppercase tracking-tighter" title={file.title}>
+                  <span className="font-semibold text-slate-700 text-sm truncate uppercase tracking-tight" title={file.title}>
                     {file.title || 'Untitled Document'}
                   </span>
                 </div>
@@ -216,14 +216,14 @@ export default function AttachmentList({
                     href={file.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="neo-button px-3 py-1 text-xs"
+                    className="px-4 py-2 bg-slate-50 hover:bg-slate-100 text-[10px] font-bold text-slate-500 rounded-lg transition-colors"
                   >
                     VIEW
                   </a>
                   <a
                     href={file.url}
                     download
-                    className="neo-button px-3 py-1 text-xs bg-black text-white hover:bg-gray-800"
+                    className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-[10px] font-bold text-white rounded-lg transition-colors"
                   >
                     DL
                   </a>
@@ -236,9 +236,9 @@ export default function AttachmentList({
 
       {/* Images Section */}
       {images.length > 0 && (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-4">
           <div className="flex items-center justify-between">
-            <h4 className="text-sm font-black uppercase tracking-widest border-b-2 border-black inline-block w-fit">Image Gallery</h4>
+            <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Image Gallery</h4>
             {images.some(img => refreshAttempted[`${img.fileId}_${img.url}`]) && (
               <button 
                 onClick={() => {
@@ -247,7 +247,7 @@ export default function AttachmentList({
                     if (refreshAttempted[uk]) handleImageError(img, true);
                   });
                 }}
-                className="neo-button px-2 py-1 text-[10px] bg-red-100"
+                className="px-3 py-1 bg-red-50 text-red-500 text-[10px] font-bold rounded-full hover:bg-red-100 transition-colors"
               >
                 REFRESH BROKEN
               </button>
@@ -258,33 +258,33 @@ export default function AttachmentList({
               <div 
                 key={idx} 
                 onClick={() => setSelectedPreview(img)}
-                className="relative aspect-square bg-white border-3 border-black shadow-[4px_4px_0px_0px_#000] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[5px_5px_0px_0px_#000] transition-all cursor-pointer overflow-hidden group"
+                className="relative aspect-square bg-slate-50 border border-slate-100 rounded-2xl shadow-sm hover:shadow-md hover:translate-y-[-2px] transition-all cursor-pointer overflow-hidden group"
               >
                 <img 
                   src={isRefreshing[`${img.fileId}_${img.url}`] ? TRANSPARENT_PIXEL : img.url} 
                   alt={img.title || 'Preview'} 
-                  className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 transition-all"
+                  className="w-full h-full object-cover transition-all"
                   onError={() => handleImageError(img)}
                 />
-                <div className="absolute inset-x-0 bottom-0 bg-white border-t-2 border-black p-2 transform translate-y-full group-hover:translate-y-0 transition-transform">
-                  <p className="text-[10px] font-black uppercase truncate">
+                <div className="absolute inset-x-0 bottom-0 bg-white/90 backdrop-blur-md border-t border-slate-100 p-3 transform translate-y-full group-hover:translate-y-0 transition-transform">
+                  <p className="text-[9px] font-bold text-slate-600 uppercase truncate">
                     {img.title || `Image ${idx + 1}`}
                   </p>
                 </div>
                 
                 {/* Manual Refresh Overlay for failed items */}
                 {refreshAttempted[`${img.fileId}_${img.url}`] && !isRefreshing[`${img.fileId}_${img.url}`] && (
-                  <div className="absolute inset-0 bg-white/90 flex flex-col items-center justify-center p-2 gap-2 z-20">
+                  <div className="absolute inset-0 bg-white/95 flex flex-col items-center justify-center p-3 gap-2 z-20">
                     <button 
                       onClick={(e) => {
                         e.stopPropagation();
                         handleImageError(img, true);
                       }}
-                      className="neo-button px-3 py-1 text-[10px]"
+                      className="px-4 py-1.5 bg-slate-900 text-white text-[10px] font-bold rounded-lg"
                     >
                       REFRESH
                     </button>
-                    <span className="text-[8px] font-black uppercase text-red-500">Failed to load</span>
+                    <span className="text-[8px] font-bold uppercase text-red-500 tracking-wider">Failed to load</span>
                   </div>
                 )}
               </div>

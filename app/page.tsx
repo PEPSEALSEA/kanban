@@ -472,34 +472,34 @@ export default function StudyFlow() {
         </div>
       )}
 
-      <header className="sticky top-0 z-[100] px-6 py-4 flex justify-between items-center bg-white border-b-4 border-black">
+      <header className="sticky top-0 z-[100] px-8 py-5 flex justify-between items-center bg-white/80 backdrop-blur-md border-b border-slate-200/80">
         <div className="flex items-center gap-3">
-          <span className="text-3xl">🎓</span>
-          <h1 className="text-2xl font-black italic tracking-tighter">STUDYFLOW</h1>
+          <div className="w-10 h-10 bg-sky-100 rounded-xl flex items-center justify-center text-xl">🎓</div>
+          <h1 className="text-xl font-bold tracking-tight text-slate-800">StudyFlow</h1>
         </div>
         {!user ? (
-          <div className="neo-button px-4 py-2">
+          <div className="rounded-lg overflow-hidden border border-slate-200">
             <GoogleLogin onSuccess={handleLoginSuccess} onError={() => {}} />
           </div>
         ) : (
           <div className="flex items-center gap-4">
-            <img src={user.picture} className="w-10 h-10 border-2 border-black" alt="" />
-            <button onClick={handleLogout} className="neo-button px-3 py-1 text-sm">LOGOUT</button>
+            <img src={user.picture} className="w-9 h-9 rounded-full border border-slate-200" alt="" />
+            <button onClick={handleLogout} className="text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors">LOGOUT</button>
           </div>
         )}
       </header>
 
       {/* View Switcher Controls */}
-      <div className="flex justify-center mt-8 mb-4 px-4">
-        <div className="bg-white border-4 border-black p-1 flex gap-1 shadow-[4px_4px_0px_0px_#000]">
+      <div className="flex justify-center mt-10 mb-6 px-4">
+        <div className="bg-white/50 backdrop-blur-sm border border-slate-200/60 p-1.5 flex gap-1 rounded-2xl shadow-sm">
           {(['kanban', 'calendar', 'timeline'] as const).map((mode) => (
             <button
               key={mode}
               onClick={() => setViewMode(mode)}
-              className={`px-4 py-2 font-black uppercase text-sm transition-all flex items-center gap-2 border-2 ${
+              className={`px-5 py-2.5 rounded-xl font-semibold text-xs uppercase tracking-wider transition-all flex items-center gap-2 ${
                 viewMode === mode 
-                ? 'bg-yellow-300 border-black translate-x-[-2px] translate-y-[-2px] shadow-[2px_2px_0px_0px_#000]' 
-                : 'border-transparent hover:bg-sky-100'
+                ? 'bg-white text-sky-600 shadow-sm border border-slate-200' 
+                : 'text-slate-500 hover:bg-white/50'
               }`}
             >
               {mode === 'kanban' && '📋'}
@@ -523,7 +523,7 @@ export default function StudyFlow() {
             }}
             className="neo-button w-12 h-12 flex items-center justify-center text-xl"
           >←</button>
-          <h2 className="text-xl md:text-2xl font-black min-w-[180px] text-center uppercase tracking-tighter">
+          <h2 className="text-lg font-bold min-w-[200px] text-center text-slate-700">
             {viewMode === 'calendar' 
               ? focusDate.toLocaleDateString('th-TH', { month: 'long', year: 'numeric' })
               : `Week of ${new Date(focusDate).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}`
@@ -540,7 +540,7 @@ export default function StudyFlow() {
           >→</button>
           <button 
             onClick={() => setFocusDate(new Date())}
-            className="neo-button px-4 py-2 text-xs"
+            className="text-xs font-bold text-sky-600 hover:text-sky-700 px-4 py-2"
           >TODAY</button>
         </div>
       )}
@@ -550,13 +550,16 @@ export default function StudyFlow() {
         {viewMode === 'kanban' && (
           <div className="kanban-container px-6 py-8" style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '2rem', overflowX: 'auto' }}>
             {[
-              { key: 'soon', title: '🔥 3 วันก่อนส่ง', items: columns.soon, color: '#f43f5e' },
-              { key: 'week', title: '📅 7 วันก่อนส่ง', items: columns.week, color: '#f59e0b' },
-              { key: 'backlog', title: '🐚 งานดองเค็ม', items: columns.backlog, color: '#6366f1' }
+              { key: 'soon', title: 'Due Soon', subtitle: 'Next 3 days', items: columns.soon, color: '#fee2e2', textColor: '#b91c1c' },
+              { key: 'week', title: 'This Week', subtitle: 'Next 7 days', items: columns.week, color: '#fef3c7', textColor: '#b45309' },
+              { key: 'backlog', title: 'Upcoming', subtitle: 'Later on', items: columns.backlog, color: '#e0f2fe', textColor: '#0369a1' }
             ].map(col => (
-              <div key={col.key} className="column" style={{ minWidth: isMobile ? '100%' : '360px', borderTop: `12px solid ${col.color}` }}>
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-xl font-black uppercase tracking-tight">{col.title}</h3>
+              <div key={col.key} className="column" style={{ minWidth: isMobile ? '100%' : '360px', backgroundColor: 'rgba(255,255,255,0.4)' }}>
+                <div className="flex justify-between items-end mb-6 px-1">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">{col.title}</h3>
+                    <p className="text-[10px] text-slate-400 font-medium uppercase tracking-tight">{col.subtitle}</p>
+                  </div>
                   <span className="badge">{col.items.length}</span>
                 </div>
                 <div className="flex flex-col gap-4">
@@ -566,31 +569,35 @@ export default function StudyFlow() {
                     return (
                       <div 
                         key={hw.id} 
-                        className={`card relative overflow-hidden ${isDone ? 'opacity-60 grayscale-[0.5]' : ''}`} 
+                        className={`card group ${isDone ? 'opacity-50' : ''}`} 
                         onClick={() => setActiveHomework(hw)}
-                        style={{ borderLeft: `8px solid ${subColor}` }}
                       >
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <span 
-                              className="text-[10px] font-black uppercase px-2 py-0.5 border-2 border-black mb-2 inline-block shadow-[1px_1px_0px_0px_#000]" 
-                              style={{ backgroundColor: `${subColor}40`, color: '#000' }}
-                            >
-                              {hw.subject}
-                            </span>
-                            <h4 className={`text-lg font-extrabold leading-tight ${isDone ? 'line-through' : ''}`}>
+                        <div className="flex justify-between items-start gap-4">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <span 
+                                className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-md" 
+                                style={{ backgroundColor: `${subColor}20`, color: subColor }}
+                              >
+                                {hw.subject}
+                              </span>
+                            </div>
+                            <h4 className={`text-md font-semibold text-slate-800 leading-snug mb-3 ${isDone ? 'line-through text-slate-400' : ''}`}>
                               {hw.title}
                             </h4>
-                            <div className="text-xs font-bold mt-2 opacity-70">
-                              📅 {new Date(hw.deadline).toLocaleDateString('th-TH')}
+                            <div className="flex items-center gap-2 text-[11px] font-medium text-slate-400 uppercase tracking-wide">
+                              <span className="opacity-70">Deadline</span>
+                              <span className={isDone ? '' : 'text-slate-600'}>
+                                {new Date(hw.deadline).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}
+                              </span>
                             </div>
                           </div>
                           {user && (
                             <button 
                               onClick={(e) => { e.stopPropagation(); toggleComplete(e, hw.id, hw.my_status); }} 
-                              className={`w-8 h-8 border-3 border-black flex items-center justify-center transition-all ${isDone ? 'bg-green-400 shadow-none translate-x-[1px] translate-y-[1px]' : 'bg-white shadow-[2px_2px_0px_0px_#000] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[3px_3px_0px_0px_#000]'}`}
+                              className={`w-6 h-6 rounded-full border flex items-center justify-center transition-all shrink-0 mt-1 ${isDone ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-200 bg-white hover:border-sky-300 hover:bg-sky-50'}`}
                             >
-                              {isDone && <span className="font-black">✓</span>}
+                              {isDone && <span className="text-[10px] font-bold">✓</span>}
                             </button>
                           )}
                         </div>
@@ -607,7 +614,7 @@ export default function StudyFlow() {
           <div className="px-6 pb-12">
             <div className="calendar-grid">
               {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map(d => (
-                <div key={d} className="p-4 text-center text-xs font-black bg-sky-100 border-b-2 border-black">{d}</div>
+                <div key={d} className="p-3 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">{d}</div>
               ))}
               {(() => {
                 const year = focusDate.getFullYear();
@@ -646,12 +653,12 @@ export default function StudyFlow() {
                         <div 
                           key={task.id} 
                           onClick={() => setActiveHomework(task)}
-                          className="text-[10px] p-1 border-2 border-black font-bold truncate cursor-pointer shadow-[1px_1px_0px_0px_#000] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[2px_2px_0px_0px_#000]"
+                          className="text-[10px] px-2 py-1.5 rounded-md border border-slate-100 font-semibold truncate cursor-pointer transition-all hover:translate-y-[-1px] hover:shadow-sm"
                           style={{ 
-                            background: getSubjectColor(task.subject, subjects),
-                            color: '#000',
+                            background: `${getSubjectColor(task.subject, subjects)}15`,
+                            color: getSubjectColor(task.subject, subjects),
                             textDecoration: task.my_status === 'done' ? 'line-through' : 'none',
-                            opacity: task.my_status === 'done' ? 0.6 : 1
+                            opacity: task.my_status === 'done' ? 0.5 : 1
                           }}>
                           {task.title}
                         </div>
@@ -698,7 +705,7 @@ export default function StudyFlow() {
                         </div>
                       </div>
                       <div className="timeline-v-path">
-                        <div className={`timeline-v-dot ${isToday ? 'bg-yellow-300' : 'bg-white'}`} style={{ border: '2px solid #000', boxShadow: isToday ? '2px 2px 0px 0px #000' : 'none' }} />
+                        <div className={`timeline-v-dot ${isToday ? 'bg-sky-400' : 'bg-white'}`} style={{ border: '2px solid #e2e8f0' }} />
                       </div>
                     </div>
 
@@ -743,82 +750,97 @@ export default function StudyFlow() {
 
       {/* Homework Detail Modal */}
       {activeHomework && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[10000] flex items-center justify-center p-4" onClick={() => setActiveHomework(null)}>
-          <div className="neo-card w-full max-w-4xl max-h-[90vh] overflow-y-auto p-6 md:p-10 relative" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-[10000] flex items-center justify-center p-4 transition-all" onClick={() => setActiveHomework(null)}>
+          <div className="neo-card w-full max-w-4xl max-h-[92vh] overflow-y-auto p-8 md:p-14 relative shadow-2xl border-none rounded-3xl" onClick={e => e.stopPropagation()}>
             <button 
               onClick={() => setActiveHomework(null)} 
-              className="absolute top-4 right-4 neo-button w-10 h-10 flex items-center justify-center text-xl"
+              className="absolute top-8 right-8 w-10 h-10 flex items-center justify-center rounded-full bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-all"
             >✕</button>
 
-            <div className="mb-8">
+            <div className="mb-12">
               <span 
-                className="text-xs font-black uppercase px-3 py-1 border-2 border-black mb-3 inline-block shadow-[2px_2px_0px_0px_#000]" 
-                style={{ backgroundColor: `${getSubjectColor(activeHomework.subject, subjects)}40` }}
+                className="text-[10px] font-bold uppercase px-3 py-1 rounded-full mb-6 inline-block" 
+                style={{ backgroundColor: `${getSubjectColor(activeHomework.subject, subjects)}15`, color: getSubjectColor(activeHomework.subject, subjects) }}
               >
                 {activeHomework.subject}
               </span>
-              <h2 className="text-3xl md:text-4xl font-black mb-2 uppercase tracking-tighter">{activeHomework.title}</h2>
-              <div className="flex gap-4 text-sm font-bold opacity-60">
-                <span>📅 DEADLINE: {new Date(activeHomework.deadline).toLocaleDateString('th-TH')}</span>
+              <h2 className="text-3xl md:text-4xl font-bold mb-4 tracking-tight text-slate-800 leading-tight">{activeHomework.title}</h2>
+              <div className="flex gap-6 text-xs font-semibold text-slate-400 uppercase tracking-widest">
+                <span className="flex items-center gap-2"><span className="text-lg">📅</span> {new Date(activeHomework.deadline).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              <div>
-                <h3 className="text-xl font-black mb-4 uppercase border-b-4 border-black inline-block">Instructions</h3>
-                <div className="mb-6">
-                  <AttachmentList 
-                    contentId={activeHomework.id}
-                    contentType="homework"
-                    attachments={memoizedHomeworkAttachments} 
-                  />
-                </div>
-                <div className="bg-sky-50 border-3 border-black p-6 shadow-[4px_4px_0px_0px_#000] leading-relaxed">
-                  <MarkdownRenderer content={activeHomework.description || ''} />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+              <div className="flex flex-col gap-8">
+                <div>
+                  <h3 className="text-sm font-bold mb-6 uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                    <span className="w-8 h-[1px] bg-slate-200"></span> Instructions
+                  </h3>
+                  <div className="mb-8">
+                    <AttachmentList 
+                      contentId={activeHomework.id}
+                      contentType="homework"
+                      attachments={memoizedHomeworkAttachments} 
+                    />
+                  </div>
+                  <div className="bg-slate-50/50 rounded-2xl border border-slate-100 p-8 leading-relaxed text-slate-700 font-medium">
+                    <MarkdownRenderer content={activeHomework.description || ''} />
+                  </div>
                 </div>
               </div>
 
-              <div>
-                <h3 className="text-xl font-black mb-4 uppercase border-b-4 border-black inline-block">Submissions</h3>
-                <div className="flex flex-col gap-4">
-                   {user && (
-                    <div className="bg-yellow-50 border-3 border-black p-4 shadow-[4px_4px_0px_0px_#000]">
-                      <textarea 
-                        placeholder="Say something about your work..." 
-                        value={shareText} 
-                        onChange={e => setShareText(e.target.value)} 
-                        className="w-100 bg-transparent border-none focus:ring-0 text-black font-bold resize-none outline-none h-24"
-                      />
-                      <div className="flex justify-between mt-4">
-                        <button onClick={(e) => uploadOrReplaceProof(e, activeHomework.id)} className="neo-button px-4 py-2 text-xs flex items-center gap-2">
-                          <span>🖼️</span> UPLOAD IMAGE
-                        </button>
-                        <button onClick={() => handleShareSubmission()} className="neo-button px-6 py-2 text-xs bg-green-400 hover:bg-green-500">
-                          POST NOW
-                        </button>
-                      </div>
-                    </div>
-                   )}
-                   {getFinishedUsers(activeHomework.id).map((student, i) => (
-                    <div key={i} className="flex gap-4 bg-white border-2 border-black p-3 shadow-[2px_2px_0px_0px_#000]">
-                      <img src={student.picture} className="w-10 h-10 border-2 border-black" alt="" />
-                      <div className="flex-1">
-                        <div className="flex justify-between items-center mb-1">
-                          <span className="font-black text-sm uppercase">{student.name}</span>
-                          <span className="text-[10px] font-black bg-green-400 border-2 border-black px-1">DONE</span>
+              <div className="flex flex-col gap-8">
+                <div>
+                  <h3 className="text-sm font-bold mb-6 uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                    <span className="w-8 h-[1px] bg-slate-200"></span> Submissions
+                  </h3>
+                  <div className="flex flex-col gap-6">
+                     {user && (
+                      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+                        <textarea 
+                          placeholder="What did you learn today?..." 
+                          value={shareText} 
+                          onChange={e => setShareText(e.target.value)} 
+                          className="w-full bg-transparent border-none focus:ring-0 text-slate-800 font-medium resize-none outline-none min-h-[100px] text-lg placeholder:text-slate-300"
+                        />
+                        <div className="flex justify-between items-center mt-6">
+                          <button onClick={(e) => uploadOrReplaceProof(e, activeHomework.id)} className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-slate-600 transition-colors">
+                            <span className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-sm">🖼️</span> PHOTO
+                          </button>
+                          <button onClick={() => handleShareSubmission()} className="px-6 py-2 rounded-xl text-xs font-bold bg-sky-500 text-white hover:bg-sky-600 transition-all shadow-md shadow-sky-200">
+                            POST
+                          </button>
                         </div>
-                        {student.proof && (
-                          <div className="mt-2 flex flex-col gap-2">
-                            {student.proof.split(',').map((url, idx) => (
-                              url.startsWith('http') 
-                              ? <img key={idx} src={url} className="w-full border-2 border-black shadow-[2px_2px_0px_0px_#000]" alt="" /> 
-                              : <p key={idx} className="text-xs font-bold border-l-4 border-black pl-2 italic">{url}</p>
-                            ))}
-                          </div>
-                        )}
                       </div>
-                    </div>
-                   ))}
+                     )}
+                     <div className="flex flex-col gap-4 max-h-[400px] overflow-y-auto pr-2">
+                       {getFinishedUsers(activeHomework.id).map((student, i) => (
+                        <div key={i} className="flex gap-5 bg-white border-2 border-black p-4 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]">
+                          <img src={student.picture} className="w-12 h-12 border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]" alt="" />
+                          <div className="flex-1">
+                            <div className="flex justify-between items-center mb-2">
+                              <span className="font-black text-sm uppercase tracking-tight">{student.name}</span>
+                              <span className="text-[10px] font-black bg-green-300 border-2 border-black px-2 py-0.5 shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]">DONE</span>
+                            </div>
+                            {student.proof && (
+                              <div className="mt-3 flex flex-col gap-3">
+                                {student.proof.split(',').map((url, idx) => (
+                                  url.startsWith('http') 
+                                  ? <img key={idx} src={url} className="w-full border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:scale-[1.02] transition-transform" alt="" /> 
+                                  : <p key={idx} className="text-sm font-bold border-l-4 border-black pl-3 py-1 italic bg-gray-50">{url}</p>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                       ))}
+                       {getFinishedUsers(activeHomework.id).length === 0 && (
+                         <div className="py-12 text-center border-2 border-dashed border-gray-300 text-gray-400 font-bold uppercase tracking-widest text-xs">
+                           No submissions yet
+                         </div>
+                       )}
+                     </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -826,16 +848,32 @@ export default function StudyFlow() {
         </div>
       )}
 
-      {notification && <div style={{ position: 'fixed', bottom: '2rem', right: '2rem', background: '#10b981', color: '#fff', padding: '1rem 2rem', borderRadius: '1rem', zIndex: 20000 }}>{notification.message}</div>}
+      {notification && (
+        <div className="fixed bottom-8 right-8 z-[20000] animate-bounce-in">
+          <div className="neo-card px-8 py-4 bg-green-400 font-black uppercase text-sm tracking-widest">
+            {notification.message}
+          </div>
+        </div>
+      )}
       
       {confirmModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 12000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div className="glass" style={{ padding: '2rem', borderRadius: '2rem', textAlign: 'center', maxWidth: '400px' }}>
-            <h3>{confirmModal.title}</h3>
-            <p style={{ margin: '1rem 0' }}>{confirmModal.message}</p>
-            <div style={{ display: 'flex', gap: '1rem' }}>
-              <button onClick={() => setConfirmModal(null)} className="glass" style={{ flex: 1, padding: '0.8rem', borderRadius: '1rem' }}>Cancel</button>
-              <button onClick={confirmModal.onConfirm} style={{ flex: 1, padding: '0.8rem', borderRadius: '1rem', background: confirmModal.isDanger ? '#f43f5e' : 'var(--primary)', color: '#fff' }}>Confirm</button>
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[12000] flex items-center justify-center p-4">
+          <div className="neo-card w-full max-w-md p-8 text-center bg-white">
+            <h3 className="text-2xl font-black uppercase mb-4 tracking-tighter">{confirmModal.title}</h3>
+            <p className="font-bold text-gray-500 mb-8 leading-relaxed">{confirmModal.message}</p>
+            <div className="flex gap-4">
+              <button 
+                onClick={() => setConfirmModal(null)} 
+                className="neo-button flex-1 py-3 bg-white hover:bg-gray-100"
+              >
+                CANCEL
+              </button>
+              <button 
+                onClick={confirmModal.onConfirm} 
+                className={`neo-button flex-1 py-3 text-white ${confirmModal.isDanger ? 'bg-rose-500' : 'bg-sky-400'}`}
+              >
+                CONFIRM
+              </button>
             </div>
           </div>
         </div>
