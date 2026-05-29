@@ -124,7 +124,7 @@ export default function KanbanEditor() {
       {summaryLogs && (
         <div className="admin-card" style={{ marginBottom: '2rem', borderLeft: '4px solid #5865F2', position: 'relative' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-            <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700 }}>Execution Logs</h3>
+            <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: 'var(--admin-text-main)' }}>Execution Logs</h3>
             <button
               onClick={() => setSummaryLogs(null)}
               style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--admin-text-muted)', fontWeight: 600 }}

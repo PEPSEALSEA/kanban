@@ -77,7 +77,7 @@ export default function SubjectManagement() {
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '2rem', alignItems: 'start' }}>
         {/* Add Section */}
         <div className="admin-card">
-          <h2 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.5rem' }}>Add New Subject</h2>
+          <h2 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.5rem', color: 'var(--admin-text-main)' }}>Add New Subject</h2>
           <form onSubmit={handleAddSubject} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div>
               <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.4rem', color: 'var(--admin-text-muted)' }}>Subject Name</label>
@@ -108,7 +108,7 @@ export default function SubjectManagement() {
 
         {/* List Section */}
         <div className="admin-card">
-          <h2 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.5rem' }}>Current Subjects</h2>
+          <h2 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.5rem', color: 'var(--admin-text-main)' }}>Current Subjects</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             {subjects.map((sub) => (
               <div key={sub.id} style={{ 
@@ -118,7 +118,7 @@ export default function SubjectManagement() {
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                   <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: sub.color }}></div>
-                  <span style={{ fontWeight: 600 }}>{sub.name}</span>
+                  <span style={{ fontWeight: 600, color: 'var(--admin-text-main)' }}>{sub.name}</span>
                 </div>
                 <button 
                   onClick={() => handleDeleteSubject(sub.id)}

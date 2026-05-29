@@ -50,7 +50,7 @@ export default function AdminDashboard() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
                 <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--admin-text-muted)', marginBottom: '0.5rem' }}>{card.title}</p>
-                <h2 style={{ fontSize: '2rem', fontWeight: 800 }}>{card.value}</h2>
+                <h2 style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--admin-text-main)' }}>{card.value}</h2>
               </div>
               <span style={{ fontSize: '1.5rem', opacity: 0.5 }}>{card.icon}</span>
             </div>
@@ -60,7 +60,7 @@ export default function AdminDashboard() {
 
       {/* Section B: Quick Create Hub */}
       <div style={{ marginBottom: '1rem' }}>
-        <h2 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: '1.5rem' }}>Quick Actions</h2>
+        <h2 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: '1.5rem', color: 'var(--admin-text-main)' }}>Quick Actions</h2>
         <AdminQuickCreate 
           onCreateHomework={() => setActiveModal('homework')} 
           onCreateContent={() => setActiveModal('content')} 
@@ -74,7 +74,7 @@ export default function AdminDashboard() {
       }}>
          {/* Recent Activity Table */}
         <div className="admin-card">
-          <h2 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.5rem' }}>Latest Activity Log</h2>
+          <h2 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.5rem', color: 'var(--admin-text-main)' }}>Latest Activity Log</h2>
           <table className="admin-table">
             <thead>
               <tr>
@@ -110,7 +110,7 @@ export default function AdminDashboard() {
 
         {/* System Health / Status */}
         <div className="admin-card">
-           <h2 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.5rem' }}>System Status</h2>
+           <h2 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.5rem', color: 'var(--admin-text-main)' }}>System Status</h2>
            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
                 <span style={{ color: 'var(--admin-text-muted)' }}>Backend Connection</span>

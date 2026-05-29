@@ -24,7 +24,7 @@ export default function AdminQuickCreate({ onCreateHomework, onCreateContent }: 
           📝
         </div>
         <div style={{ flex: 1 }}>
-          <h3 style={{ fontSize: '1.1rem', marginBottom: '0.25rem' }}>Create Homework</h3>
+          <h3 style={{ fontSize: '1.1rem', marginBottom: '0.25rem', color: 'var(--admin-text-main)' }}>Create Homework</h3>
           <p style={{ color: 'var(--admin-text-muted)', fontSize: '0.85rem' }}>Post a new assignment to the Kanban board.</p>
         </div>
         <div style={{ fontSize: '1.5rem', color: 'var(--admin-border)' }}>→</div>
@@ -44,7 +44,7 @@ export default function AdminQuickCreate({ onCreateHomework, onCreateContent }: 
           📚
         </div>
         <div style={{ flex: 1 }}>
-          <h3 style={{ fontSize: '1.1rem', marginBottom: '0.25rem' }}>Create Learning Content</h3>
+          <h3 style={{ fontSize: '1.1rem', marginBottom: '0.25rem', color: 'var(--admin-text-main)' }}>Create Learning Content</h3>
           <p style={{ color: 'var(--admin-text-muted)', fontSize: '0.85rem' }}>Add new study materials to the archive.</p>
         </div>
         <div style={{ fontSize: '1.5rem', color: 'var(--admin-border)' }}>→</div>

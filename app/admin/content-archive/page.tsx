@@ -34,7 +34,7 @@ const ContentItem = React.memo(({ item, subjects, onEdit, isMobile }: { item: Le
         gap: '0.75rem'
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ fontSize: '0.85rem', fontWeight: 700 }}>{new Date(item.date).toLocaleDateString()}</div>
+          <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--admin-text-main)' }}>{new Date(item.date).toLocaleDateString()}</div>
           <span style={{ 
             padding: '2px 8px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 700,
             background: `${subjectColor}22`,
@@ -68,7 +68,7 @@ const ContentItem = React.memo(({ item, subjects, onEdit, isMobile }: { item: Le
   return (
     <tr>
       <td style={{ verticalAlign: 'top' }}>
-        <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{new Date(item.date).toLocaleDateString()}</div>
+        <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--admin-text-main)' }}>{new Date(item.date).toLocaleDateString()}</div>
         <div style={{ fontSize: '0.75rem', color: 'var(--admin-text-muted)' }}>ID: {item.id}</div>
       </td>
       <td style={{ verticalAlign: 'top' }}>

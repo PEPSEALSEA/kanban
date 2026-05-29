@@ -489,13 +489,103 @@ h4 {
   --admin-bg: #0f172a;
   --admin-bg-soft: rgba(255, 255, 255, 0.03);
   --admin-sidebar-bg: #1e293b;
-  --admin-card-bg: rgba(30, 41, 59, 0.8);
+  --admin-card-bg: rgba(30, 41, 59, 0.95);
   --admin-text-main: #f8fafc;
   --admin-text-muted: #94a3b8;
   --admin-accent: #f43f5e;
   --admin-primary: #6366f1;
-  --admin-border: rgba(255, 255, 255, 0.1);
+  --admin-border: rgba(255, 255, 255, 0.12);
   color-scheme: dark;
+  color: var(--admin-text-main);
+}
+
+/* Override global light-theme typography inside admin */
+.admin-theme h1,
+.admin-theme h2,
+.admin-theme h3,
+.admin-theme h4,
+.admin-theme h5,
+.admin-theme h6 {
+  color: var(--admin-text-main);
+}
+
+.admin-theme input,
+.admin-theme select,
+.admin-theme textarea {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--admin-text-main);
+  border: 1px solid var(--admin-border);
+}
+
+.admin-theme input::placeholder,
+.admin-theme textarea::placeholder {
+  color: var(--admin-text-muted);
+  opacity: 0.85;
+}
+
+.admin-theme input[type="date"],
+.admin-theme input[type="datetime-local"],
+.admin-theme input[type="time"] {
+  color-scheme: dark;
+}
+
+.admin-theme button {
+  color: var(--admin-text-main);
+}
+
+.admin-theme .admin-card > div:first-child button {
+  color: var(--admin-text-muted);
+}
+
+.admin-theme .admin-card > div:first-child button:hover {
+  color: var(--admin-text-main);
+}
+
+/* Markdown preview inside admin modals / archive */
+.admin-theme .markdown-content,
+.admin-theme .markdown-content p,
+.admin-theme .markdown-content li,
+.admin-theme .markdown-content td {
+  color: var(--admin-text-muted);
+}
+
+.admin-theme .markdown-content h1,
+.admin-theme .markdown-content h2,
+.admin-theme .markdown-content h3 {
+  color: var(--admin-text-main);
+}
+
+.admin-theme .markdown-content .text-slate-800,
+.admin-theme .markdown-content .text-slate-700,
+.admin-theme .markdown-content .text-slate-600,
+.admin-theme .markdown-content .text-slate-500,
+.admin-theme .markdown-content .text-slate-400 {
+  color: var(--admin-text-muted);
+}
+
+.admin-theme .markdown-content .text-sky-600 {
+  color: #38bdf8;
+}
+
+.admin-theme .markdown-content code {
+  background: rgba(255, 255, 255, 0.08);
+  color: #e2e8f0;
+}
+
+.admin-theme .markdown-content pre {
+  background: rgba(15, 23, 42, 0.6);
+  border-color: var(--admin-border);
+}
+
+.admin-theme .markdown-content blockquote {
+  background: rgba(56, 189, 248, 0.08);
+  border-color: rgba(56, 189, 248, 0.35);
+  color: var(--admin-text-muted);
+}
+
+.admin-theme .markdown-content th {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--admin-text-muted);
 }
 
 .admin-card select option {
