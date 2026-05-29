@@ -188,8 +188,13 @@ async function getSubjects(env: Bindings) {
 }
 
 async function getAnalytics(env: Bindings) {
-  const rows = await getSheetValues(env, `${SHEETS.ANALYTICS}!A2:G`);
-  return toObjects(rows, ["id", "event_type", "device_name", "browser", "ip_address", "email", "created_at"]);
+  try {
+    const rows = await getSheetValues(env, `${SHEETS.ANALYTICS}!A2:G`);
+    return toObjects(rows, ["id", "event_type", "device_name", "browser", "ip_address", "email", "created_at"]);
+  } catch (e) {
+    console.warn("Analytics sheet may not exist yet", e);
+    return [];
+  }
 }
 
 // --- TELEGRAM PROXY (Ported from google-apps-script-download.js) ---
