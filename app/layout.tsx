@@ -4,6 +4,7 @@ import { GoogleOAuthProvider } from '@react-oauth/google';
 import { DataProvider } from "@/components/DataProvider";
 import HeaderNav from "@/components/HeaderNav";
 import SyncToast from "@/components/SyncToast";
+import AnalyticsTracker from "@/components/AnalyticsTracker";
 import "./globals.css";
 import "katex/dist/katex.min.css";
 
@@ -28,6 +29,7 @@ export default function RootLayout({
       <body className={mali.variable}>
         <GoogleOAuthProvider clientId="787988651964-gf258mnif89bu6g0jao2mpdsm72j96da.apps.googleusercontent.com">
           <DataProvider>
+            <AnalyticsTracker />
             <SyncToast />
             <HeaderNav />
             {children}

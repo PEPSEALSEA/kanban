@@ -40,7 +40,8 @@ export default function LearningContentPage() {
     subjects,
     isLoading, 
     error, 
-    refreshData 
+    refreshData,
+    logEvent
   } = useData();
 
   const [view, setView] = useState<'calendar' | 'detail'>('calendar');
@@ -62,6 +63,7 @@ export default function LearningContentPage() {
         const found = learningContent.find((c: LearningContent) => c.id === id);
         if (found) {
           setActiveContent(found);
+          logEvent('check_content');
           setView('detail');
           return;
         }

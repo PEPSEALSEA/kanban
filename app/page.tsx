@@ -55,7 +55,8 @@ export default function StudyFlow() {
     setUser, 
     isLoading, 
     refreshData,
-    subjects
+    subjects,
+    logEvent
   } = useData();
 
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -107,8 +108,9 @@ export default function StudyFlow() {
 
   const openHomework = useCallback((hw: Homework) => {
     setActiveHomework(hw);
+    logEvent('do_work');
     window.location.hash = `#/view?id=${hw.id}`;
-  }, []);
+  }, [logEvent]);
 
   const closeHomework = useCallback(() => {
     setActiveHomework(null);

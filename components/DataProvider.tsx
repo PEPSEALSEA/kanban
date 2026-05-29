@@ -56,11 +56,13 @@ type DataContextType = {
   allProgress: ProgressItem[];
   learningContent: LearningContent[];
   subjects: Subject[];
+  analytics: any[];
   user: UserInfo | null;
   setUser: (user: UserInfo | null) => void;
   isLoading: boolean;
   isSyncing: boolean;
   refreshData: () => Promise<void>;
+  logEvent: (eventType: string) => void;
   error: string | null;
 };
 
@@ -72,6 +74,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [allProgress, setAllProgress] = useState<ProgressItem[]>([]);
   const [learningContent, setLearningContent] = useState<LearningContent[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [analytics, setAnalytics] = useState<any[]>([]);
   const [user, setUser] = useState<UserInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -94,6 +97,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         setAllProgress(parsed.progress || []);
         setLearningContent(parsed.learningContent || []);
         setSubjects(parsed.subjects || []);
+        setAnalytics(parsed.analytics || []);
         setIsLoading(false); // We have cached data, so we can hide initial loader early
       } catch (e) {
         console.error("Cache parsing failed", e);
@@ -118,6 +122,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         setAllProgress(payload.progress || []);
         setLearningContent(payload.learningContent || []);
         setSubjects(payload.subjects || []);
+        setAnalytics(payload.analytics || []);
         
         // Update cache
         localStorage.setItem('studyflow_cache', JSON.stringify(payload));
@@ -130,6 +135,39 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false);
       setIsSyncing(false);
+    }
+  }, []);
+
+  const logEvent = useCallback((eventType: string) => {
+    try {
+      const isMobile = /Mobi|Android/i.test(navigator.userAgent);
+      const isTablet = /Tablet|iPad/i.test(navigator.userAgent);
+      let device_name = "Desktop";
+      if (isMobile) device_name = "Mobile";
+      if (isTablet) device_name = "Tablet";
+
+      let browser = "Unknown";
+      const ua = navigator.userAgent;
+      if (ua.includes("Chrome")) browser = "Chrome";
+      else if (ua.includes("Firefox")) browser = "Firefox";
+      else if (ua.includes("Safari") && !ua.includes("Chrome")) browser = "Safari";
+      else if (ua.includes("Edge")) browser = "Edge";
+
+      const email = localStorage.getItem('homework_user') ? JSON.parse(localStorage.getItem('homework_user')!).email : "";
+
+      fetch(GAS_WEB_APP_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "logAnalytics",
+          event_type: eventType,
+          device_name,
+          browser,
+          email
+        })
+      }).catch(e => console.error("Analytics error", e));
+    } catch (e) {
+      console.error(e);
     }
   }, []);
 
@@ -147,11 +185,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       allProgress,
       learningContent,
       subjects,
+      analytics,
       user,
       setUser,
       isLoading,
       isSyncing,
       refreshData,
+      logEvent,
       error
     }}>
       {children}

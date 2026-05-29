@@ -24,6 +24,7 @@ const SHEETS = {
   COMMENTS: "Comments",
   LEARNING_CONTENT: "LearningContent",
   SUBJECTS: "Subjects",
+  ANALYTICS: "Analytics",
 };
 
 const EXPECTED_HEADERS = {
@@ -33,7 +34,8 @@ const EXPECTED_HEADERS = {
   [SHEETS.LEARNING_CONTENT]: ["id", "date", "subject", "title", "description", "audio_file_id", "audio_url", "attachments", "links", "created_at"],
   [SHEETS.SUBJECTS]: ["id", "name", "color", "created_at"],
   [SHEETS.COMMENTS]: ["homework_id", "owner_email", "commenter_email", "text", "created_at"],
-  [SHEETS.URLS]: ["id", "filename", "contentType", "url", "created_at", "uploader", "fileId"]
+  [SHEETS.URLS]: ["id", "filename", "contentType", "url", "created_at", "uploader", "fileId"],
+  [SHEETS.ANALYTICS]: ["id", "event_type", "device_name", "browser", "ip_address", "email", "created_at"]
 };
 
 
@@ -183,6 +185,11 @@ async function getLearningContent(env: Bindings, date?: string, id?: string) {
 async function getSubjects(env: Bindings) {
   const rows = await getSheetValues(env, `${SHEETS.SUBJECTS}!A2:D`);
   return toObjects(rows, ["id", "name", "color", "created_at"]);
+}
+
+async function getAnalytics(env: Bindings) {
+  const rows = await getSheetValues(env, `${SHEETS.ANALYTICS}!A2:G`);
+  return toObjects(rows, ["id", "event_type", "device_name", "browser", "ip_address", "email", "created_at"]);
 }
 
 // --- TELEGRAM PROXY (Ported from google-apps-script-download.js) ---
@@ -516,6 +523,23 @@ async function fixSheetHeaders(env: Bindings) {
   return results;
 }
 
+async function logAnalytics(env: Bindings, data: any, req: any) {
+  const id = Date.now().toString() + Math.floor(Math.random() * 1000);
+  const ipAddress = req.header('cf-connecting-ip') || req.header('x-forwarded-for') || "unknown";
+  
+  const row = [
+    id, 
+    data.event_type || "visit", 
+    data.device_name || "unknown", 
+    data.browser || "unknown", 
+    ipAddress, 
+    data.email || "", 
+    new Date().toISOString()
+  ];
+  await appendSheetRow(env, `${SHEETS.ANALYTICS}!A:G`, row);
+  return id;
+}
+
 // --- NOTIFICATIONS ---
 
 async function sendSubmissionNotification(env: Bindings, studentName: string | any, homeworkTitle?: string, status?: string, content?: string) {
@@ -574,7 +598,14 @@ app.get('/', async (c) => {
         result = await getFreshTelegramLink(c.env, fileId, c.req.query('contentId'), c.req.query('contentType'));
         break;
       case "batchData": 
-        result = { homework: await getHomeworkList(c.env), users: await getUserList(c.env), progress: await getAllProgress(c.env), learningContent: await getLearningContent(c.env), subjects: await getSubjects(c.env) }; 
+        result = { 
+          homework: await getHomeworkList(c.env), 
+          users: await getUserList(c.env), 
+          progress: await getAllProgress(c.env), 
+          learningContent: await getLearningContent(c.env), 
+          subjects: await getSubjects(c.env),
+          analytics: await getAnalytics(c.env)
+        }; 
         break;
       default: return c.json({ success: false, error: "unknown action: " + action }, 400);
     }
@@ -597,6 +628,7 @@ app.post('/', async (c) => {
 
     let result: any;
     switch (action) {
+      case "logAnalytics": result = await logAnalytics(c.env, body, c.req); break;
       case "addHomework": result = await addHomework(c.env, body); break;
       case "editHomework": result = await editHomework(c.env, body); break;
       case "deleteHomework": result = await deleteRowById(c.env, SHEETS.HOMEWORK, getVal('id')); break;
