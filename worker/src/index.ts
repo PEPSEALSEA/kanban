@@ -522,7 +522,19 @@ async function fixSheetHeaders(env: Bindings) {
       await updateSheetRow(env, range, headers);
       results.push(`${sheetName}: Headers fixed`);
     } catch (e: any) {
-      results.push(`${sheetName}: Failed - ${e.message}`);
+      if (e.message.includes('Bad Request')) {
+        try {
+          await batchUpdateSheet(env, [
+            { addSheet: { properties: { title: sheetName } } }
+          ]);
+          await updateSheetRow(env, range, headers);
+          results.push(`${sheetName}: Sheet created and headers fixed`);
+        } catch (err: any) {
+          results.push(`${sheetName}: Failed to create - ${err.message}`);
+        }
+      } else {
+        results.push(`${sheetName}: Failed - ${e.message}`);
+      }
     }
   }
   return results;
