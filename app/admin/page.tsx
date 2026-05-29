@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { useData } from '@/components/DataProvider';
+import { API_URL } from '@/lib/config';
 import AdminQuickCreate from '@/components/AdminQuickCreate';
 import CreateHomeworkModal from '@/components/CreateHomeworkModal';
 import CreateContentModal from '@/components/CreateContentModal';
@@ -11,6 +12,29 @@ export default function AdminDashboard() {
   const { allHomework, allUsers, learningContent, allProgress, refreshData } = useData();
   const [activeModal, setActiveModal] = useState<'homework' | 'content' | null>(null);
   const { isMobile } = useDeviceDetection();
+  const [isFixingSheets, setIsFixingSheets] = useState(false);
+
+  const handleFixSheets = async () => {
+    if (!window.confirm("This will synchronize Google Sheets headers with the database schema. Continue?")) return;
+    setIsFixingSheets(true);
+    try {
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'fixSheetHeaders' })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert("Sheets updated successfully:\n" + data.data.join("\n"));
+      } else {
+        alert("Error: " + data.error);
+      }
+    } catch (e: any) {
+      alert("Failed to fix sheets: " + e.message);
+    } finally {
+      setIsFixingSheets(false);
+    }
+  };
 
   const metrics = useMemo(() => {
     const today = new Date();
@@ -123,6 +147,24 @@ export default function AdminDashboard() {
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
                 <span style={{ color: 'var(--admin-text-muted)' }}>Discord Webhooks</span>
                 <span style={{ color: '#10b981', fontWeight: 600 }}>Enabled</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.9rem', marginTop: '0.5rem', paddingTop: '1rem', borderTop: '1px solid var(--admin-border)' }}>
+                <span style={{ color: 'var(--admin-text-muted)' }}>Database Schema</span>
+                <button 
+                  onClick={handleFixSheets}
+                  disabled={isFixingSheets}
+                  style={{ 
+                    background: isFixingSheets ? 'var(--admin-text-muted)' : 'var(--admin-primary)', 
+                    color: 'white', 
+                    padding: '0.4rem 0.8rem', 
+                    borderRadius: '0.4rem', 
+                    border: 'none', 
+                    cursor: isFixingSheets ? 'not-allowed' : 'pointer', 
+                    fontSize: '0.75rem',
+                    fontWeight: 600
+                  }}>
+                  {isFixingSheets ? 'Syncing...' : 'Fix Sheet Headers'}
+                </button>
               </div>
            </div>
         </div>

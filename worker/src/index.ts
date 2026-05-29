@@ -26,6 +26,17 @@ const SHEETS = {
   SUBJECTS: "Subjects",
 };
 
+const EXPECTED_HEADERS = {
+  [SHEETS.HOMEWORK]: ["id", "subject", "title", "description", "deadline", "link_work", "link_image", "note", "created_at"],
+  [SHEETS.USERS]: ["email", "name", "picture", "created_at"],
+  [SHEETS.PROGRESS]: ["email", "homework_id", "status", "image_url", "updated_at"],
+  [SHEETS.LEARNING_CONTENT]: ["id", "date", "subject", "title", "description", "audio_file_id", "audio_url", "attachments", "links", "created_at"],
+  [SHEETS.SUBJECTS]: ["id", "name", "color", "created_at"],
+  [SHEETS.COMMENTS]: ["homework_id", "owner_email", "commenter_email", "text", "created_at"],
+  [SHEETS.URLS]: ["id", "filename", "contentType", "url", "created_at", "uploader", "fileId"]
+};
+
+
 // --- AUTH & API HELPERS ---
 
 async function getAuthToken(env: Bindings) {
@@ -490,6 +501,21 @@ async function getComments(env: Bindings, homeworkId?: string, ownerEmail?: stri
   });
 }
 
+async function fixSheetHeaders(env: Bindings) {
+  const results = [];
+  for (const [sheetName, headers] of Object.entries(EXPECTED_HEADERS)) {
+    const endCol = String.fromCharCode(64 + headers.length);
+    const range = `${sheetName}!A1:${endCol}1`;
+    try {
+      await updateSheetRow(env, range, headers);
+      results.push(`${sheetName}: Headers fixed`);
+    } catch (e: any) {
+      results.push(`${sheetName}: Failed - ${e.message}`);
+    }
+  }
+  return results;
+}
+
 // --- NOTIFICATIONS ---
 
 async function sendSubmissionNotification(env: Bindings, studentName: string | any, homeworkTitle?: string, status?: string, content?: string) {
@@ -625,6 +651,9 @@ app.post('/', async (c) => {
           await updateProgress(c.env, getVal('email'), getVal('homework_id'), getVal('status'), finalUrl, true);
         }
         result = { ...uploadRes, url: finalUrl };
+        break;
+      case "fixSheetHeaders":
+        result = await fixSheetHeaders(c.env);
         break;
       default: return c.json({ success: false, error: "unknown action: " + action }, 400);
     }
