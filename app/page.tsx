@@ -105,6 +105,43 @@ export default function StudyFlow() {
     });
   }, [allHomework, allProgress, user]);
 
+  const openHomework = useCallback((hw: Homework) => {
+    setActiveHomework(hw);
+    window.location.hash = `#/view?id=${hw.id}`;
+  }, []);
+
+  const closeHomework = useCallback(() => {
+    setActiveHomework(null);
+    if (window.location.hash.startsWith('#/view')) {
+      const path = window.location.pathname + window.location.search;
+      window.history.replaceState(null, '', path);
+    }
+  }, []);
+
+  const handleHashChange = useCallback(() => {
+    const hash = window.location.hash;
+    if (hash.startsWith('#/view')) {
+      const params = new URLSearchParams(hash.split('?')[1]);
+      const id = params.get('id');
+      if (id) {
+        const found = allHomework.find(hw => String(hw.id) === String(id));
+        if (found) {
+          setActiveHomework(found);
+          return;
+        }
+      }
+    }
+    if (hash.startsWith('#/view')) {
+      setActiveHomework(null);
+    }
+  }, [allHomework]);
+
+  useEffect(() => {
+    handleHashChange();
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, [handleHashChange]);
+
   const memoizedHomeworkAttachments = useMemo(() => {
     if (!activeHomework) return [];
     
@@ -271,7 +308,7 @@ export default function StudyFlow() {
           });
 
           refreshData();
-          setActiveHomework(null);
+          closeHomework();
           setNotification({ message: "Assignment deleted successfully.", type: 'success' });
         } catch (e) {
           setNotification({ message: "Failed to delete assignment.", type: 'error' });
@@ -587,7 +624,7 @@ export default function StudyFlow() {
                       <motion.div 
                         key={hw.id} 
                         className={`card group cursor-pointer border border-slate-100 ${isDone ? 'opacity-50' : ''}`} 
-                        onClick={() => setActiveHomework(hw)}
+                        onClick={() => openHomework(hw)}
                         whileHover={{ y: -2, boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01)', borderColor: '#e2e8f0' }}
                         whileTap={{ scale: 0.98 }}
                         transition={{ duration: 0.2 }}
@@ -755,7 +792,7 @@ export default function StudyFlow() {
                             return (
                               <motion.div 
                                 key={task.id} 
-                                onClick={() => setActiveHomework(task)}
+                                onClick={() => openHomework(task)}
                                 className={`card p-4 cursor-pointer relative overflow-hidden ${isDone ? 'opacity-60' : ''}`}
                                 style={{ 
                                   borderLeft: `8px solid ${subColor}`,
@@ -835,7 +872,7 @@ export default function StudyFlow() {
                   return (
                     <button 
                       key={task.id} 
-                      onClick={() => { setActiveHomework(task); setSelectedDate(null); }}
+                      onClick={() => { openHomework(task); setSelectedDate(null); }}
                       className={`w-full p-4 bg-slate-50 hover:bg-slate-100 transition-all rounded-2xl flex items-center gap-4 text-left group ${isDone ? 'opacity-50' : ''}`}
                     >
                       <div className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-xs shrink-0" style={{ backgroundColor: `${getSubjectColor(task.subject, subjects)}20`, color: getSubjectColor(task.subject, subjects) }}>
@@ -864,8 +901,8 @@ export default function StudyFlow() {
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
           className="fixed inset-0 bg-slate-900/30 backdrop-blur-md z-[10000] flex items-center justify-center p-4 md:p-8" 
-          onClick={() => setActiveHomework(null)}
-        >
+          onClick={() => closeHomework()}
+          >
           <motion.div 
             initial={{ opacity: 0, scale: 0.95, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -875,7 +912,7 @@ export default function StudyFlow() {
             onClick={e => e.stopPropagation()}
           >
             <button 
-              onClick={() => setActiveHomework(null)} 
+              onClick={() => closeHomework()}
               className="absolute top-4 right-4 md:top-8 md:right-8 w-10 h-10 flex items-center justify-center rounded-full bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-all"
             >✕</button>
 

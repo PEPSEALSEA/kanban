@@ -274,6 +274,23 @@ async function updateSpreadsheetLink(env: Bindings, contentId: string, contentTy
 
 // --- DAILY SUMMARY (Ported from google-apps-script.js) ---
 
+const APP_BASE_URL = "https://pepsealsea.github.io/kanban";
+
+function sortHomeworkByDeadline(a: any, b: any) {
+  const tA = a.deadline ? getMidnightGMT7(new Date(a.deadline)).getTime() : Infinity;
+  const tB = b.deadline ? getMidnightGMT7(new Date(b.deadline)).getTime() : Infinity;
+  if (tA !== tB) return tA - tB;
+  const subA = (a.subject || "").toString().toLowerCase();
+  const subB = (b.subject || "").toString().toLowerCase();
+  if (subA !== subB) return subA.localeCompare(subB, "th");
+  return String(a.id).localeCompare(String(b.id), undefined, { numeric: true });
+}
+
+function homeworkSummaryLine(hw: any, suffix = "") {
+  const label = `${hw.subject} : ${hw.title}`;
+  return `- [${label}](${APP_BASE_URL}/#/view?id=${hw.id})${suffix}\n`;
+}
+
 async function generateDailySummary(env: Bindings, targetDate?: string) {
   const [homework, learningContent] = await Promise.all([
     getHomeworkList(env),
@@ -300,8 +317,8 @@ async function generateDailySummary(env: Bindings, targetDate?: string) {
   if (todayLC.length > 0) {
     message += "\n## 📚 เนื้อหาวันนี้\n";
     todayLC.forEach(item => {
-      const link = `<https://pepsealsea.github.io/kanban/content#/view?id=${item.id}>`;
-      message += `- ${item.subject} : ${item.title} : ${link}\n`;
+      const label = `${item.subject} : ${item.title}`;
+      message += `- [${label}](${APP_BASE_URL}/content#/view?id=${item.id})\n`;
     });
     message += "\n> (AI สรุปเนื้อหา แต่มีรูปเนื้อหาและไฟล์เสียงในห้องนะ)\n";
   }
@@ -324,14 +341,14 @@ async function generateDailySummary(env: Bindings, targetDate?: string) {
   for (const key in grouped) {
     message += `\n${key}\n`;
     grouped[key].forEach(hw => {
-      message += `- ${hw.subject} : ${hw.title}${hw.note ? ' ' + hw.note : ''}\n`;
+      message += homeworkSummaryLine(hw, hw.note ? ` ${hw.note}` : "");
     });
   }
 
   const longTerm = homework.filter(hw => {
     if (!hw.deadline) return true;
     return getMidnightGMT7(new Date(hw.deadline)).getTime() > oneWeekLater.getTime();
-  });
+  }).sort(sortHomeworkByDeadline);
 
   if (longTerm.length > 0) {
     message += "\n## งานดองเค็ม\n";
@@ -341,11 +358,11 @@ async function generateDailySummary(env: Bindings, targetDate?: string) {
         const d = new Date(hw.deadline);
         dateSuffix = ` (${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')})`;
       }
-      message += `- ${hw.subject} : ${hw.title}${dateSuffix}\n`;
+      message += homeworkSummaryLine(hw, dateSuffix);
     });
   }
 
-  message += "\nเนื้อหาทั้งหมดอยู่ใน link นี้\n<https://pepsealsea.github.io/kanban/>\n\n> Have question **Reply** to this Bot. || <@&1162383289575817326> ||";
+  message += `\nเนื้อหาทั้งหมดอยู่ใน link นี้\n<${APP_BASE_URL}/>\n\n> Have question **Reply** to this Bot. || <@&1162383289575817326> ||`;
   return message;
 }
 
