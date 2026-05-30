@@ -1,18 +1,23 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { useData } from '@/components/DataProvider';
+import { usePathname, useSearchParams } from 'next/navigation';
 
 export default function AnalyticsTracker() {
   const { logEvent } = useData();
-  const hasLogged = useRef(false);
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
-    if (!hasLogged.current && logEvent) {
-      logEvent('visit');
-      hasLogged.current = true;
+    if (logEvent) {
+      const contentId = searchParams.get('id') || undefined;
+      logEvent('visit', { 
+        page_visited: window.location.href, 
+        content_id: contentId 
+      });
     }
-  }, [logEvent]);
+  }, [pathname, searchParams, logEvent]);
 
   return null;
 }

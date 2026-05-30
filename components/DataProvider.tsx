@@ -62,7 +62,7 @@ type DataContextType = {
   isLoading: boolean;
   isSyncing: boolean;
   refreshData: () => Promise<void>;
-  logEvent: (eventType: string) => void;
+  logEvent: (eventType: string, extraData?: { page_visited?: string; content_id?: string }) => void;
   error: string | null;
 };
 
@@ -138,7 +138,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const logEvent = useCallback((eventType: string) => {
+  const logEvent = useCallback((eventType: string, extraData?: { page_visited?: string; content_id?: string }) => {
     try {
       const isMobile = /Mobi|Android/i.test(navigator.userAgent);
       const isTablet = /Tablet|iPad/i.test(navigator.userAgent);
@@ -155,6 +155,31 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
       const email = localStorage.getItem('homework_user') ? JSON.parse(localStorage.getItem('homework_user')!).email : "";
 
+      // Browser fingerprinting
+      const screenRes = `${window.screen.width}x${window.screen.height}x${window.screen.colorDepth}`;
+      const os = navigator.platform;
+      const language = navigator.language;
+      const cpu = navigator.hardwareConcurrency || "unknown";
+      
+      let webgl = "unknown";
+      try {
+        const canvas = document.createElement('canvas');
+        const gl = canvas.getContext('webgl') as WebGLRenderingContext | null;
+        if (gl) {
+          const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+          if (debugInfo) webgl = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+        }
+      } catch (e) {}
+
+      const fingerprint = JSON.stringify({
+        screenRes,
+        os,
+        language,
+        cpu,
+        webgl,
+        userAgent: navigator.userAgent
+      });
+
       fetch(GAS_WEB_APP_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -163,7 +188,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           event_type: eventType,
           device_name,
           browser,
-          email
+          email,
+          page_visited: extraData?.page_visited || window.location.href,
+          content_id: extraData?.content_id || "",
+          fingerprint
         })
       }).catch(e => console.error("Analytics error", e));
     } catch (e) {

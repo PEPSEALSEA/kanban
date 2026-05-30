@@ -35,7 +35,7 @@ const EXPECTED_HEADERS = {
   [SHEETS.SUBJECTS]: ["id", "name", "color", "created_at"],
   [SHEETS.COMMENTS]: ["homework_id", "owner_email", "commenter_email", "text", "created_at"],
   [SHEETS.URLS]: ["id", "filename", "contentType", "url", "created_at", "uploader", "fileId"],
-  [SHEETS.ANALYTICS]: ["id", "event_type", "device_name", "browser", "ip_address", "email", "created_at"]
+  [SHEETS.ANALYTICS]: ["id", "event_type", "device_name", "browser", "ip_address", "email", "created_at", "page_visited", "content_id", "fingerprint"]
 };
 
 
@@ -189,8 +189,8 @@ async function getSubjects(env: Bindings) {
 
 async function getAnalytics(env: Bindings) {
   try {
-    const rows = await getSheetValues(env, `${SHEETS.ANALYTICS}!A2:G`);
-    return toObjects(rows, ["id", "event_type", "device_name", "browser", "ip_address", "email", "created_at"]);
+    const rows = await getSheetValues(env, `${SHEETS.ANALYTICS}!A2:J`);
+    return toObjects(rows, ["id", "event_type", "device_name", "browser", "ip_address", "email", "created_at", "page_visited", "content_id", "fingerprint"]);
   } catch (e) {
     console.warn("Analytics sheet may not exist yet", e);
     return [];
@@ -551,9 +551,12 @@ async function logAnalytics(env: Bindings, data: any, req: any) {
     data.browser || "unknown", 
     ipAddress, 
     data.email || "", 
-    new Date().toISOString()
+    new Date().toISOString(),
+    data.page_visited || "",
+    data.content_id || "",
+    data.fingerprint || ""
   ];
-  await appendSheetRow(env, `${SHEETS.ANALYTICS}!A:G`, row);
+  await appendSheetRow(env, `${SHEETS.ANALYTICS}!A:J`, row);
   return id;
 }
 
