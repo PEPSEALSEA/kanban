@@ -25,7 +25,6 @@ const SHEETS = {
   LEARNING_CONTENT: "LearningContent",
   SUBJECTS: "Subjects",
   ANALYTICS: "Analytics",
-  TELEMETRY: "Telemetry",
 };
 
 const EXPECTED_HEADERS = {
@@ -36,8 +35,7 @@ const EXPECTED_HEADERS = {
   [SHEETS.SUBJECTS]: ["id", "name", "color", "created_at"],
   [SHEETS.COMMENTS]: ["homework_id", "owner_email", "commenter_email", "text", "created_at"],
   [SHEETS.URLS]: ["id", "filename", "contentType", "url", "created_at", "uploader", "fileId"],
-  [SHEETS.ANALYTICS]: ["id", "event_type", "device_name", "browser", "ip_address", "email", "created_at", "page_visited", "content_id", "fingerprint"],
-  [SHEETS.TELEMETRY]: ["Timestamp", "Device_ID", "Sensor_Value", "Status"]
+  [SHEETS.ANALYTICS]: ["id", "event_type", "device_name", "browser", "ip_address", "email", "created_at", "page_visited", "content_id", "fingerprint"]
 };
 
 
@@ -589,29 +587,6 @@ async function sendSubmissionNotification(env: Bindings, studentName: string | a
 }
 
 // --- ROUTES ---
-
-app.get('/api/firmware-version', (c) => {
-  return c.json({
-    latest_version: "1.0.1",
-    bin_url: "https://example.com/firmware/update.bin"
-  });
-});
-
-app.post('/api/telemetry', async (c) => {
-  try {
-    const body = await c.req.json();
-    const row = [
-      new Date().toISOString(),
-      body.Device_ID || "Unknown",
-      body.Sensor_Value || 0,
-      body.Status || "Unknown"
-    ];
-    await appendSheetRow(c.env, `${SHEETS.TELEMETRY}!A:D`, row);
-    return c.json({ success: true, message: "Telemetry recorded" });
-  } catch (err: any) {
-    return c.json({ success: false, error: err.message }, 500);
-  }
-});
 
 app.get('/health', (c) => c.text('ok'));
 
