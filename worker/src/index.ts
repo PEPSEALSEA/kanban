@@ -16,6 +16,17 @@ const app = new Hono<{ Bindings: Bindings }>();
 
 app.use('*', cors());
 
+const ADMIN_EMAILS = new Set([
+  'pepsealsea@gmail.com',
+  'iampep2009@gmail.com',
+  'sealseapep@gmail.com',
+]);
+
+function isAdminEmail(email: string | null | undefined): boolean {
+  if (!email) return false;
+  return ADMIN_EMAILS.has(email.trim().toLowerCase());
+}
+
 const SHEETS = {
   HOMEWORK: "Homework",
   USERS: "Users",
@@ -190,7 +201,8 @@ async function getSubjects(env: Bindings) {
 async function getAnalytics(env: Bindings) {
   try {
     const rows = await getSheetValues(env, `${SHEETS.ANALYTICS}!A2:J`);
-    return toObjects(rows, ["id", "event_type", "device_name", "browser", "ip_address", "email", "created_at", "page_visited", "content_id", "fingerprint"]);
+    const all = toObjects(rows, ["id", "event_type", "device_name", "browser", "ip_address", "email", "created_at", "page_visited", "content_id", "fingerprint"]);
+    return all.filter((row: any) => !isAdminEmail(row.email));
   } catch (e) {
     console.warn("Analytics sheet may not exist yet", e);
     return [];
@@ -309,9 +321,13 @@ function sortHomeworkByDeadline(a: any, b: any) {
   return String(a.id).localeCompare(String(b.id), undefined, { numeric: true });
 }
 
+function summaryLineWithLink(label: string, url: string, suffix = "") {
+  return `- ${label} [(Link)](${url})${suffix}\n`;
+}
+
 function homeworkSummaryLine(hw: any, suffix = "") {
   const label = `${hw.subject} : ${hw.title}`;
-  return `- [${label}](${APP_BASE_URL}/#/view?id=${hw.id})${suffix}\n`;
+  return summaryLineWithLink(label, `${APP_BASE_URL}/#/view?id=${hw.id}`, suffix);
 }
 
 async function generateDailySummary(env: Bindings, targetDate?: string) {
@@ -341,7 +357,7 @@ async function generateDailySummary(env: Bindings, targetDate?: string) {
     message += "\n## 📚 เนื้อหาวันนี้\n";
     todayLC.forEach(item => {
       const label = `${item.subject} : ${item.title}`;
-      message += `- [${label}](${APP_BASE_URL}/content#/view?id=${item.id})\n`;
+      message += summaryLineWithLink(label, `${APP_BASE_URL}/content#/view?id=${item.id}`);
     });
     message += "\n> (AI สรุปเนื้อหา แต่มีรูปเนื้อหาและไฟล์เสียงในห้องนะ)\n";
   }
@@ -541,6 +557,10 @@ async function fixSheetHeaders(env: Bindings) {
 }
 
 async function logAnalytics(env: Bindings, data: any, req: any) {
+  if (isAdminEmail(data.email)) {
+    return { skipped: true, reason: "admin" };
+  }
+
   const id = Date.now().toString() + Math.floor(Math.random() * 1000);
   const ipAddress = req.header('cf-connecting-ip') || req.header('x-forwarded-for') || "unknown";
   

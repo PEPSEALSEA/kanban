@@ -5,7 +5,7 @@ import AdminSidebar from '@/components/AdminSidebar';
 import { useData } from '@/components/DataProvider';
 import Link from 'next/link';
 
-const ADMIN_EMAILS = ['pepsealsea@gmail.com', 'iampep2009@gmail.com', 'sealseapep@gmail.com'];
+import { isAdminEmail } from '@/lib/admin';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -15,7 +15,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     if (user) {
-      if (ADMIN_EMAILS.includes(user.email.toLowerCase())) {
+      if (isAdminEmail(user.email)) {
         setIsAdmin(true);
       }
     }

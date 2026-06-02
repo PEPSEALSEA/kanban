@@ -7,9 +7,15 @@ import AdminQuickCreate from '@/components/AdminQuickCreate';
 import CreateHomeworkModal from '@/components/CreateHomeworkModal';
 import CreateContentModal from '@/components/CreateContentModal';
 import { useDeviceDetection } from '@/hooks/useDeviceDetection';
+import { isAdminEmail } from '@/lib/admin';
 
 export default function AdminDashboard() {
   const { allHomework, allUsers, learningContent, allProgress, analytics, refreshData } = useData();
+
+  const studentAnalytics = useMemo(
+    () => (analytics || []).filter((a) => !isAdminEmail(a.email)),
+    [analytics]
+  );
   const [activeModal, setActiveModal] = useState<'homework' | 'content' | null>(null);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'analytics'>('dashboard');
   const { isMobile } = useDeviceDetection();
@@ -214,15 +220,15 @@ export default function AdminDashboard() {
           <div className="metric-grid" style={{ marginBottom: '2rem' }}>
             <div className="admin-card" style={{ borderLeft: `4px solid #2563eb` }}>
               <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--admin-text-muted)', marginBottom: '0.5rem' }}>Total Visits</p>
-              <h2 style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--admin-text-main)' }}>{analytics?.filter(a => a.event_type === 'visit').length || 0}</h2>
+              <h2 style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--admin-text-main)' }}>{studentAnalytics.filter(a => a.event_type === 'visit').length}</h2>
             </div>
             <div className="admin-card" style={{ borderLeft: `4px solid #10b981` }}>
               <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--admin-text-muted)', marginBottom: '0.5rem' }}>Do Work Actions</p>
-              <h2 style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--admin-text-main)' }}>{analytics?.filter(a => a.event_type === 'do_work').length || 0}</h2>
+              <h2 style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--admin-text-main)' }}>{studentAnalytics.filter(a => a.event_type === 'do_work').length}</h2>
             </div>
             <div className="admin-card" style={{ borderLeft: `4px solid #f59e0b` }}>
               <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--admin-text-muted)', marginBottom: '0.5rem' }}>Check Content</p>
-              <h2 style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--admin-text-main)' }}>{analytics?.filter(a => a.event_type === 'check_content').length || 0}</h2>
+              <h2 style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--admin-text-main)' }}>{studentAnalytics.filter(a => a.event_type === 'check_content').length}</h2>
             </div>
           </div>
 
@@ -240,7 +246,7 @@ export default function AdminDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {analytics?.slice().reverse().map((a, i) => (
+                {studentAnalytics.slice().reverse().map((a, i) => (
                   <tr key={i}>
                     <td style={{ color: 'var(--admin-text-muted)' }}>{new Date(a.created_at).toLocaleString('th-TH')}</td>
                     <td>
@@ -257,7 +263,7 @@ export default function AdminDashboard() {
                     <td>{a.email || '-'}</td>
                   </tr>
                 ))}
-                {(!analytics || analytics.length === 0) && (
+                {studentAnalytics.length === 0 && (
                   <tr>
                     <td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: 'var(--admin-text-muted)' }}>No analytics data available.</td>
                   </tr>

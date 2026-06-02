@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
 import { API_URL } from '@/lib/config';
+import { isAdminEmail } from '@/lib/admin';
 
 export const GAS_WEB_APP_URL = API_URL;
 
@@ -97,7 +98,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         setAllProgress(parsed.progress || []);
         setLearningContent(parsed.learningContent || []);
         setSubjects(parsed.subjects || []);
-        setAnalytics(parsed.analytics || []);
+        setAnalytics((parsed.analytics || []).filter((a: { email?: string }) => !isAdminEmail(a.email)));
         setIsLoading(false); // We have cached data, so we can hide initial loader early
       } catch (e) {
         console.error("Cache parsing failed", e);
@@ -122,7 +123,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         setAllProgress(payload.progress || []);
         setLearningContent(payload.learningContent || []);
         setSubjects(payload.subjects || []);
-        setAnalytics(payload.analytics || []);
+        setAnalytics((payload.analytics || []).filter((a: { email?: string }) => !isAdminEmail(a.email)));
         
         // Update cache
         localStorage.setItem('studyflow_cache', JSON.stringify(payload));
@@ -154,6 +155,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       else if (ua.includes("Edge")) browser = "Edge";
 
       const email = localStorage.getItem('homework_user') ? JSON.parse(localStorage.getItem('homework_user')!).email : "";
+      if (isAdminEmail(email)) return;
 
       // Browser fingerprinting
       const screenRes = `${window.screen.width}x${window.screen.height}x${window.screen.colorDepth}`;

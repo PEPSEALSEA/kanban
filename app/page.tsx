@@ -13,7 +13,7 @@ import { API_URL, UPLOAD_SERVICE_URL } from '@/lib/config';
 // --- CONFIGURATION ---
 const GAS_WEB_APP_URL = API_URL;
 const UPLOAD_WEB_APP_URL = UPLOAD_SERVICE_URL;
-const ADMIN_EMAILS = ['pepsealsea@gmail.com', 'iampep2009@gmail.com', 'sealseapep@gmail.com'];
+import { isAdminEmail } from '@/lib/admin';
 
 function getSubjectColor(subjectName: string, subjects: any[]): string {
   if (!subjectName) return '#94a3b8';
@@ -487,7 +487,7 @@ export default function StudyFlow() {
     }).filter(u => u !== null) as (UserInfo & { proof?: string })[];
   };
 
-  const isAdmin = user && ADMIN_EMAILS.includes(user.email.toLowerCase());
+  const isAdmin = user && isAdminEmail(user.email);
 
   return (
     <main style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
