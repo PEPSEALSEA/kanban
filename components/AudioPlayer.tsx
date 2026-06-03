@@ -52,8 +52,7 @@ function AudioLoginGate({ title }: { title?: string }) {
       {title && (
         <p className="text-sm font-semibold text-slate-800 mb-1 line-clamp-2">{title}</p>
       )}
-      <p className="text-sm text-slate-600 mb-1">ต้องเข้าสู่ระบบก่อนจึงจะฟังเสียงได้</p>
-      <p className="text-xs text-slate-400 mb-6">Sign in with your school Google account</p>
+      <p className="text-sm text-slate-600 mb-1">ต้องเข้าสู่ระบบก่อน</p>
       <div className="flex justify-center rounded-lg overflow-hidden border border-slate-200 inline-flex">
         <GoogleLogin onSuccess={handleLoginSuccess} onError={() => {}} />
       </div>
