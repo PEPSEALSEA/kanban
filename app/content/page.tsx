@@ -6,6 +6,7 @@ import { useData } from '@/components/DataProvider';
 import AttachmentList from '@/components/AttachmentList';
 import AudioPlayer from '@/components/AudioPlayer';
 import MarkdownRenderer from '@/components/MarkdownRenderer';
+import ResizableContentPanel from '@/components/ResizableContentPanel';
 import { useDeviceDetection } from '@/hooks/useDeviceDetection';
 
 import { API_URL } from '@/lib/config';
@@ -51,7 +52,7 @@ export default function LearningContentPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSubject, setSelectedSubject] = useState('All');
   const [mounted, setMounted] = useState(false);
-  const { isMobile, isTablet } = useDeviceDetection();
+  const { isMobile, isTablet, isDesktop } = useDeviceDetection();
 
   // --- HASH ROUTING ---
   const handleHashChange = useCallback(() => {
@@ -216,7 +217,14 @@ export default function LearningContentPage() {
   if (view === 'detail' && activeContent) {
     const { intro, cards } = parseDescription(activeContent.description);
     return (
-      <div className="p-4 md:p-10 max-w-4xl mx-auto">
+      <ResizableContentPanel
+        storageKey="content_detail_width"
+        defaultWidth={896}
+        minWidth={400}
+        maxWidth={1200}
+        enabled={isDesktop}
+        className="p-4 md:p-10"
+      >
         <button 
           onClick={() => window.location.hash = ''} 
           className="text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors mb-10 flex items-center gap-2"
@@ -224,7 +232,7 @@ export default function LearningContentPage() {
           ← BACK TO ARCHIVE
         </button>
 
-        <div className="neo-card p-8 md:p-14 shadow-2xl border-none rounded-3xl">
+        <div className="neo-card p-8 md:p-14 shadow-2xl border-none rounded-3xl relative">
           <div className="flex flex-wrap items-center gap-4 mb-8">
             <span 
               className="text-[10px] font-bold uppercase px-3 py-1 rounded-full" 
@@ -286,12 +294,19 @@ export default function LearningContentPage() {
             </div>
           )}
         </div>
-      </div>
+      </ResizableContentPanel>
     );
   }
 
   return (
-    <div className="p-4 md:p-10 max-w-7xl mx-auto">
+    <ResizableContentPanel
+      storageKey="content_archive_width"
+      defaultWidth={1280}
+      minWidth={480}
+      maxWidth={1600}
+      enabled={isDesktop}
+      className="p-4 md:p-10"
+    >
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
         <div>
           <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-800 mb-2">
@@ -476,6 +491,6 @@ export default function LearningContentPage() {
           <p className="font-black uppercase tracking-widest text-white text-xs">Loading Archive...</p>
         </div>
       )}
-    </div>
+    </ResizableContentPanel>
   );
 }
