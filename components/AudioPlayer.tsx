@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 
 interface AudioPlayerProps {
   contentId: string;
@@ -19,7 +19,6 @@ export default function AudioPlayer({ contentId, contentType = 'learning_content
   const [showStatus, setShowStatus] = useState<string>('');
   const [jumpInput, setJumpInput] = useState('');
 
-  // 1. Resolve Final Source URL with local state for refreshing
   const [currentSrc, setCurrentSrc] = useState(audioUrl || (driveId ? `https://docs.google.com/uc?id=${driveId}&export=download` : ''));
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -29,26 +28,22 @@ export default function AudioPlayer({ contentId, contentType = 'learning_content
 
   const handleAudioError = async () => {
     if (currentSrc.includes('api.telegram.org') && driveId && !isRefreshing) {
-      console.log('Refreshing expired Telegram audio link...');
       const lastPos = audioRef.current?.currentTime || currentTime;
       setIsRefreshing(true);
       try {
         const { UPLOAD_SERVICE_URL } = await import('@/lib/config');
         const refreshUrl = `${UPLOAD_SERVICE_URL}?action=getFreshLink&fileId=${encodeURIComponent(driveId)}&refresh=true&contentId=${encodeURIComponent(contentId)}&contentType=${encodeURIComponent(contentType)}`;
-        
+
         const res = await fetch(refreshUrl);
-        const data = (await res.json()) as any;
+        const data = (await res.json()) as { success?: boolean; url?: string };
         if (data.success && data.url) {
           setCurrentSrc(data.url);
-          setShowStatus('Link refreshed! Resuming...');
-          
-          // Wait for the audio element to load the new source
+          setShowStatus('Link refreshed — resuming…');
           setTimeout(() => {
             if (audioRef.current) {
               audioRef.current.currentTime = lastPos;
             }
-            setShowStatus('Link refresh OK!');
-            setTimeout(() => setShowStatus(''), 4000);
+            setShowStatus('');
           }, 1500);
         }
       } catch (err) {
@@ -59,7 +54,6 @@ export default function AudioPlayer({ contentId, contentType = 'learning_content
     }
   };
 
-  // 2. Persistence: Remember where we left off
   useEffect(() => {
     if (!contentId || !audioRef.current) return;
 
@@ -74,17 +68,15 @@ export default function AudioPlayer({ contentId, contentType = 'learning_content
     setIsLoaded(true);
   }, [contentId, isLoaded]);
 
-  // Periodic save to localStorage
   useEffect(() => {
     const interval = setInterval(() => {
       if (audioRef.current && !audioRef.current.paused) {
         localStorage.setItem(`audio_pos_${contentId}`, audioRef.current.currentTime.toString());
       }
-    }, 5000); // Save every 5 seconds
+    }, 5000);
     return () => clearInterval(interval);
   }, [contentId]);
 
-  // 3. Audio Handlers
   const togglePlay = () => {
     if (audioRef.current) {
       if (isPlaying) audioRef.current.pause();
@@ -129,7 +121,7 @@ export default function AudioPlayer({ contentId, contentType = 'learning_content
   const handleJump = (e: React.FormEvent) => {
     e.preventDefault();
     if (!audioRef.current || !jumpInput) return;
-    
+
     let seconds = 0;
     if (jumpInput.includes(':')) {
       const parts = jumpInput.split(':');
@@ -137,7 +129,7 @@ export default function AudioPlayer({ contentId, contentType = 'learning_content
     } else {
       seconds = parseInt(jumpInput);
     }
-    
+
     if (!isNaN(seconds) && seconds >= 0) {
       audioRef.current.currentTime = seconds;
       setJumpInput('');
@@ -146,18 +138,19 @@ export default function AudioPlayer({ contentId, contentType = 'learning_content
 
   if (!currentSrc) return null;
 
+  const progressPct = duration ? (currentTime / duration) * 100 : 0;
+  const sourceLabel = audioUrl?.includes('telegram') ? 'Telegram' : 'Drive';
+
   return (
-    <div className="bg-white border-4 border-black p-6 shadow-[6px_6px_0px_0px_#000] relative overflow-hidden">
-      {/* Refresh Overlay */}
+    <div className="neo-card rounded-2xl p-5 md:p-6 relative overflow-hidden border border-slate-200/80 shadow-sm">
       {isRefreshing && (
-        <div className="absolute inset-0 z-10 bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center">
-          <div className="sync-spinner mb-4"></div>
-          <div className="text-sm font-black uppercase">Refreshing link...</div>
+        <div className="absolute inset-0 z-10 bg-white/90 backdrop-blur-sm flex flex-col items-center justify-center gap-3">
+          <div className="w-6 h-6 border-2 border-slate-200 border-t-sky-500 rounded-full animate-spin" />
+          <span className="text-xs font-semibold text-slate-500">Refreshing link…</span>
         </div>
       )}
 
-      {/* Hidden Native Audio Element */}
-      <audio 
+      <audio
         ref={audioRef}
         src={currentSrc}
         onTimeUpdate={onTimeUpdate}
@@ -168,63 +161,97 @@ export default function AudioPlayer({ contentId, contentType = 'learning_content
         preload="metadata"
       />
 
-      {/* Header */}
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-wrap justify-between items-start gap-3 mb-5">
         <div>
-          <div className="text-[10px] font-black uppercase bg-black text-white px-2 py-0.5 inline-block">SOURCE: {audioUrl?.includes('telegram') ? 'TELEGRAM ⚡' : 'DRIVE ☁️'}</div>
-          {showStatus && <div className="text-xs font-black text-blue-600 mt-2 uppercase">{showStatus}</div>}
+          {title && (
+            <p className="text-sm font-semibold text-slate-800 mb-1 line-clamp-2">{title}</p>
+          )}
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+            Source · {sourceLabel}
+          </span>
+          {showStatus && (
+            <p className="text-xs font-medium text-sky-600 mt-1">{showStatus}</p>
+          )}
         </div>
-        <a href={currentSrc} target="_blank" rel="noreferrer" className="text-xs font-black uppercase border-b-2 border-black hover:bg-yellow-300">Download ↗</a>
+        <a
+          href={currentSrc}
+          target="_blank"
+          rel="noreferrer"
+          className="text-xs font-semibold text-slate-500 hover:text-sky-600 transition-colors shrink-0"
+        >
+          Download
+        </a>
       </div>
 
-      {/* Custom Progress Bar */}
-      <div 
+      <div
         onClick={handleProgressClick}
-        className="w-full h-6 bg-gray-100 border-4 border-black cursor-pointer relative mb-6 overflow-hidden"
+        className="w-full h-2 bg-slate-100 rounded-full cursor-pointer mb-5 overflow-hidden"
+        role="slider"
+        aria-valuenow={progressPct}
+        aria-valuemin={0}
+        aria-valuemax={100}
       >
-        <div 
-          className="absolute left-0 top-0 bottom-0 bg-yellow-300 border-r-4 border-black transition-[width] duration-100 linear"
-          style={{ width: `${(currentTime / duration) * 100}%` }} 
+        <div
+          className="h-full bg-sky-500 rounded-full transition-[width] duration-100"
+          style={{ width: `${progressPct}%` }}
         />
       </div>
 
-      {/* Controls */}
-      <div className="flex justify-between items-center">
-        <div className="text-sm font-black w-12">{formatTime(currentTime)}</div>
-        
-        <div className="flex items-center gap-6">
-          <button onClick={() => skip(-10)} className="neo-button px-3 py-1 text-xs">-10S</button>
-          
-          <button 
-            onClick={togglePlay} 
-            className="w-16 h-16 neo-button flex items-center justify-center text-2xl"
-            style={{ borderRadius: '50%' }}
+      <div className="flex justify-between items-center gap-4">
+        <span className="text-xs font-semibold text-slate-500 tabular-nums w-10">{formatTime(currentTime)}</span>
+
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => skip(-10)}
+            className="neo-button px-3 py-1.5 text-xs rounded-lg"
+          >
+            −10s
+          </button>
+
+          <button
+            type="button"
+            onClick={togglePlay}
+            className="w-12 h-12 rounded-full bg-sky-500 text-white flex items-center justify-center shadow-sm hover:bg-sky-600 transition-colors"
+            aria-label={isPlaying ? 'Pause' : 'Play'}
           >
             {isPlaying ? (
-              <span className="font-black">||</span>
+              <span className="text-sm font-bold tracking-tighter">‖</span>
             ) : (
-              <span className="ml-1 font-black">▶</span>
+              <span className="text-sm ml-0.5">▶</span>
             )}
           </button>
 
-          <button onClick={() => skip(10)} className="neo-button px-3 py-1 text-xs">+10S</button>
+          <button
+            type="button"
+            onClick={() => skip(10)}
+            className="neo-button px-3 py-1.5 text-xs rounded-lg"
+          >
+            +10s
+          </button>
         </div>
 
-        <div className="text-sm font-black w-12 text-right">{formatTime(duration)}</div>
+        <span className="text-xs font-semibold text-slate-500 tabular-nums w-10 text-right">{formatTime(duration)}</span>
       </div>
 
-      {/* Jump To Time */}
-      <form onSubmit={handleJump} className="mt-6 flex items-center justify-between border-t-2 border-black pt-4">
-        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Jump To Time:</label>
+      <form
+        onSubmit={handleJump}
+        className="mt-5 pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3"
+      >
+        <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+          Jump to time
+        </label>
         <div className="flex items-center gap-2">
-          <input 
-            type="text" 
-            placeholder="e.g. 1:30 or 90" 
+          <input
+            type="text"
+            placeholder="1:30 or 90"
             value={jumpInput}
             onChange={(e) => setJumpInput(e.target.value)}
-            className="w-28 px-2 py-1 text-xs border-2 border-black font-bold focus:outline-none focus:bg-yellow-100"
+            className="w-24 px-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-slate-50 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-300"
           />
-          <button type="submit" className="neo-button px-3 py-1 text-[10px] bg-sky-200">GO</button>
+          <button type="submit" className="neo-button px-3 py-1.5 text-xs rounded-lg bg-sky-50 text-sky-700 border-sky-200/80">
+            Go
+          </button>
         </div>
       </form>
     </div>
