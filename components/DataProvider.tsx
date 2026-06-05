@@ -63,7 +63,12 @@ type DataContextType = {
   isLoading: boolean;
   isSyncing: boolean;
   refreshData: () => Promise<void>;
-  logEvent: (eventType: string, extraData?: { page_visited?: string; content_id?: string }) => void;
+  logEvent: (eventType: string, extraData?: {
+    page_visited?: string;
+    content_id?: string;
+    session_id?: string;
+    metadata?: Record<string, string | number | boolean | null | undefined>;
+  }) => void;
   error: string | null;
 };
 
@@ -139,7 +144,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const logEvent = useCallback((eventType: string, extraData?: { page_visited?: string; content_id?: string }) => {
+  const logEvent = useCallback((eventType: string, extraData?: {
+    page_visited?: string;
+    content_id?: string;
+    session_id?: string;
+    metadata?: Record<string, string | number | boolean | null | undefined>;
+  }) => {
     try {
       const isMobile = /Mobi|Android/i.test(navigator.userAgent);
       const isTablet = /Tablet|iPad/i.test(navigator.userAgent);
@@ -193,7 +203,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           email,
           page_visited: extraData?.page_visited || window.location.href,
           content_id: extraData?.content_id || "",
-          fingerprint
+          fingerprint,
+          session_id: extraData?.session_id || "",
+          metadata: extraData?.metadata ? JSON.stringify(extraData.metadata) : "",
         })
       }).catch(e => console.error("Analytics error", e));
     } catch (e) {

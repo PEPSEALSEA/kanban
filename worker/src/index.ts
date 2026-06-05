@@ -46,8 +46,10 @@ const EXPECTED_HEADERS = {
   [SHEETS.SUBJECTS]: ["id", "name", "color", "created_at"],
   [SHEETS.COMMENTS]: ["homework_id", "owner_email", "commenter_email", "text", "created_at"],
   [SHEETS.URLS]: ["id", "filename", "contentType", "url", "created_at", "uploader", "fileId"],
-  [SHEETS.ANALYTICS]: ["id", "event_type", "device_name", "browser", "ip_address", "email", "created_at", "page_visited", "content_id", "fingerprint"]
+  [SHEETS.ANALYTICS]: ["id", "event_type", "device_name", "browser", "ip_address", "email", "created_at", "page_visited", "content_id", "fingerprint", "session_id", "metadata"]
 };
+
+const ANALYTICS_COLUMNS = EXPECTED_HEADERS[SHEETS.ANALYTICS];
 
 
 // --- AUTH & API HELPERS ---
@@ -200,8 +202,9 @@ async function getSubjects(env: Bindings) {
 
 async function getAnalytics(env: Bindings) {
   try {
-    const rows = await getSheetValues(env, `${SHEETS.ANALYTICS}!A2:J`);
-    const all = toObjects(rows, ["id", "event_type", "device_name", "browser", "ip_address", "email", "created_at", "page_visited", "content_id", "fingerprint"]);
+    const endCol = String.fromCharCode(64 + ANALYTICS_COLUMNS.length);
+    const rows = await getSheetValues(env, `${SHEETS.ANALYTICS}!A2:${endCol}`);
+    const all = toObjects(rows, ANALYTICS_COLUMNS);
     return all.filter((row: any) => !isAdminEmail(row.email));
   } catch (e) {
     console.warn("Analytics sheet may not exist yet", e);
@@ -574,9 +577,12 @@ async function logAnalytics(env: Bindings, data: any, req: any) {
     new Date().toISOString(),
     data.page_visited || "",
     data.content_id || "",
-    data.fingerprint || ""
+    data.fingerprint || "",
+    data.session_id || "",
+    typeof data.metadata === 'string' ? data.metadata : (data.metadata ? JSON.stringify(data.metadata) : "")
   ];
-  await appendSheetRow(env, `${SHEETS.ANALYTICS}!A:J`, row);
+  const endCol = String.fromCharCode(64 + ANALYTICS_COLUMNS.length);
+  await appendSheetRow(env, `${SHEETS.ANALYTICS}!A:${endCol}`, row);
   return id;
 }
 

@@ -2,6 +2,8 @@
 
 import React, { useState } from 'react';
 import { getFreshTelegramUrl } from '@/lib/telegram';
+import { useData } from '@/components/DataProvider';
+import { getOrCreateSessionId } from '@/lib/analytics';
 
 export type Attachment = {
   type: 'link_image' | 'link_work';
@@ -21,6 +23,7 @@ export default function AttachmentList({
   contentId?: string; 
   contentType?: 'learning_content' | 'homework';
 }) {
+  const { logEvent } = useData();
   const [localAttachments, setLocalAttachments] = useState<Attachment[]>(attachments);
   const [selectedPreview, setSelectedPreview] = useState<Attachment | null>(null);
   const [isPreviewLoading, setIsPreviewLoading] = useState(true);
@@ -257,7 +260,14 @@ export default function AttachmentList({
             {images.map((img, idx) => (
               <div 
                 key={idx} 
-                onClick={() => setSelectedPreview(img)}
+                onClick={() => {
+                  setSelectedPreview(img);
+                  logEvent?.('view_image', {
+                    content_id: contentId,
+                    session_id: getOrCreateSessionId(),
+                    metadata: { title: img.title, type: img.type },
+                  });
+                }}
                 className="relative aspect-square bg-slate-50 border border-slate-100 rounded-2xl shadow-sm hover:shadow-md hover:translate-y-[-2px] transition-all cursor-pointer overflow-hidden group"
               >
                 <img 

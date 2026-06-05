@@ -8,6 +8,7 @@ import CreateHomeworkModal from '@/components/CreateHomeworkModal';
 import CreateContentModal from '@/components/CreateContentModal';
 import { useDeviceDetection } from '@/hooks/useDeviceDetection';
 import { isAdminEmail } from '@/lib/admin';
+import AdminAnalyticsPanel from '@/components/AdminAnalyticsPanel';
 
 export default function AdminDashboard() {
   const { allHomework, allUsers, learningContent, allProgress, analytics, refreshData } = useData();
@@ -216,62 +217,7 @@ export default function AdminDashboard() {
       )}
 
       {activeTab === 'analytics' && (
-        <div>
-          <div className="metric-grid" style={{ marginBottom: '2rem' }}>
-            <div className="admin-card" style={{ borderLeft: `4px solid #2563eb` }}>
-              <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--admin-text-muted)', marginBottom: '0.5rem' }}>Total Visits</p>
-              <h2 style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--admin-text-main)' }}>{studentAnalytics.filter(a => a.event_type === 'visit').length}</h2>
-            </div>
-            <div className="admin-card" style={{ borderLeft: `4px solid #10b981` }}>
-              <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--admin-text-muted)', marginBottom: '0.5rem' }}>Do Work Actions</p>
-              <h2 style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--admin-text-main)' }}>{studentAnalytics.filter(a => a.event_type === 'do_work').length}</h2>
-            </div>
-            <div className="admin-card" style={{ borderLeft: `4px solid #f59e0b` }}>
-              <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--admin-text-muted)', marginBottom: '0.5rem' }}>Check Content</p>
-              <h2 style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--admin-text-main)' }}>{studentAnalytics.filter(a => a.event_type === 'check_content').length}</h2>
-            </div>
-          </div>
-
-          <div className="admin-card" style={{ overflowX: 'auto' }}>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.5rem', color: 'var(--admin-text-main)' }}>Analytics Log</h2>
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Event Type</th>
-                  <th>Device</th>
-                  <th>Browser</th>
-                  <th>IP Address</th>
-                  <th>User</th>
-                </tr>
-              </thead>
-              <tbody>
-                {studentAnalytics.slice().reverse().map((a, i) => (
-                  <tr key={i}>
-                    <td style={{ color: 'var(--admin-text-muted)' }}>{new Date(a.created_at).toLocaleString('th-TH')}</td>
-                    <td>
-                      <span style={{ 
-                        padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700,
-                        background: 'rgba(37, 99, 235, 0.1)', color: '#2563eb'
-                      }}>
-                        {a.event_type?.toUpperCase()}
-                      </span>
-                    </td>
-                    <td>{a.device_name}</td>
-                    <td>{a.browser}</td>
-                    <td style={{ color: 'var(--admin-text-muted)', fontSize: '0.8rem' }}>{a.ip_address}</td>
-                    <td>{a.email || '-'}</td>
-                  </tr>
-                ))}
-                {studentAnalytics.length === 0 && (
-                  <tr>
-                    <td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: 'var(--admin-text-muted)' }}>No analytics data available.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <AdminAnalyticsPanel analytics={studentAnalytics} />
       )}
 
       {/* Modals */}
