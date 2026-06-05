@@ -36,6 +36,7 @@ const SHEETS = {
   LEARNING_CONTENT: "LearningContent",
   SUBJECTS: "Subjects",
   ANALYTICS: "Analytics",
+  AUDIO_PERMISSIONS: "AudioPermissions",
 };
 
 const EXPECTED_HEADERS = {
@@ -46,7 +47,8 @@ const EXPECTED_HEADERS = {
   [SHEETS.SUBJECTS]: ["id", "name", "color", "created_at"],
   [SHEETS.COMMENTS]: ["homework_id", "owner_email", "commenter_email", "text", "created_at"],
   [SHEETS.URLS]: ["id", "filename", "contentType", "url", "created_at", "uploader", "fileId"],
-  [SHEETS.ANALYTICS]: ["id", "event_type", "device_name", "browser", "ip_address", "email", "created_at", "page_visited", "content_id", "fingerprint", "session_id", "metadata"]
+  [SHEETS.ANALYTICS]: ["id", "event_type", "device_name", "browser", "ip_address", "email", "created_at", "page_visited", "content_id", "fingerprint", "session_id", "metadata"],
+  [SHEETS.AUDIO_PERMISSIONS]: ["email", "note", "created_at"]
 };
 
 const ANALYTICS_COLUMNS = EXPECTED_HEADERS[SHEETS.ANALYTICS];
@@ -198,6 +200,18 @@ async function getLearningContent(env: Bindings, date?: string, id?: string) {
 async function getSubjects(env: Bindings) {
   const rows = await getSheetValues(env, `${SHEETS.SUBJECTS}!A2:D`);
   return toObjects(rows, ["id", "name", "color", "created_at"]);
+}
+
+async function getAudioPermissions(env: Bindings) {
+  try {
+    const rows = await getSheetValues(env, `${SHEETS.AUDIO_PERMISSIONS}!A2:A`);
+    return rows
+      .map((r: any) => String(r[0] || "").trim().toLowerCase())
+      .filter(Boolean);
+  } catch (e) {
+    console.warn("AudioPermissions sheet may not exist yet", e);
+    return [];
+  }
 }
 
 async function getAnalytics(env: Bindings) {
@@ -650,8 +664,9 @@ app.get('/', async (c) => {
           progress: await getAllProgress(c.env), 
           learningContent: await getLearningContent(c.env), 
           subjects: await getSubjects(c.env),
-          analytics: await getAnalytics(c.env)
-        }; 
+          analytics: await getAnalytics(c.env),
+          audioPermissions: await getAudioPermissions(c.env),
+        };
         break;
       default: return c.json({ success: false, error: "unknown action: " + action }, 400);
     }

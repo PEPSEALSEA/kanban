@@ -1,10 +1,7 @@
 'use client';
 
 import React, { useRef, useState, useEffect } from 'react';
-import { GoogleLogin } from '@react-oauth/google';
-import { jwtDecode } from 'jwt-decode';
 import { useData } from '@/components/DataProvider';
-import { API_URL } from '@/lib/config';
 
 interface AudioPlayerProps {
   contentId: string;
@@ -14,53 +11,7 @@ interface AudioPlayerProps {
   title?: string;
 }
 
-function AudioLoginGate({ title }: { title?: string }) {
-  const { setUser, refreshData } = useData();
-
-  const handleLoginSuccess = async (credentialResponse: { credential?: string }) => {
-    if (!credentialResponse.credential) return;
-    const decoded = jwtDecode<{ email: string; name: string; picture: string }>(credentialResponse.credential);
-    const newUser = {
-      email: decoded.email,
-      name: decoded.name,
-      picture: decoded.picture,
-    };
-    setUser(newUser);
-    localStorage.setItem('homework_user', JSON.stringify(newUser));
-
-    try {
-      await fetch(API_URL, {
-        method: 'POST',
-        body: new URLSearchParams({
-          action: 'addUser',
-          email: newUser.email,
-          display_name: newUser.name,
-          photo_url: newUser.picture,
-        }),
-      });
-      await refreshData();
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  return (
-    <div className="neo-card rounded-2xl p-6 md:p-8 border border-slate-200/80 shadow-sm text-center">
-      <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-sky-50 flex items-center justify-center text-xl text-sky-600">
-        ♪
-      </div>
-      {title && (
-        <p className="text-sm font-semibold text-slate-800 mb-1 line-clamp-2">{title}</p>
-      )}
-      <p className="text-sm text-slate-600 mb-1">ต้องเข้าสู่ระบบก่อน</p>
-      <div className="flex justify-center rounded-lg overflow-hidden border border-slate-200 inline-flex">
-        <GoogleLogin onSuccess={handleLoginSuccess} onError={() => {}} />
-      </div>
-    </div>
-  );
-}
-
-function AudioPlayerAuthenticated({
+function AudioPlayerInner({
   contentId,
   contentType = 'learning_content',
   audioUrl,
@@ -292,18 +243,14 @@ function AudioPlayerAuthenticated({
 }
 
 export default function AudioPlayer(props: AudioPlayerProps) {
-  const { user } = useData();
+  const { canAccessAudio } = useData();
 
   const hasAudio = Boolean(
     props.audioUrl?.replace(/[{}]/g, '').split('#')[0].trim() ||
     props.driveId?.replace(/[{}]/g, '').split('#')[0].trim()
   );
 
-  if (!hasAudio) return null;
+  if (!hasAudio || !canAccessAudio) return null;
 
-  if (!user) {
-    return <AudioLoginGate title={props.title} />;
-  }
-
-  return <AudioPlayerAuthenticated {...props} />;
+  return <AudioPlayerInner {...props} />;
 }

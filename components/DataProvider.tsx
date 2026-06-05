@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 
 import { API_URL } from '@/lib/config';
 import { isAdminEmail } from '@/lib/admin';
+import { canAccessAudio } from '@/lib/audioAccess';
 
 export const GAS_WEB_APP_URL = API_URL;
 
@@ -58,6 +59,8 @@ type DataContextType = {
   learningContent: LearningContent[];
   subjects: Subject[];
   analytics: any[];
+  audioPermissions: string[];
+  canAccessAudio: boolean;
   user: UserInfo | null;
   setUser: (user: UserInfo | null) => void;
   isLoading: boolean;
@@ -81,6 +84,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [learningContent, setLearningContent] = useState<LearningContent[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [analytics, setAnalytics] = useState<any[]>([]);
+  const [audioPermissions, setAudioPermissions] = useState<string[]>([]);
   const [user, setUser] = useState<UserInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -104,6 +108,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         setLearningContent(parsed.learningContent || []);
         setSubjects(parsed.subjects || []);
         setAnalytics((parsed.analytics || []).filter((a: { email?: string }) => !isAdminEmail(a.email)));
+        setAudioPermissions(parsed.audioPermissions || []);
         setIsLoading(false); // We have cached data, so we can hide initial loader early
       } catch (e) {
         console.error("Cache parsing failed", e);
@@ -129,6 +134,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         setLearningContent(payload.learningContent || []);
         setSubjects(payload.subjects || []);
         setAnalytics((payload.analytics || []).filter((a: { email?: string }) => !isAdminEmail(a.email)));
+        setAudioPermissions(payload.audioPermissions || []);
         
         // Update cache
         localStorage.setItem('studyflow_cache', JSON.stringify(payload));
@@ -220,6 +226,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(interval);
   }, [refreshData]);
 
+  const userCanAccessAudio = canAccessAudio(user?.email, audioPermissions);
+
   return (
     <DataContext.Provider value={{
       allHomework,
@@ -228,6 +236,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       learningContent,
       subjects,
       analytics,
+      audioPermissions,
+      canAccessAudio: userCanAccessAudio,
       user,
       setUser,
       isLoading,
