@@ -339,12 +339,27 @@ function sortHomeworkByDeadline(a: any, b: any) {
 }
 
 function summaryLineWithLink(label: string, url: string, suffix = "") {
-  return `- ${label} [(Link)](${url})${suffix}\n`;
+  return `- ${label} <${url}>${suffix}\n`;
+}
+
+function summaryLinePlain(label: string, suffix = "") {
+  return `- ${label}${suffix}\n`;
+}
+
+function homeworkHasDetailContent(hw: any): boolean {
+  return !!(
+    (hw.description && String(hw.description).trim()) ||
+    (hw.link_image && String(hw.link_image).trim()) ||
+    (hw.link_work && String(hw.link_work).trim())
+  );
 }
 
 function homeworkSummaryLine(hw: any, suffix = "") {
   const label = `${hw.subject} : ${hw.title}`;
-  return summaryLineWithLink(label, `${APP_BASE_URL}/#/view?id=${hw.id}`, suffix);
+  if (homeworkHasDetailContent(hw)) {
+    return summaryLineWithLink(label, `${APP_BASE_URL}/#/view?id=${hw.id}`, suffix);
+  }
+  return summaryLinePlain(label, suffix);
 }
 
 async function generateDailySummary(env: Bindings, targetDate?: string) {

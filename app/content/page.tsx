@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import Link from 'next/link';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useData } from '@/components/DataProvider';
 import AttachmentList from '@/components/AttachmentList';
 import AudioPlayer from '@/components/AudioPlayer';
@@ -214,283 +214,407 @@ export default function LearningContentPage() {
     };
   }, [activeContent?.id, activeContent?.audio_url, activeContent?.audio_file_id, activeContent?.title]);
 
-  if (view === 'detail' && activeContent) {
-    const { intro, cards } = parseDescription(activeContent.description);
-    return (
-      <ResizableContentPanel
-        storageKey="content_detail_width"
-        defaultWidth={896}
-        minWidth={400}
-        maxWidth={1200}
-        enabled={isDesktop}
-        className="p-4 md:p-10"
-      >
-        <button 
-          onClick={() => window.location.hash = ''} 
-          className="text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors mb-10 flex items-center gap-2"
-        >
-          ← BACK TO ARCHIVE
-        </button>
+  const selectedDateContents = useMemo(() => {
+    if (!selectedDate) return [];
+    const d = new Date(selectedDate);
+    return getContentsForDate(d.getDate(), d.getMonth(), d.getFullYear());
+  }, [selectedDate, learningContent]);
 
-        <div className="neo-card p-8 md:p-14 shadow-2xl border-none rounded-3xl relative">
-          <div className="flex flex-wrap items-center gap-4 mb-8">
-            <span 
-              className="text-[10px] font-bold uppercase px-3 py-1 rounded-full" 
-              style={{ backgroundColor: `${dynamicSubjectColors[activeContent.subject] || dynamicSubjectColors['Other']}15`, color: dynamicSubjectColors[activeContent.subject] || dynamicSubjectColors['Other'] }}
-            >
-              {activeContent.subject}
-            </span>
-            <span className="text-xs font-semibold uppercase tracking-widest text-slate-400">
-              {mounted && new Date(activeContent.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}
-            </span>
-          </div>
+  const detailParsed = useMemo(() => {
+    if (!activeContent) return { intro: '', cards: [] as { num: string; text: string }[] };
+    return parseDescription(activeContent.description);
+  }, [activeContent?.description]);
 
-          <h1 className="text-3xl md:text-4xl font-bold mb-12 tracking-tight text-slate-800 leading-tight">
-            {activeContent.title}
-          </h1>
-
-          {/* Audio Player */}
-          {memoizedAudioProps && (memoizedAudioProps.url || memoizedAudioProps.fileId) && (
-            <div className="mb-10">
-              <AudioPlayer 
-                contentId={activeContent.id}
-                contentType="learning_content"
-                audioUrl={memoizedAudioProps.url}
-                driveId={memoizedAudioProps.fileId}
-                title={memoizedAudioProps.title}
-              />
-            </div>
-          )}
-
-          {/* Attachments via AttachmentList */}
-          {(activeContent.links || activeContent.attachments) && (
-            <div className="mb-8">
-              <AttachmentList 
-                contentId={activeContent.id}
-                contentType="learning_content"
-                attachments={memoizedAttachments} 
-              />
-            </div>
-          )}
-
-          {/* Intro Text */}
-          {intro && (
-            <div className="bg-slate-50/50 rounded-2xl border border-slate-100 p-8 md:p-10 leading-relaxed mb-12 text-slate-700">
-              <MarkdownRenderer content={intro} />
-            </div>
-          )}
-
-          {/* Cards Section */}
-          {cards.length > 0 && (
-            <div className="flex flex-col gap-8">
-              {cards.map((card, idx) => (
-                <div key={idx} className="split-card">
-                  <div className="split-number">{card.num}</div>
-                  <div className="text-lg font-black leading-relaxed">
-                    <MarkdownRenderer content={card.text} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </ResizableContentPanel>
-    );
-  }
+  const isSearching = searchTerm.trim() || selectedSubject !== 'All';
 
   return (
     <ResizableContentPanel
-      storageKey="content_archive_width"
-      defaultWidth={1280}
-      minWidth={480}
-      maxWidth={1600}
+      storageKey={view === 'detail' ? 'content_detail_width' : 'content_archive_width'}
+      defaultWidth={view === 'detail' ? 896 : 1280}
+      minWidth={view === 'detail' ? 400 : 480}
+      maxWidth={view === 'detail' ? 1200 : 1600}
       enabled={isDesktop}
       className="p-4 md:p-10"
     >
-      <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
-        <div>
-          <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-800 mb-2">
-            Learning Archive
-          </h1>
-          <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">คลังเนื้อหาการเรียน</p>
-        </div>
-      </header>
-
-      <div className="flex flex-col md:flex-row gap-4 mb-10">
-        <div className="flex-1 bg-white/60 backdrop-blur-md border border-slate-200/80 p-4 rounded-2xl shadow-sm flex items-center gap-4">
-          <span className="text-xl">🔍</span>
-          <input 
-            type="text" 
-            placeholder="Search by ID, subject, or title..." 
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="flex-1 bg-transparent border-none outline-none text-slate-700 font-medium placeholder:text-slate-300 text-lg"
-          />
-          {searchTerm && (
-            <button 
-              onClick={() => setSearchTerm('')}
-              className="text-slate-300 hover:text-slate-500 transition-colors"
-            >
-              ✕
-            </button>
-          )}
-        </div>
-
-        <div className="bg-white/60 backdrop-blur-md border border-slate-200/80 p-4 rounded-2xl shadow-sm flex items-center gap-4 min-w-[240px]">
-          <span className="text-xl">📚</span>
-          <select 
-            value={selectedSubject} 
-            onChange={(e) => setSelectedSubject(e.target.value)}
-            className="flex-1 bg-transparent border-none outline-none text-slate-700 font-bold text-md cursor-pointer"
+      <AnimatePresence mode="wait">
+        {view === 'detail' && activeContent ? (
+          <motion.div
+            key="detail"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.25 }}
           >
-            <option value="All">All Subjects</option>
-            {subjects.map(s => (
-              <option key={s.id} value={s.name}>{s.name.toUpperCase()}</option>
-            ))}
-          </select>
-        </div>
-      </div>
+            <motion.button
+              onClick={() => { window.location.hash = ''; }}
+              className="text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors mb-10 flex items-center gap-2"
+              whileHover={{ x: -4 }}
+              transition={{ duration: 0.15 }}
+            >
+              ← BACK TO ARCHIVE
+            </motion.button>
 
-      {searchTerm.trim() || selectedSubject !== 'All' ? (
-        <div className="animate-slide-up">
-          <div className="flex justify-between items-center mb-6 px-1">
-            <h2 className="text-lg font-bold text-slate-800 uppercase tracking-wider">Search Results ({searchResults.length})</h2>
-            <button onClick={() => { setSearchTerm(''); setSelectedSubject('All'); }} className="text-xs font-bold text-sky-600 hover:text-sky-700">CLEAR FILTERS</button>
-          </div>
-          
-          <div className="flex flex-col gap-4">
-            {searchResults.length > 0 ? (
-              searchResults.map((c: LearningContent) => (
-                  <button 
-                    key={c.id} 
-                    onClick={() => { window.location.hash = `#/view?id=${c.id}`; setSearchTerm(''); setSelectedSubject('All'); }}
-                    className="card w-full p-6 text-left flex items-center gap-6 group"
-                  >
-                    <div 
-                      className="w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg"
-                      style={{ backgroundColor: `${dynamicSubjectColors[c.subject] || dynamicSubjectColors['Other']}15`, color: dynamicSubjectColors[c.subject] || dynamicSubjectColors['Other'] }}
-                    >
-                      {c.subject.charAt(0)}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex gap-2 items-center mb-1">
-                        <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md">{c.id}</span>
-                        <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: dynamicSubjectColors[c.subject] || dynamicSubjectColors['Other'] }}>{c.subject}</span>
-                      </div>
-                      <div className="text-lg font-semibold text-slate-800 leading-tight">{c.title}</div>
-                      <div className="text-[11px] font-medium text-slate-400 mt-1">{new Date(c.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
-                    </div>
-                    <span className="text-slate-300 group-hover:text-sky-500 transition-colors">→</span>
-                  </button>
-              ))
-            ) : (
-              <div className="neo-card p-20 text-center">
-                <div className="text-6xl mb-4">🔍</div>
-                <div className="text-xl font-black uppercase">ไม่พบข้อมูลที่ตรงกับการค้นหา</div>
+            <motion.div
+              className="neo-card p-8 md:p-14 shadow-2xl border-none rounded-3xl relative max-h-[calc(100vh-6rem)] overflow-y-auto"
+              initial={{ opacity: 0, scale: 0.98, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            >
+              <div className="flex flex-wrap items-center gap-4 mb-8">
+                <span
+                  className="text-[10px] font-bold uppercase px-3 py-1 rounded-full"
+                  style={{ backgroundColor: `${dynamicSubjectColors[activeContent.subject] || dynamicSubjectColors['Other']}15`, color: dynamicSubjectColors[activeContent.subject] || dynamicSubjectColors['Other'] }}
+                >
+                  {activeContent.subject}
+                </span>
+                <span className="text-xs font-semibold uppercase tracking-widest text-slate-400">
+                  {mounted && new Date(activeContent.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}
+                </span>
               </div>
-            )}
-          </div>
-        </div>
-      ) : (
-        <div className="neo-card p-6 md:p-10">
-        {/* Calendar Nav */}
-        <div className="flex justify-between items-center mb-10">
-          <h2 className="text-xl md:text-2xl font-bold tracking-tight text-slate-700">
-            {mounted && currentMonth.toLocaleDateString('th-TH', { month: 'long', year: 'numeric' })}
-          </h2>
-          <div className="flex gap-2 bg-white/50 p-1 rounded-xl border border-slate-200/60 shadow-sm">
-            <button onClick={() => setCurrentMonth(new Date(currentMonth.setMonth(currentMonth.getMonth() - 1)))} className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-slate-800 transition-colors text-lg">←</button>
-            <button onClick={() => setCurrentMonth(new Date())} className="px-4 text-[10px] font-bold uppercase tracking-widest text-sky-600 hover:text-sky-700">Today</button>
-            <button onClick={() => setCurrentMonth(new Date(currentMonth.setMonth(currentMonth.getMonth() + 1)))} className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-slate-800 transition-colors text-lg">→</button>
-          </div>
-        </div>
 
-        {/* Calendar Grid */}
-        <div className="calendar-grid">
-          {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map(d => (
-            <div key={d} className="p-4 text-center text-xs font-black bg-sky-100 border-b-2 border-black">{d}</div>
-          ))}
-          {daysInMonth.map((d, i) => {
-            const dateContents = getContentsForDate(d.day, d.month, d.year);
-            const isToday = mounted && new Date().toDateString() === new Date(d.year, d.month, d.day).toDateString();
-            
-            return (
-              <div 
-                key={i} 
-                className={`calendar-day ${d.isCurrent ? '' : 'not-current'} ${isToday ? 'today' : ''}`}
-                onClick={() => dateContents.length > 0 && setSelectedDate(new Date(d.year, d.month, d.day).toISOString())}
-              >
-                <div className="text-sm font-black">{d.day}</div>
-                <div className="flex flex-wrap gap-1">
-                  {dateContents.map((c: LearningContent, ci: number) => (
-                  <span 
-                    key={ci}
-                    className="w-2.5 h-2.5 rounded-full" 
-                    style={{ background: dynamicSubjectColors[c.subject] || dynamicSubjectColors['Other'] }} 
-                    title={c.title} 
+              <h1 className="text-3xl md:text-4xl font-bold mb-12 tracking-tight text-slate-800 leading-tight">
+                {activeContent.title}
+              </h1>
+
+              {memoizedAudioProps && (memoizedAudioProps.url || memoizedAudioProps.fileId) && (
+                <motion.div
+                  className="mb-10"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
+                >
+                  <AudioPlayer
+                    contentId={activeContent.id}
+                    contentType="learning_content"
+                    audioUrl={memoizedAudioProps.url}
+                    driveId={memoizedAudioProps.fileId}
+                    title={memoizedAudioProps.title}
                   />
+                </motion.div>
+              )}
+
+              {(activeContent.links || activeContent.attachments) && (
+                <motion.div
+                  className="mb-8"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.15 }}
+                >
+                  <AttachmentList
+                    contentId={activeContent.id}
+                    contentType="learning_content"
+                    attachments={memoizedAttachments}
+                  />
+                </motion.div>
+              )}
+
+              {detailParsed.intro && (
+                <motion.div
+                  className="bg-slate-50/50 rounded-2xl border border-slate-100 p-8 md:p-10 leading-relaxed mb-12 text-slate-700"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 }}
+                >
+                  <MarkdownRenderer content={detailParsed.intro} />
+                </motion.div>
+              )}
+
+              {detailParsed.cards.length > 0 && (
+                <div className="flex flex-col gap-8">
+                  {detailParsed.cards.map((card, idx) => (
+                    <motion.div
+                      key={idx}
+                      className="split-card"
+                      initial={{ opacity: 0, y: 16 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.25 + idx * 0.06, duration: 0.35 }}
+                      whileHover={{ y: -2, boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)' }}
+                    >
+                      <div className="split-number">{card.num}</div>
+                      <div className="text-lg font-black leading-relaxed">
+                        <MarkdownRenderer content={card.text} />
+                      </div>
+                    </motion.div>
                   ))}
                 </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    )}
-
-      {/* Date Overview Modal */}
-      {selectedDate && (
-        <div 
-          className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-[1000] flex items-center justify-center p-4 transition-all"
-          onClick={() => setSelectedDate(null)}
-        >
-          <div 
-            className="neo-card w-full max-w-sm p-8 shadow-2xl border-none rounded-3xl" 
-            onClick={e => e.stopPropagation()}
+              )}
+            </motion.div>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="archive"
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 10 }}
+            transition={{ duration: 0.2 }}
           >
-            <div className="flex justify-between items-center mb-8">
-              <h3 className="text-xl font-black uppercase tracking-tighter">
-                {mounted && new Date(selectedDate).toLocaleDateString('th-TH', { day: 'numeric', month: 'long' })}
-              </h3>
-              <button onClick={() => setSelectedDate(null)} className="text-xl font-black hover:bg-red-400 w-10 h-10 neo-button flex items-center justify-center">✕</button>
-            </div>
-            <div className="flex flex-col gap-4">
-              {getContentsForDate(new Date(selectedDate).getDate(), new Date(selectedDate).getMonth(), new Date(selectedDate).getFullYear()).map((c: LearningContent) => (
-                <button 
-                  key={c.id} 
-                  onClick={() => { window.location.hash = `#/view?id=${c.id}`; setSelectedDate(null); }}
-                  className="w-full p-4 bg-slate-50 hover:bg-slate-100 transition-all rounded-2xl flex items-center gap-4 text-left group"
+            <motion.header
+              className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12"
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              <div>
+                <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-800 mb-2">
+                  Learning Archive
+                </h1>
+                <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">คลังเนื้อหาการเรียน</p>
+              </div>
+            </motion.header>
+
+            <motion.div
+              className="flex flex-col md:flex-row gap-4 mb-10"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.05, duration: 0.3 }}
+            >
+              <div className="flex-1 bg-white/60 backdrop-blur-md border border-slate-200/80 p-4 rounded-2xl shadow-sm flex items-center gap-4">
+                <span className="text-xl">🔍</span>
+                <input
+                  type="text"
+                  placeholder="Search by ID, subject, or title..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="flex-1 bg-transparent border-none outline-none text-slate-700 font-medium placeholder:text-slate-300 text-lg"
+                />
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm('')}
+                    className="text-slate-300 hover:text-slate-500 transition-colors"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+
+              <div className="bg-white/60 backdrop-blur-md border border-slate-200/80 p-4 rounded-2xl shadow-sm flex items-center gap-4 min-w-[240px]">
+                <span className="text-xl">📚</span>
+                <select
+                  value={selectedSubject}
+                  onChange={(e) => setSelectedSubject(e.target.value)}
+                  className="flex-1 bg-transparent border-none outline-none text-slate-700 font-bold text-md cursor-pointer"
                 >
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-xs shrink-0" style={{ backgroundColor: `${dynamicSubjectColors[c.subject] || dynamicSubjectColors['Other']}20`, color: dynamicSubjectColors[c.subject] || dynamicSubjectColors['Other'] }}>
-                    {c.subject.charAt(0)}
+                  <option value="All">All Subjects</option>
+                  {subjects.map(s => (
+                    <option key={s.id} value={s.name}>{s.name.toUpperCase()}</option>
+                  ))}
+                </select>
+              </div>
+            </motion.div>
+
+            <AnimatePresence mode="wait">
+              {isSearching ? (
+                <motion.div
+                  key="search"
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <div className="flex justify-between items-center mb-6 px-1">
+                    <h2 className="text-lg font-bold text-slate-800 uppercase tracking-wider">Search Results ({searchResults.length})</h2>
+                    <button onClick={() => { setSearchTerm(''); setSelectedSubject('All'); }} className="text-xs font-bold text-sky-600 hover:text-sky-700">CLEAR FILTERS</button>
                   </div>
-                  <div className="flex-1">
-                    <div className="text-[10px] font-bold uppercase text-slate-400 mb-0.5 tracking-wider">{c.subject}</div>
-                    <div className="font-semibold text-sm text-slate-800 leading-tight">{c.title}</div>
+
+                  <div className="flex flex-col gap-4 max-h-[calc(100vh-20rem)] overflow-y-auto pr-2">
+                    {searchResults.length > 0 ? (
+                      searchResults.map((c: LearningContent, idx) => (
+                        <motion.button
+                          key={c.id}
+                          onClick={() => { window.location.hash = `#/view?id=${c.id}`; setSearchTerm(''); setSelectedSubject('All'); }}
+                          className="card w-full p-6 text-left flex items-center gap-6 group"
+                          initial={{ opacity: 0, y: 12 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: idx * 0.04, duration: 0.25 }}
+                          whileHover={{ y: -2, boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01)', borderColor: '#e2e8f0' }}
+                          whileTap={{ scale: 0.98 }}
+                        >
+                          <div
+                            className="w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg"
+                            style={{ backgroundColor: `${dynamicSubjectColors[c.subject] || dynamicSubjectColors['Other']}15`, color: dynamicSubjectColors[c.subject] || dynamicSubjectColors['Other'] }}
+                          >
+                            {c.subject.charAt(0)}
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex gap-2 items-center mb-1">
+                              <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md">{c.id}</span>
+                              <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: dynamicSubjectColors[c.subject] || dynamicSubjectColors['Other'] }}>{c.subject}</span>
+                            </div>
+                            <div className="text-lg font-semibold text-slate-800 leading-tight">{c.title}</div>
+                            <div className="text-[11px] font-medium text-slate-400 mt-1">{new Date(c.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+                          </div>
+                          <span className="text-slate-300 group-hover:text-sky-500 transition-colors">→</span>
+                        </motion.button>
+                      ))
+                    ) : (
+                      <motion.div
+                        className="neo-card p-20 text-center"
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                      >
+                        <div className="text-6xl mb-4">🔍</div>
+                        <div className="text-xl font-black uppercase">ไม่พบข้อมูลที่ตรงกับการค้นหา</div>
+                      </motion.div>
+                    )}
                   </div>
-                  <span className="text-slate-300 group-hover:text-sky-500">→</span>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="calendar"
+                  className="neo-card p-6 md:p-10"
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <div className="flex justify-between items-center mb-10">
+                    <h2 className="text-xl md:text-2xl font-bold tracking-tight text-slate-700">
+                      {mounted && currentMonth.toLocaleDateString('th-TH', { month: 'long', year: 'numeric' })}
+                    </h2>
+                    <div className="flex gap-2 bg-white/50 p-1 rounded-xl border border-slate-200/60 shadow-sm">
+                      <button onClick={() => setCurrentMonth(new Date(currentMonth.setMonth(currentMonth.getMonth() - 1)))} className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-slate-800 transition-colors text-lg">←</button>
+                      <button onClick={() => setCurrentMonth(new Date())} className="px-4 text-[10px] font-bold uppercase tracking-widest text-sky-600 hover:text-sky-700">Today</button>
+                      <button onClick={() => setCurrentMonth(new Date(currentMonth.setMonth(currentMonth.getMonth() + 1)))} className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-slate-800 transition-colors text-lg">→</button>
+                    </div>
+                  </div>
+
+                  <div className="calendar-grid">
+                    {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map(d => (
+                      <div key={d} className="p-4 text-center text-xs font-black bg-sky-100 border-b-2 border-black">{d}</div>
+                    ))}
+                    {daysInMonth.map((d, i) => {
+                      const dateContents = getContentsForDate(d.day, d.month, d.year);
+                      const isToday = mounted && new Date().toDateString() === new Date(d.year, d.month, d.day).toDateString();
+                      const hasContent = dateContents.length > 0;
+
+                      return (
+                        <motion.div
+                          key={i}
+                          className={`calendar-day ${d.isCurrent ? '' : 'not-current'} ${isToday ? 'today' : ''} ${hasContent ? 'cursor-pointer' : ''}`}
+                          onClick={() => hasContent && setSelectedDate(new Date(d.year, d.month, d.day).toISOString())}
+                          whileHover={hasContent ? { scale: 1.03, backgroundColor: 'var(--bg-yellow-300)' } : undefined}
+                          whileTap={hasContent ? { scale: 0.97 } : undefined}
+                          transition={{ duration: 0.15 }}
+                        >
+                          <div className="text-sm font-black">{d.day}</div>
+                          <div className="flex flex-wrap gap-1">
+                            {dateContents.map((c: LearningContent, ci: number) => (
+                              <motion.span
+                                key={ci}
+                                className="w-2.5 h-2.5 rounded-full"
+                                style={{ background: dynamicSubjectColors[c.subject] || dynamicSubjectColors['Other'] }}
+                                title={c.title}
+                                initial={{ scale: 0 }}
+                                animate={{ scale: 1 }}
+                                transition={{ delay: ci * 0.05, type: 'spring', stiffness: 400, damping: 15 }}
+                              />
+                            ))}
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {selectedDate && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[1000] flex items-center justify-center p-4"
+            onClick={() => setSelectedDate(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="neo-card w-full max-w-md p-6 md:p-8 shadow-2xl border-none rounded-3xl flex flex-col max-h-[85vh]"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-center mb-4 shrink-0">
+                <div>
+                  <h3 className="text-xl font-bold uppercase tracking-tight text-slate-800">
+                    {mounted && new Date(selectedDate).toLocaleDateString('th-TH', { day: 'numeric', month: 'long' })}
+                  </h3>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-1">
+                    {selectedDateContents.length} เนื้อหา
+                  </p>
+                </div>
+                <button
+                  onClick={() => setSelectedDate(null)}
+                  className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition-colors shrink-0"
+                >
+                  ✕
                 </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+              </div>
+
+              <div className="flex flex-col gap-3 overflow-y-auto pr-2 min-h-0 flex-1">
+                {selectedDateContents.map((c: LearningContent, idx) => (
+                  <motion.button
+                    key={c.id}
+                    onClick={() => { window.location.hash = `#/view?id=${c.id}`; setSelectedDate(null); }}
+                    className="w-full p-4 bg-slate-50 hover:bg-slate-100 transition-all rounded-2xl flex items-center gap-4 text-left group shrink-0"
+                    initial={{ opacity: 0, x: -8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: idx * 0.04, duration: 0.2 }}
+                    whileHover={{ x: 4, backgroundColor: '#f1f5f9' }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-xs shrink-0" style={{ backgroundColor: `${dynamicSubjectColors[c.subject] || dynamicSubjectColors['Other']}20`, color: dynamicSubjectColors[c.subject] || dynamicSubjectColors['Other'] }}>
+                      {c.subject.charAt(0)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[10px] font-bold uppercase text-slate-400 mb-0.5 tracking-wider">{c.subject}</div>
+                      <div className="font-semibold text-sm text-slate-800 leading-tight truncate">{c.title}</div>
+                    </div>
+                    <span className="text-slate-300 group-hover:text-sky-500 shrink-0">→</span>
+                  </motion.button>
+                ))}
+              </div>
+
+              {selectedDateContents.length > 5 && (
+                <p className="text-[10px] font-medium text-slate-400 text-center mt-3 shrink-0">เลื่อนลงเพื่อดูทั้งหมด</p>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {error && (
-        <div className="p-10 mt-10 neo-card bg-rose-50 text-center">
+        <motion.div
+          className="p-10 mt-10 neo-card bg-rose-50 text-center"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
           <p className="text-rose-500 font-black uppercase mb-6 tracking-widest">⚠️ {error}</p>
           <button onClick={refreshData} className="neo-button px-8 py-3">
             RETRY LOADING
           </button>
-        </div>
+        </motion.div>
       )}
 
-      {isLoading && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[2000] flex flex-col items-center justify-center">
-          <div className="loader mb-4" />
-          <p className="font-black uppercase tracking-widest text-white text-xs">Loading Archive...</p>
-        </div>
-      )}
+      <AnimatePresence>
+        {isLoading && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[2000] flex flex-col items-center justify-center"
+          >
+            <div className="loader mb-4" />
+            <p className="font-black uppercase tracking-widest text-white text-xs">Loading Archive...</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </ResizableContentPanel>
   );
 }
