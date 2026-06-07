@@ -66,9 +66,8 @@ function preprocessMarkdownTables(text: string): string {
     const trimmed = raw.trim();
 
     if (!trimmed) {
-      if (inTable && rowBuffer !== null) continue;
+      if (inTable && rowBuffer !== null && !rowLooksComplete(rowBuffer)) continue;
       flushRow();
-      inTable = false;
       out.push(raw);
       continue;
     }
@@ -94,15 +93,14 @@ function preprocessMarkdownTables(text: string): string {
         continue;
       }
 
-      if (rowBuffer !== null) {
+      if (rowBuffer !== null && !rowLooksComplete(rowBuffer)) {
         const part = isBrOnlyLine(trimmed) ? '<br>' : trimmed;
         rowBuffer += part.startsWith('<br>') ? part : ` ${part}`;
         continue;
       }
 
+      flushRow();
       inTable = false;
-      out.push(raw);
-      continue;
     }
 
     if (startsWithPipe && countPipes(trimmed) >= 2 && i + 1 < lines.length && looksLikeTableSeparator(lines[i + 1].trim())) {
