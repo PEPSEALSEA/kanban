@@ -619,6 +619,29 @@ h4 {
   margin-bottom: 1.5rem;
 }
 
+.markdown-content .markdown-table-wrap {
+  -webkit-overflow-scrolling: touch;
+}
+
+.markdown-content .markdown-table {
+  min-width: 640px;
+}
+
+.markdown-content .markdown-table th,
+.markdown-content .markdown-table td {
+  vertical-align: top;
+}
+
+.markdown-content .markdown-table th p,
+.markdown-content .markdown-table td p {
+  margin: 0;
+}
+
+.markdown-content .markdown-table td code,
+.markdown-content .markdown-table th code {
+  white-space: nowrap;
+}
+
 /* Markdown preview inside admin modals / archive */
 .admin-theme .markdown-content,
 .admin-theme .markdown-content p,

@@ -4,13 +4,113 @@ import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
+import rehypeRaw from 'rehype-raw';
+import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
 import CodeBlock from '@/components/CodeBlock';
+import type { Schema } from 'hast-util-sanitize';
 
 interface MarkdownRendererProps {
   content: string;
   className?: string;
+}
+
+const sanitizeSchema: Schema = {
+  ...defaultSchema,
+  tagNames: [...(defaultSchema.tagNames ?? []), 'br'],
+};
+
+function looksLikeTableRow(line: string): boolean {
+  const trimmed = line.trim();
+  if (!trimmed.startsWith('|')) return false;
+  return (trimmed.match(/\|/g)?.length ?? 0) >= 2;
+}
+
+function looksLikeTableSeparator(line: string): boolean {
+  return /^\|(\s*:?-+:?\s*\|)+\s*$/.test(line.trim());
+}
+
+function isBrOnlyLine(line: string): boolean {
+  return /^<\s*br\s*\/?>\s*$/i.test(line.trim());
+}
+
+function normalizeBrTags(text: string): string {
+  return text.replace(/<\s*br\s*\/?>\s*/gi, '<br>');
+}
+
+/**
+ * Repair AI-generated markdown tables:
+ * - Merge row lines broken by newlines inside cells
+ * - Normalize <br> tags so they can render as line breaks
+ */
+function preprocessMarkdownTables(text: string): string {
+  if (!text || !text.includes('|')) return text;
+
+  const lines = text.split('\n');
+  const out: string[] = [];
+  let inTable = false;
+  let rowBuffer: string | null = null;
+
+  const flushRow = () => {
+    if (rowBuffer !== null) {
+      out.push(normalizeBrTags(rowBuffer));
+      rowBuffer = null;
+    }
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i];
+    const trimmed = raw.trim();
+
+    if (!trimmed) {
+      if (inTable && rowBuffer !== null) continue;
+      flushRow();
+      inTable = false;
+      out.push(raw);
+      continue;
+    }
+
+    const isSeparator = looksLikeTableSeparator(trimmed);
+    const isRow = looksLikeTableRow(trimmed);
+
+    if (isSeparator) {
+      flushRow();
+      inTable = true;
+      out.push(raw);
+      continue;
+    }
+
+    if (inTable) {
+      if (isRow) {
+        flushRow();
+        rowBuffer = raw;
+        continue;
+      }
+
+      if (rowBuffer !== null) {
+        const part = isBrOnlyLine(trimmed) ? '<br>' : trimmed;
+        rowBuffer += part.startsWith('<br>') ? part : ` ${part}`;
+        continue;
+      }
+
+      inTable = false;
+      out.push(raw);
+      continue;
+    }
+
+    if (isRow && i + 1 < lines.length && looksLikeTableSeparator(lines[i + 1].trim())) {
+      flushRow();
+      out.push(raw);
+      continue;
+    }
+
+    flushRow();
+    out.push(raw);
+  }
+
+  flushRow();
+  return out.join('\n');
 }
 
 /**
@@ -152,13 +252,13 @@ function wrapInlineLatex(text: string): string {
 }
 
 export default function MarkdownRenderer({ content, className }: MarkdownRendererProps) {
-  const processedContent = preprocessLatex(content);
+  const processedContent = preprocessLatex(preprocessMarkdownTables(content));
 
   return (
     <div className={`markdown-content ${className || ''}`}>
       <ReactMarkdown
         remarkPlugins={[remarkMath, remarkGfm, remarkBreaks]}
-        rehypePlugins={[rehypeKatex]}
+        rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema], rehypeKatex]}
         components={{
           // Ensure links open in a new tab
           a: ({ node, ...props }) => (
@@ -213,12 +313,17 @@ export default function MarkdownRenderer({ content, className }: MarkdownRendere
           ),
           // Table
           table: ({ node, ...props }) => (
-            <div className="overflow-x-auto mb-8 rounded-xl border border-slate-100">
-              <table {...props} className="w-full text-left border-collapse" />
+            <div className="markdown-table-wrap overflow-x-auto mb-8 rounded-xl border border-slate-100">
+              <table {...props} className="markdown-table w-full text-left border-collapse" />
             </div>
           ),
-          th: ({ node, ...props }) => <th {...props} className="p-4 bg-slate-50 border-b border-slate-100 text-slate-500 font-bold uppercase text-[10px] tracking-wider" />,
-          td: ({ node, ...props }) => <td {...props} className="p-4 border-b border-slate-50 text-slate-600 font-medium text-sm" />,
+          th: ({ node, ...props }) => (
+            <th {...props} className="p-4 bg-slate-50 border-b border-slate-100 text-slate-700 font-bold text-sm align-top leading-relaxed" />
+          ),
+          td: ({ node, ...props }) => (
+            <td {...props} className="p-4 border-b border-slate-50 text-slate-600 font-medium text-sm align-top leading-relaxed" />
+          ),
+          br: () => <br />,
         }}
       >
         {processedContent}
