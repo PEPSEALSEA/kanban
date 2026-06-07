@@ -541,6 +541,84 @@ h4 {
   color: var(--admin-text-main);
 }
 
+/* Gemini-style code blocks in markdown content */
+.code-block-gemini {
+  --code-bg: #1e1e1e;
+  --code-header-bg: #2d2d2d;
+  --code-text: #e8eaed;
+  --code-muted: #9aa0a6;
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--code-bg);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
+}
+
+.code-block-gemini__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.625rem 1rem;
+  background: var(--code-header-bg);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.code-block-gemini__lang {
+  font-family: var(--font-mali), system-ui, sans-serif;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--code-text);
+  letter-spacing: 0.01em;
+}
+
+.code-block-gemini__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.code-block-gemini__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--code-muted);
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.code-block-gemini__btn:hover {
+  color: var(--code-text);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.code-block-gemini__body {
+  overflow-x: auto;
+  font-family: var(--font-roboto-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.code-block-gemini__body pre {
+  margin: 0 !important;
+}
+
+.code-block-gemini--plain {
+  background: var(--code-bg);
+  color: var(--code-text);
+  padding: 1rem 1.25rem;
+  border-radius: 16px;
+  font-family: var(--font-roboto-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.markdown-content .code-block-gemini {
+  margin-bottom: 1.5rem;
+}
+
 /* Markdown preview inside admin modals / archive */
 .admin-theme .markdown-content,
 .admin-theme .markdown-content p,
@@ -572,9 +650,13 @@ h4 {
   color: #e2e8f0;
 }
 
-.admin-theme .markdown-content pre {
+.admin-theme .markdown-content pre:not(.code-block-gemini--plain) {
   background: rgba(15, 23, 42, 0.6);
   border-color: var(--admin-border);
+}
+
+.admin-theme .markdown-content .code-block-gemini {
+  border-color: rgba(255, 255, 255, 0.08);
 }
 
 .admin-theme .markdown-content blockquote {

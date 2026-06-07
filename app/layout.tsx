@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Mali } from "next/font/google";
+import { Mali, Roboto_Mono } from "next/font/google";
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { DataProvider } from "@/components/DataProvider";
 import HeaderNav from "@/components/HeaderNav";
@@ -14,6 +14,11 @@ const mali = Mali({
   variable: "--font-mali",
 });
 
+const robotoMono = Roboto_Mono({
+  subsets: ["latin"],
+  variable: "--font-roboto-mono",
+});
+
 export const metadata: Metadata = {
   title: "StudyFlow - Homework Sorter",
   description: "Organize your workflow with style.",
@@ -26,7 +31,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={mali.variable}>
+      <body className={`${mali.variable} ${robotoMono.variable}`}>
         <GoogleOAuthProvider clientId="787988651964-gf258mnif89bu6g0jao2mpdsm72j96da.apps.googleusercontent.com">
           <DataProvider>
             <AnalyticsTracker />

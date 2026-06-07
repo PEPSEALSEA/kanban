@@ -339,7 +339,7 @@ function sortHomeworkByDeadline(a: any, b: any) {
 }
 
 function summaryLineWithLink(label: string, url: string, suffix = "") {
-  return `- ${label} <${url}>${suffix}\n`;
+  return `- ${label} [(Link)](<${url}>)${suffix}\n`;
 }
 
 function summaryLinePlain(label: string, suffix = "") {

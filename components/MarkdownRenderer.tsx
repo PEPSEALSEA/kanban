@@ -6,6 +6,7 @@ import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
+import CodeBlock from '@/components/CodeBlock';
 
 interface MarkdownRendererProps {
   content: string;
@@ -173,13 +174,39 @@ export default function MarkdownRenderer({ content, className }: MarkdownRendere
           ul: ({ node, ...props }) => <ul {...props} className="pl-5 mb-5 list-disc text-slate-600 font-medium space-y-2" />,
           ol: ({ node, ...props }) => <ol {...props} className="pl-5 mb-5 list-decimal text-slate-600 font-medium space-y-2" />,
           li: ({ node, ...props }) => <li {...props} className="pl-1" />,
-          // Code blocks
-          code: ({ node, ...props }) => (
-            <code {...props} className="bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded-md font-mono text-sm" />
-          ),
-          pre: ({ node, ...props }) => (
-            <pre {...props} className="bg-slate-50 border border-slate-100 rounded-2xl p-5 mb-6 overflow-x-auto" />
-          ),
+          pre: ({ children }) => {
+            const child = React.Children.only(children);
+            if (React.isValidElement<{ className?: string; children?: React.ReactNode }>(child)) {
+              const className = child.props.className || '';
+              const match = /language-([\w-]+)/.exec(className);
+              if (match) {
+                const code = String(child.props.children ?? '').replace(/\n$/, '');
+                return <CodeBlock language={match[1]} code={code} />;
+              }
+            }
+            return (
+              <pre className="code-block-gemini code-block-gemini--plain my-6 overflow-x-auto">
+                {children}
+              </pre>
+            );
+          },
+          code: ({ className, children, ...props }) => {
+            if (className?.startsWith('language-')) {
+              return (
+                <code className={className} {...props}>
+                  {children}
+                </code>
+              );
+            }
+            return (
+              <code
+                {...props}
+                className="bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded-md font-mono text-sm"
+              >
+                {children}
+              </code>
+            );
+          },
           // Blockquote
           blockquote: ({ node, ...props }) => (
             <blockquote {...props} className="border-l-4 border-sky-100 pl-5 italic mb-6 text-slate-500 bg-sky-50/30 py-4 pr-4 rounded-r-2xl" />
