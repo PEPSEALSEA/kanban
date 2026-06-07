@@ -21,12 +21,6 @@ const sanitizeSchema: Schema = {
   tagNames: [...(defaultSchema.tagNames ?? []), 'br'],
 };
 
-function looksLikeTableRow(line: string): boolean {
-  const trimmed = line.trim();
-  if (!trimmed.startsWith('|')) return false;
-  return (trimmed.match(/\|/g)?.length ?? 0) >= 2;
-}
-
 function looksLikeTableSeparator(line: string): boolean {
   return /^\|(\s*:?-+:?\s*\|)+\s*$/.test(line.trim());
 }
@@ -37,6 +31,14 @@ function isBrOnlyLine(line: string): boolean {
 
 function normalizeBrTags(text: string): string {
   return text.replace(/<\s*br\s*\/?>\s*/gi, '<br>');
+}
+
+function rowLooksComplete(row: string): boolean {
+  return row.trim().endsWith('|');
+}
+
+function countPipes(line: string): number {
+  return line.match(/\|/g)?.length ?? 0;
 }
 
 /**
@@ -72,7 +74,7 @@ function preprocessMarkdownTables(text: string): string {
     }
 
     const isSeparator = looksLikeTableSeparator(trimmed);
-    const isRow = looksLikeTableRow(trimmed);
+    const startsWithPipe = trimmed.startsWith('|');
 
     if (isSeparator) {
       flushRow();
@@ -82,7 +84,11 @@ function preprocessMarkdownTables(text: string): string {
     }
 
     if (inTable) {
-      if (isRow) {
+      const isNewRow =
+        startsWithPipe &&
+        (rowBuffer === null || rowLooksComplete(rowBuffer));
+
+      if (isNewRow) {
         flushRow();
         rowBuffer = raw;
         continue;
@@ -99,7 +105,7 @@ function preprocessMarkdownTables(text: string): string {
       continue;
     }
 
-    if (isRow && i + 1 < lines.length && looksLikeTableSeparator(lines[i + 1].trim())) {
+    if (startsWithPipe && countPipes(trimmed) >= 2 && i + 1 < lines.length && looksLikeTableSeparator(lines[i + 1].trim())) {
       flushRow();
       out.push(raw);
       continue;
