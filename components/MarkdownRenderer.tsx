@@ -341,10 +341,8 @@ export default function MarkdownRenderer({ content, className }: MarkdownRendere
             if (React.isValidElement<{ className?: string; children?: React.ReactNode }>(child)) {
               const className = child.props.className || '';
               const match = /language-([\w-]+)/.exec(className);
-              if (match) {
-                const code = String(child.props.children ?? '').replace(/\n$/, '');
-                return <CodeBlock language={match[1]} code={code} />;
-              }
+              const code = String(child.props.children ?? '').replace(/\n$/, '');
+              return <CodeBlock language={match?.[1] ?? 'text'} code={code} />;
             }
             return (
               <pre className="code-block-gemini code-block-gemini--plain my-6 overflow-x-auto">
@@ -363,7 +361,7 @@ export default function MarkdownRenderer({ content, className }: MarkdownRendere
             return (
               <code
                 {...props}
-                className="bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded-md font-mono text-sm"
+                className="markdown-inline-code bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded-md font-mono text-sm"
               >
                 {children}
               </code>

@@ -605,6 +605,18 @@ h4 {
   margin: 0 !important;
 }
 
+.code-block-gemini__plain-pre {
+  margin: 0;
+  padding: 1rem 1.25rem;
+  overflow-x: auto;
+  white-space: pre;
+  font-family: var(--font-roboto-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--code-text);
+  background: transparent;
+}
+
 .code-block-gemini--plain {
   background: var(--code-bg);
   color: var(--code-text);
@@ -613,6 +625,16 @@ h4 {
   font-family: var(--font-roboto-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.875rem;
   line-height: 1.6;
+}
+
+.code-block-gemini--plain code,
+.code-block-gemini__body code {
+  background: transparent !important;
+  color: inherit;
+  padding: 0;
+  border-radius: 0;
+  font-size: inherit;
+  white-space: pre;
 }
 
 .markdown-content .code-block-gemini {

@@ -188,9 +188,8 @@ interface CodeBlockProps {
 export default function CodeBlock({ code, language }: CodeBlockProps) {
   const [copied, setCopied] = useState(false);
   const label = formatLanguageLabel(language);
-  const normalizedLang = language.toLowerCase() === 'text' || language.toLowerCase() === 'txt' || language.toLowerCase() === 'plaintext'
-    ? 'text'
-    : language.toLowerCase();
+  const normalizedLang = language.toLowerCase();
+  const isPlainText = normalizedLang === 'text' || normalizedLang === 'txt' || normalizedLang === 'plaintext';
 
   const handleCopy = useCallback(async () => {
     try {
@@ -250,22 +249,28 @@ export default function CodeBlock({ code, language }: CodeBlockProps) {
         </div>
       </div>
       <div className="code-block-gemini__body">
-        <SyntaxHighlighter
-          language={normalizedLang}
-          style={GEMINI_STYLE}
-          customStyle={{
-            margin: 0,
-            padding: '1rem 1.25rem',
-            background: 'transparent',
-          }}
-          codeTagProps={{
-            style: {
-              fontFamily: "'Roboto Mono', 'Source Code Pro', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
-            },
-          }}
-        >
-          {code}
-        </SyntaxHighlighter>
+        {isPlainText ? (
+          <pre className="code-block-gemini__plain-pre">
+            <code>{code}</code>
+          </pre>
+        ) : (
+          <SyntaxHighlighter
+            language={normalizedLang}
+            style={GEMINI_STYLE}
+            customStyle={{
+              margin: 0,
+              padding: '1rem 1.25rem',
+              background: 'transparent',
+            }}
+            codeTagProps={{
+              style: {
+                fontFamily: "'Roboto Mono', 'Source Code Pro', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+              },
+            }}
+          >
+            {code}
+          </SyntaxHighlighter>
+        )}
       </div>
     </div>
   );
