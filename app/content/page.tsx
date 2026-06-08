@@ -52,7 +52,7 @@ export default function LearningContentPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSubject, setSelectedSubject] = useState('All');
   const [mounted, setMounted] = useState(false);
-  const { isMobile, isTablet, isDesktop } = useDeviceDetection();
+  const { isMobile } = useDeviceDetection();
 
   // --- HASH ROUTING ---
   const handleHashChange = useCallback(() => {
@@ -233,7 +233,7 @@ export default function LearningContentPage() {
       defaultWidth={view === 'detail' ? 896 : 1280}
       minWidth={view === 'detail' ? 400 : 480}
       maxWidth={view === 'detail' ? 1200 : 1600}
-      enabled={isDesktop}
+      enabled={!isMobile}
       className="p-4 md:p-10"
     >
       <AnimatePresence mode="wait">
