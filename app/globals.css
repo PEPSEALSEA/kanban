@@ -642,6 +642,14 @@ h4 {
   white-space: nowrap;
 }
 
+.markdown-content .markdown-table .katex {
+  font-size: 0.95em;
+}
+
+.markdown-content .markdown-table .katex-display {
+  margin: 0.25rem 0;
+}
+
 /* Markdown preview inside admin modals / archive */
 .admin-theme .markdown-content,
 .admin-theme .markdown-content p,

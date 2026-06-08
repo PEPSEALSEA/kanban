@@ -122,7 +122,43 @@ function preprocessMarkdownTables(text: string): string {
  * Pass 1: Standalone lines containing LaTeX or chemistry notations get wrapped in $$...$$
  * Pass 2: Inline notations get wrapped in $...$
  */
-const MATH_OR_CHEM_RE = /(?:\\(?:frac|left|right|sqrt|sum|prod|int|lim|dots|cdots|ldots|text|mathbb|mathcal|mathbf|mathrm|begin|end|over|under|hat|bar|vec|tilde|infty|alpha|beta|gamma|delta|epsilon|theta|lambda|mu|sigma|omega|pi|phi|psi|rho|tau|chi|nu|xi|zeta|eta|kappa|iota|partial|nabla|forall|exists|neq|notin|subset|supset|cup|cap|wedge|vee|neg|implies|iff|to|mapsto|circ|times|div|pm|mp|leq|geq|approx|equiv|sim|cong|propto|perp|parallel|angle|triangle|square|diamond|star|bullet|oplus|otimes|bigoplus|bigotimes|binom|choose|atop|cos|sin|tan|log|ln|exp|det|min|max|sup|limsup|liminf|rightarrow|leftarrow|leftrightarrow|Rightarrow|Leftarrow|Leftrightarrow|rightleftharpoons|rightharpoondown|rightharpoonup|leftharpoondown|leftharpoonup)(?![a-zA-Z]))|(?:[A-Z][a-z]?[\^_](?:\{[0-9+\-]+\}|[0-9+\-]))/;
+const MATH_OR_CHEM_RE = /(?:\\(?:frac|left|right|sqrt|sum|prod|int|lim|dots|cdots|ldots|text|mathbb|mathcal|mathbf|mathrm|begin|end|over|under|hat|bar|vec|tilde|infty|alpha|beta|gamma|delta|epsilon|theta|lambda|mu|sigma|omega|pi|phi|psi|rho|tau|chi|nu|xi|zeta|eta|kappa|iota|partial|nabla|forall|exists|neq|notin|subset|supset|cup|cap|wedge|vee|neg|implies|iff|to|mapsto|circ|cdot|times|div|pm|mp|leq|geq|approx|equiv|sim|cong|propto|perp|parallel|angle|triangle|square|diamond|star|bullet|oplus|otimes|bigoplus|bigotimes|binom|choose|atop|cos|sin|tan|log|ln|exp|det|min|max|sup|limsup|liminf|rightarrow|leftarrow|leftrightarrow|Rightarrow|Leftarrow|Leftrightarrow|rightleftharpoons|rightharpoondown|rightharpoonup|leftharpoondown|leftharpoonup)(?![a-zA-Z]))|(?:[A-Z][a-z]?[\^_](?:\{[0-9+\-]+\}|[0-9+\-]))/;
+
+function isTableLine(line: string): boolean {
+  const trimmed = line.trim();
+  return trimmed.startsWith('|') && !looksLikeTableSeparator(trimmed);
+}
+
+/**
+ * Wrap LaTeX inside each table cell independently so pipe delimiters
+ * don't break math detection (common in AI-generated formula tables).
+ */
+function preprocessTableCellMath(text: string): string {
+  if (!text || !text.includes('|')) return text;
+
+  return text.split('\n').map((line) => {
+    if (!isTableLine(line)) return line;
+
+    const parts = line.split('|');
+    return parts
+      .map((cell) => {
+        const trimmed = cell.trim();
+        if (!trimmed || /\$/.test(trimmed) || !MATH_OR_CHEM_RE.test(trimmed)) {
+          return cell;
+        }
+
+        const leading = cell.match(/^\s*/)?.[0] ?? '';
+        const trailing = cell.match(/\s*$/)?.[0] ?? '';
+
+        if (/^\\/.test(trimmed)) {
+          return `${leading}$${trimmed}$${trailing}`;
+        }
+
+        return leading + wrapInlineLatex(trimmed) + trailing;
+      })
+      .join('|');
+  }).join('\n');
+}
 
 function preprocessLatex(text: string): string {
   if (!text) return text;
@@ -132,6 +168,9 @@ function preprocessLatex(text: string): string {
     const trimmed = line.trim();
     // Skip empty lines or lines already containing $ delimiters
     if (!trimmed || /\$/.test(trimmed)) return line;
+
+    // Table rows are handled by preprocessTableCellMath
+    if (isTableLine(line)) return line;
     
     // Skip if it looks like Markdown formatting that would be broken by LaTeX wrapping
     // e.g. bold, italic, lists, headers, blockquotes
@@ -170,14 +209,27 @@ function preprocessLatex(text: string): string {
  */
 function wrapInlineLatex(text: string): string {
   if (!text) return text;
-  
+
+  const lines = text.split('\n');
+  if (lines.some(isTableLine)) {
+    return lines
+      .map((line) => (isTableLine(line) ? line : wrapInlineLatexSegment(line)))
+      .join('\n');
+  }
+
+  return wrapInlineLatexSegment(text);
+}
+
+function wrapInlineLatexSegment(text: string): string {
+  if (!text) return text;
+
   // Split by existing $ or $$ blocks to avoid double-wrapping
   const parts = text.split(/(\$\$?[\s\S]+?\$?\$)/g);
-  
+
   return parts.map((part, index) => {
     // index % 2 !== 0 means it's an existing $...$ or $$...$$ block
     if (index % 2 !== 0) return part;
-    
+
     let segment = part;
     const COMMAND_PATTERN = new RegExp(MATH_OR_CHEM_RE.source, 'g');
     const isMath = new Array(segment.length).fill(false);
@@ -255,8 +307,14 @@ function wrapInlineLatex(text: string): string {
   }).join('');
 }
 
+function preprocessContent(content: string): string {
+  const tablesFixed = preprocessMarkdownTables(content);
+  const latexFixed = preprocessLatex(tablesFixed);
+  return preprocessTableCellMath(latexFixed);
+}
+
 export default function MarkdownRenderer({ content, className }: MarkdownRendererProps) {
-  const processedContent = preprocessLatex(preprocessMarkdownTables(content));
+  const processedContent = preprocessContent(content);
 
   return (
     <div className={`markdown-content ${className || ''}`}>
