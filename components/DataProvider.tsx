@@ -52,6 +52,14 @@ type Subject = {
   color: string;
 };
 
+export type AnalyticsIpNoteRow = {
+  ip_address: string;
+  name: string;
+  note: string;
+  updated_at: string;
+  updated_by: string;
+};
+
 type DataContextType = {
   allHomework: Homework[];
   allUsers: UserInfo[];
@@ -59,6 +67,7 @@ type DataContextType = {
   learningContent: LearningContent[];
   subjects: Subject[];
   analytics: any[];
+  analyticsIpNotes: AnalyticsIpNoteRow[];
   audioPermissions: string[];
   canAccessAudio: boolean;
   user: UserInfo | null;
@@ -66,6 +75,7 @@ type DataContextType = {
   isLoading: boolean;
   isSyncing: boolean;
   refreshData: () => Promise<void>;
+  saveAnalyticsIpNote: (ip: string, name: string, note: string) => Promise<void>;
   logEvent: (eventType: string, extraData?: {
     page_visited?: string;
     content_id?: string;
@@ -84,6 +94,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [learningContent, setLearningContent] = useState<LearningContent[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [analytics, setAnalytics] = useState<any[]>([]);
+  const [analyticsIpNotes, setAnalyticsIpNotes] = useState<AnalyticsIpNoteRow[]>([]);
   const [audioPermissions, setAudioPermissions] = useState<string[]>([]);
   const [user, setUser] = useState<UserInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -108,6 +119,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         setLearningContent(parsed.learningContent || []);
         setSubjects(parsed.subjects || []);
         setAnalytics((parsed.analytics || []).filter((a: { email?: string }) => !isAdminEmail(a.email)));
+        setAnalyticsIpNotes(parsed.analyticsIpNotes || []);
         setAudioPermissions(parsed.audioPermissions || []);
         setIsLoading(false); // We have cached data, so we can hide initial loader early
       } catch (e) {
@@ -134,6 +146,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         setLearningContent(payload.learningContent || []);
         setSubjects(payload.subjects || []);
         setAnalytics((payload.analytics || []).filter((a: { email?: string }) => !isAdminEmail(a.email)));
+        setAnalyticsIpNotes(payload.analyticsIpNotes || []);
         setAudioPermissions(payload.audioPermissions || []);
         
         // Update cache
@@ -149,6 +162,67 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setIsSyncing(false);
     }
   }, []);
+
+  const saveAnalyticsIpNote = useCallback(async (ip: string, name: string, note: string) => {
+    const adminEmail =
+      user?.email ||
+      (typeof window !== 'undefined' && localStorage.getItem('homework_user')
+        ? JSON.parse(localStorage.getItem('homework_user')!).email
+        : '');
+    if (!isAdminEmail(adminEmail)) {
+      throw new Error('Admin access required');
+    }
+
+    const res = await fetch(GAS_WEB_APP_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'saveAnalyticsIpNote',
+        admin_email: adminEmail,
+        ip_address: ip,
+        name,
+        note,
+      }),
+    });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || 'Failed to save IP note');
+
+    const saved = data.data as AnalyticsIpNoteRow & { deleted?: boolean };
+    setAnalyticsIpNotes((prev) => {
+      const next = prev.filter((row) => row.ip_address !== ip);
+      if (!saved?.deleted && saved?.ip_address) {
+        next.push({
+          ip_address: saved.ip_address,
+          name: saved.name || '',
+          note: saved.note || '',
+          updated_at: saved.updated_at || new Date().toISOString(),
+          updated_by: saved.updated_by || adminEmail,
+        });
+      }
+      return next;
+    });
+
+    const cached = localStorage.getItem('studyflow_cache');
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        const rows = (parsed.analyticsIpNotes || []).filter((row: AnalyticsIpNoteRow) => row.ip_address !== ip);
+        if (!saved?.deleted && saved?.ip_address) {
+          rows.push({
+            ip_address: saved.ip_address,
+            name: saved.name || '',
+            note: saved.note || '',
+            updated_at: saved.updated_at || new Date().toISOString(),
+            updated_by: saved.updated_by || adminEmail,
+          });
+        }
+        parsed.analyticsIpNotes = rows;
+        localStorage.setItem('studyflow_cache', JSON.stringify(parsed));
+      } catch {
+        // ignore cache update errors
+      }
+    }
+  }, [user]);
 
   const logEvent = useCallback((eventType: string, extraData?: {
     page_visited?: string;
@@ -236,6 +310,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       learningContent,
       subjects,
       analytics,
+      analyticsIpNotes,
       audioPermissions,
       canAccessAudio: userCanAccessAudio,
       user,
@@ -243,6 +318,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       isLoading,
       isSyncing,
       refreshData,
+      saveAnalyticsIpNote,
       logEvent,
       error
     }}>

@@ -36,6 +36,7 @@ const SHEETS = {
   LEARNING_CONTENT: "LearningContent",
   SUBJECTS: "Subjects",
   ANALYTICS: "Analytics",
+  ANALYTICS_IP_NOTES: "AnalyticsIpNotes",
   AUDIO_PERMISSIONS: "AudioPermissions",
 };
 
@@ -48,10 +49,12 @@ const EXPECTED_HEADERS = {
   [SHEETS.COMMENTS]: ["homework_id", "owner_email", "commenter_email", "text", "created_at"],
   [SHEETS.URLS]: ["id", "filename", "contentType", "url", "created_at", "uploader", "fileId"],
   [SHEETS.ANALYTICS]: ["id", "event_type", "device_name", "browser", "ip_address", "email", "created_at", "page_visited", "content_id", "fingerprint", "session_id", "metadata"],
+  [SHEETS.ANALYTICS_IP_NOTES]: ["ip_address", "name", "note", "updated_at", "updated_by"],
   [SHEETS.AUDIO_PERMISSIONS]: ["email", "note", "created_at"]
 };
 
 const ANALYTICS_COLUMNS = EXPECTED_HEADERS[SHEETS.ANALYTICS];
+const ANALYTICS_IP_NOTES_COLUMNS = EXPECTED_HEADERS[SHEETS.ANALYTICS_IP_NOTES];
 
 
 // --- AUTH & API HELPERS ---
@@ -212,6 +215,50 @@ async function getAudioPermissions(env: Bindings) {
     console.warn("AudioPermissions sheet may not exist yet", e);
     return [];
   }
+}
+
+async function getAnalyticsIpNotes(env: Bindings) {
+  try {
+    const endCol = String.fromCharCode(64 + ANALYTICS_IP_NOTES_COLUMNS.length);
+    const rows = await getSheetValues(env, `${SHEETS.ANALYTICS_IP_NOTES}!A2:${endCol}`);
+    return toObjects(rows, ANALYTICS_IP_NOTES_COLUMNS);
+  } catch (e) {
+    console.warn("AnalyticsIpNotes sheet may not exist yet", e);
+    return [];
+  }
+}
+
+async function saveAnalyticsIpNote(env: Bindings, data: any) {
+  const adminEmail = data.admin_email || data.email;
+  if (!isAdminEmail(adminEmail)) {
+    throw new Error("Admin access required");
+  }
+
+  const ip = String(data.ip_address || "").trim();
+  if (!ip) throw new Error("ip_address is required");
+
+  const name = String(data.name || "").trim();
+  const note = String(data.note || "").trim();
+  const now = new Date().toISOString();
+  const endCol = String.fromCharCode(64 + ANALYTICS_IP_NOTES_COLUMNS.length);
+  const rowIndex = await findRowIndexById(env, SHEETS.ANALYTICS_IP_NOTES, ip);
+
+  if (!name && !note) {
+    if (rowIndex > 0) {
+      await deleteRowById(env, SHEETS.ANALYTICS_IP_NOTES, ip);
+    }
+    return { deleted: true, ip_address: ip };
+  }
+
+  const row = [ip, name, note, now, adminEmail];
+  if (rowIndex > 0) {
+    const rowNum = rowIndex + 1;
+    await updateSheetRow(env, `${SHEETS.ANALYTICS_IP_NOTES}!A${rowNum}:${endCol}${rowNum}`, row);
+  } else {
+    await appendSheetRow(env, `${SHEETS.ANALYTICS_IP_NOTES}!A:${endCol}`, row);
+  }
+
+  return { ip_address: ip, name, note, updated_at: now, updated_by: adminEmail };
 }
 
 async function getAnalytics(env: Bindings) {
@@ -684,6 +731,7 @@ app.get('/', async (c) => {
           learningContent: await getLearningContent(c.env), 
           subjects: await getSubjects(c.env),
           analytics: await getAnalytics(c.env),
+          analyticsIpNotes: await getAnalyticsIpNotes(c.env),
           audioPermissions: await getAudioPermissions(c.env),
         };
         break;
@@ -709,6 +757,7 @@ app.post('/', async (c) => {
     let result: any;
     switch (action) {
       case "logAnalytics": result = await logAnalytics(c.env, body, c.req); break;
+      case "saveAnalyticsIpNote": result = await saveAnalyticsIpNote(c.env, body); break;
       case "addHomework": result = await addHomework(c.env, body); break;
       case "editHomework": result = await editHomework(c.env, body); break;
       case "deleteHomework": result = await deleteRowById(c.env, SHEETS.HOMEWORK, getVal('id')); break;
