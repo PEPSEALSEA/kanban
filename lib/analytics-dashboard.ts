@@ -9,7 +9,7 @@ export type AnalyticsRow = AnalyticsEvent & {
   fingerprint?: string;
 };
 
-export type DateRangeDays = 7 | 30 | 'month';
+export type DateRangeDays = 'today' | 7 | 30 | 'month';
 
 const SKIP = new Set(['heartbeat', 'session_start']);
 const ONLINE_THRESHOLD_MS = 10 * 60 * 1000;
@@ -49,6 +49,9 @@ export function isToday(iso: string): boolean {
 
 export function isInRange(iso: string, range: DateRangeDays): boolean {
   const t = new Date(iso).getTime();
+  if (range === 'today') {
+    return t >= startOfToday().getTime();
+  }
   if (range === 'month') {
     const start = new Date();
     start.setDate(1);
@@ -134,6 +137,15 @@ export function buildVisitsByDay(rows: AnalyticsRow[], range: DateRangeDays): Da
   const result: DayCount[] = [];
   const now = new Date();
 
+  if (range === 'today') {
+    const key = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    return [{
+      key,
+      label: 'วันนี้',
+      count: map.get(key) || 0,
+    }];
+  }
+
   if (range === 'month') {
     const start = new Date(now.getFullYear(), now.getMonth(), 1);
     const end = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -191,6 +203,17 @@ export function buildPeakHours(rows: AnalyticsRow[]): HourCount[] {
     label: `${String(hour).padStart(2, '0')}:00`,
     count: map.get(hour) || 0,
   }));
+}
+
+export function buildVisitsByHourToday(rows: AnalyticsRow[]): HourCount[] {
+  return buildPeakHours(rows.filter((r) => isToday(r.created_at)));
+}
+
+export function getRangeLabel(range: DateRangeDays): string {
+  if (range === 'today') return 'วันนี้';
+  if (range === 7) return '7 วัน';
+  if (range === 30) return '30 วัน';
+  return 'เดือนนี้';
 }
 
 export function buildTopContent(

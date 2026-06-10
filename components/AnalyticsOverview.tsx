@@ -1,10 +1,12 @@
 'use client';
 
 import React, { useMemo } from 'react';
+import Link from 'next/link';
 import { formatDuration } from '@/lib/analytics-ip';
 import {
   buildTodaySummary,
   buildVisitsByDay,
+  buildVisitsByHourToday,
   buildTopPages,
   buildPeakHours,
   buildTopContent,
@@ -12,6 +14,7 @@ import {
   buildFunnel,
   buildLiveFeed,
   buildDeviceBreakdown,
+  getRangeLabel,
   type AnalyticsRow,
   type DateRangeDays,
 } from '@/lib/analytics-dashboard';
@@ -102,6 +105,57 @@ function HBarList({ items }: { items: { label: string; count: number; color: str
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+function TopContentList({ items }: { items: { id: string; title: string; count: number }[] }) {
+  const max = Math.max(...items.map((i) => i.count), 1);
+  if (items.length === 0) {
+    return <p style={{ fontSize: '0.8rem', color: 'var(--admin-text-muted)', margin: 0 }}>ยังไม่มีข้อมูล</p>;
+  }
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+      {items.map((item) => {
+        const displayTitle = item.title.length > 48 ? `${item.title.slice(0, 48)}…` : item.title;
+        return (
+          <div key={item.id}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem', marginBottom: '0.25rem', fontSize: '0.78rem' }}>
+              <Link
+                href={`/content#/view?id=${encodeURIComponent(item.id)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={item.title}
+                style={{
+                  fontWeight: 600,
+                  color: '#6ee7b7',
+                  textDecoration: 'none',
+                  flex: 1,
+                  minWidth: 0,
+                  lineHeight: 1.35,
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.textDecoration = 'none'; }}
+              >
+                {displayTitle}
+              </Link>
+              <span style={{ color: 'var(--admin-text-muted)', fontWeight: 700, flexShrink: 0 }}>{item.count}</span>
+            </div>
+            <div style={{ height: '8px', background: 'rgba(255,255,255,0.06)', borderRadius: '4px', overflow: 'hidden' }}>
+              <div
+                style={{
+                  height: '100%',
+                  width: `${(item.count / max) * 100}%`,
+                  background: '#10b981',
+                  borderRadius: '4px',
+                  minWidth: item.count > 0 ? '4px' : 0,
+                }}
+              />
+            </div>
+            <div style={{ fontSize: '0.65rem', color: 'var(--admin-text-muted)', marginTop: '0.2rem' }}>{item.id}</div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -210,6 +264,7 @@ export default function AnalyticsOverview({
 }: AnalyticsOverviewProps) {
   const today = useMemo(() => buildTodaySummary(analytics), [analytics]);
   const visitsByDay = useMemo(() => buildVisitsByDay(analytics, range), [analytics, range]);
+  const visitsByHourToday = useMemo(() => buildVisitsByHourToday(analytics), [analytics]);
   const topPages = useMemo(() => buildTopPages(filtered), [filtered]);
   const peakHours = useMemo(() => buildPeakHours(filtered), [filtered]);
   const topContent = useMemo(() => buildTopContent(filtered, contentTitles), [filtered, contentTitles]);
@@ -218,7 +273,10 @@ export default function AnalyticsOverview({
   const liveFeed = useMemo(() => buildLiveFeed(analytics, 15), [analytics]);
   const devices = useMemo(() => buildDeviceBreakdown(filtered), [filtered]);
 
-  const rangeLabel = range === 7 ? '7 วัน' : range === 30 ? '30 วัน' : 'เดือนนี้';
+  const rangeLabel = getRangeLabel(range);
+  const visitChartData = range === 'today'
+    ? visitsByHourToday.filter((h) => h.hour % 2 === 0)
+    : visitsByDay;
 
   return (
     <div style={{ marginBottom: '2rem' }}>
@@ -258,8 +316,8 @@ export default function AnalyticsOverview({
         }}
       >
         <div className="admin-card">
-          <SectionTitle>เข้าเว็บรายวัน ({rangeLabel})</SectionTitle>
-          <BarChart data={visitsByDay} />
+          <SectionTitle>{range === 'today' ? 'เข้าเว็บรายชั่วโมง (วันนี้)' : `เข้าเว็บรายวัน (${rangeLabel})`}</SectionTitle>
+          <BarChart data={visitChartData} />
         </div>
         <div className="admin-card">
           <SectionTitle>Top Pages ({rangeLabel})</SectionTitle>
@@ -302,13 +360,7 @@ export default function AnalyticsOverview({
       >
         <div className="admin-card">
           <SectionTitle>Top เนื้อหา ({rangeLabel})</SectionTitle>
-          <HBarList
-            items={topContent.map((c) => ({
-              label: c.title.length > 40 ? `${c.title.slice(0, 40)}…` : c.title,
-              count: c.count,
-              color: '#10b981',
-            }))}
-          />
+          <TopContentList items={topContent} />
         </div>
         <div className="admin-card">
           <SectionTitle>Top การบ้าน ({rangeLabel})</SectionTitle>

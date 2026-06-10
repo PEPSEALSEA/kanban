@@ -464,6 +464,7 @@ export default function AdminAnalyticsPanel({ analytics }: { analytics: Analytic
   const selected = ipGroups.find((g) => g.ip === selectedIp);
 
   const rangeOptions: { value: DateRangeDays; label: string }[] = [
+    { value: 'today', label: 'วันนี้' },
     { value: 7, label: '7 วัน' },
     { value: 30, label: '30 วัน' },
     { value: 'month', label: 'เดือนนี้' },
