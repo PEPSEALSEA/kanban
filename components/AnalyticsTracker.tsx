@@ -6,7 +6,6 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { getOrCreateSessionId, getSessionDurationSec } from '@/lib/analytics';
 
 const SCROLL_MILESTONES = [25, 50, 75, 100];
-const HEARTBEAT_MS = 90_000;
 const SCROLL_THROTTLE_MS = 2500;
 
 function AnalyticsTrackerInner() {
@@ -100,14 +99,6 @@ function AnalyticsTrackerInner() {
 
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
-  }, [pathname, logEvent]);
-
-  // Heartbeat for last-online
-  useEffect(() => {
-    const id = setInterval(() => {
-      send('heartbeat', { duration_so_far_sec: getSessionDurationSec() });
-    }, HEARTBEAT_MS);
-    return () => clearInterval(id);
   }, [pathname, logEvent]);
 
   // Session end when closing tab (duration + max read depth)

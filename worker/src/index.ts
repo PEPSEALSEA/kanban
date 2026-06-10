@@ -593,6 +593,10 @@ async function logAnalytics(env: Bindings, data: any, req: any) {
     return { skipped: true, reason: "admin" };
   }
 
+  if (data.event_type === "heartbeat") {
+    return { skipped: true, reason: "heartbeat_disabled" };
+  }
+
   const id = Date.now().toString() + Math.floor(Math.random() * 1000);
   const ipAddress = req.header('cf-connecting-ip') || req.header('x-forwarded-for') || "unknown";
   
