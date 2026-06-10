@@ -411,18 +411,19 @@ export default function LearningContentPage() {
                   exit={{ opacity: 0, y: -8 }}
                   transition={{ duration: 0.2 }}
                 >
-                  <div className="flex justify-between items-center mb-6 px-1">
-                    <h2 className="text-lg font-bold text-slate-800 uppercase tracking-wider">Search Results ({searchResults.length})</h2>
-                    <button onClick={() => { setSearchTerm(''); setSelectedSubject('All'); }} className="text-xs font-bold text-sky-600 hover:text-sky-700">CLEAR FILTERS</button>
-                  </div>
+                  <div className="neo-card p-6 md:p-8">
+                    <div className="flex justify-between items-center mb-6">
+                      <h2 className="text-lg font-bold text-slate-800 uppercase tracking-wider">Search Results ({searchResults.length})</h2>
+                      <button onClick={() => { setSearchTerm(''); setSelectedSubject('All'); }} className="text-xs font-bold text-sky-600 hover:text-sky-700">CLEAR FILTERS</button>
+                    </div>
 
-                  <div className="flex flex-col gap-4 max-h-[calc(100vh-20rem)] overflow-y-auto pr-2">
+                    <div className="space-y-3 max-h-[calc(100vh-22rem)] overflow-y-auto pr-1 -mr-1">
                     {searchResults.length > 0 ? (
                       searchResults.map((c: LearningContent, idx) => (
                         <motion.button
                           key={c.id}
                           onClick={() => { window.location.hash = `#/view?id=${c.id}`; setSearchTerm(''); setSelectedSubject('All'); }}
-                          className="card w-full p-6 text-left flex items-center gap-6 group"
+                          className="card w-full p-5 md:p-6 text-left flex items-center gap-4 md:gap-6 group shrink-0"
                           initial={{ opacity: 0, y: 12 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: idx * 0.04, duration: 0.25 }}
@@ -435,13 +436,13 @@ export default function LearningContentPage() {
                           >
                             {c.subject.charAt(0)}
                           </div>
-                          <div className="flex-1">
-                            <div className="flex gap-2 items-center mb-1">
-                              <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md">{c.id}</span>
-                              <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: dynamicSubjectColors[c.subject] || dynamicSubjectColors['Other'] }}>{c.subject}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-wrap gap-2 items-center mb-1.5">
+                              <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md shrink-0">{c.id}</span>
+                              <span className="text-[10px] font-bold uppercase tracking-wider shrink-0" style={{ color: dynamicSubjectColors[c.subject] || dynamicSubjectColors['Other'] }}>{c.subject}</span>
                             </div>
-                            <div className="text-lg font-semibold text-slate-800 leading-tight">{c.title}</div>
-                            <div className="text-[11px] font-medium text-slate-400 mt-1">{new Date(c.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+                            <div className="text-base md:text-lg font-semibold text-slate-800 leading-snug">{c.title}</div>
+                            <div className="text-[11px] font-medium text-slate-400 mt-1.5">{new Date(c.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
                           </div>
                           <span className="text-slate-300 group-hover:text-sky-500 transition-colors">→</span>
                         </motion.button>
@@ -457,6 +458,7 @@ export default function LearningContentPage() {
                         <div className="text-xl font-black uppercase">ไม่พบข้อมูลที่ตรงกับการค้นหา</div>
                       </motion.div>
                     )}
+                    </div>
                   </div>
                 </motion.div>
               ) : (
