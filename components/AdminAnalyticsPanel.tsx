@@ -11,6 +11,14 @@ import {
   EVENT_COLORS,
   type IpNote,
 } from '@/lib/analytics-ip';
+import {
+  filterAnalytics,
+  getLastPageLabel,
+  isLikelyOnline,
+  type DateRangeDays,
+  type AnalyticsRow as DashboardRow,
+} from '@/lib/analytics-dashboard';
+import AnalyticsOverview from '@/components/AnalyticsOverview';
 
 export type AnalyticsRow = {
   id: string;
@@ -34,6 +42,8 @@ type IpGroup = {
   browser: string;
   lastSeen: string;
   firstSeen: string;
+  lastPage: string;
+  likelyOnline: boolean;
   eventCount: number;
   totalDurationSec: number;
   maxScrollPercent: number;
@@ -57,6 +67,8 @@ function buildIpGroups(rows: AnalyticsRow[]): IpGroup[] {
         browser: row.browser || '',
         lastSeen: row.created_at,
         firstSeen: row.created_at,
+        lastPage: '—',
+        likelyOnline: false,
         eventCount: 0,
         totalDurationSec: 0,
         maxScrollPercent: 0,
@@ -90,6 +102,8 @@ function buildIpGroups(rows: AnalyticsRow[]): IpGroup[] {
 
   for (const g of map.values()) {
     g.events.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    g.lastPage = getLastPageLabel(g.events);
+    g.likelyOnline = isLikelyOnline(g.lastSeen);
   }
 
   return Array.from(map.values()).sort(
@@ -427,44 +441,73 @@ const saveBtnStyle: React.CSSProperties = {
 };
 
 export default function AdminAnalyticsPanel({ analytics }: { analytics: AnalyticsRow[] }) {
-  const { analyticsIpNotes, saveAnalyticsIpNote } = useData();
+  const { analyticsIpNotes, saveAnalyticsIpNote, learningContent, allHomework } = useData();
   const [selectedIp, setSelectedIp] = useState<string | null>(null);
+  const [range, setRange] = useState<DateRangeDays>(7);
 
   const ipNotes = useMemo(() => ipNotesToMap(analyticsIpNotes), [analyticsIpNotes]);
+  const filtered = useMemo(() => filterAnalytics(analytics as DashboardRow[], range), [analytics, range]);
+
+  const contentTitles = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const c of learningContent) map[c.id] = c.title;
+    return map;
+  }, [learningContent]);
+
+  const homeworkTitles = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const h of allHomework) map[h.id] = h.title;
+    return map;
+  }, [allHomework]);
 
   const ipGroups = useMemo(() => buildIpGroups(analytics), [analytics]);
   const selected = ipGroups.find((g) => g.ip === selectedIp);
 
-  const totals = useMemo(
-    () => ({
-      visits: analytics.filter((a) => a.event_type === 'visit').length,
-      content: analytics.filter((a) => a.event_type === 'check_content').length,
-      images: analytics.filter((a) => a.event_type === 'view_image').length,
-      sessions: analytics.filter((a) => a.event_type === 'session_end').length,
-    }),
-    [analytics]
-  );
+  const rangeOptions: { value: DateRangeDays; label: string }[] = [
+    { value: 7, label: '7 วัน' },
+    { value: 30, label: '30 วัน' },
+    { value: 'month', label: 'เดือนนี้' },
+  ];
 
   return (
     <div>
-      <div className="metric-grid" style={{ marginBottom: '2rem' }}>
-        <div className="admin-card" style={{ borderLeft: '4px solid #2563eb' }}>
-          <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--admin-text-muted)', marginBottom: '0.5rem' }}>เข้าหน้าเว็บ</p>
-          <h2 style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--admin-text-main)' }}>{totals.visits}</h2>
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', marginBottom: '1.25rem' }}>
+        <div>
+          <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--admin-text-main)', margin: 0 }}>Analytics Overview</h2>
+          <p style={{ fontSize: '0.8rem', color: 'var(--admin-text-muted)', marginTop: '0.35rem' }}>
+            สรุปการใช้งาน · กราฟ · live feed
+          </p>
         </div>
-        <div className="admin-card" style={{ borderLeft: '4px solid #10b981' }}>
-          <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--admin-text-muted)', marginBottom: '0.5rem' }}>เปิดเนื้อหา</p>
-          <h2 style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--admin-text-main)' }}>{totals.content}</h2>
-        </div>
-        <div className="admin-card" style={{ borderLeft: '4px solid #f59e0b' }}>
-          <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--admin-text-muted)', marginBottom: '0.5rem' }}>เปิดดูรูป</p>
-          <h2 style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--admin-text-main)' }}>{totals.images}</h2>
-        </div>
-        <div className="admin-card" style={{ borderLeft: '4px solid #8b5cf6' }}>
-          <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--admin-text-muted)', marginBottom: '0.5rem' }}>เซสชันจบ (มีเวลาอยู่)</p>
-          <h2 style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--admin-text-main)' }}>{totals.sessions}</h2>
+        <div style={{ display: 'flex', gap: '0.35rem', background: 'var(--admin-bg-soft)', padding: '0.25rem', borderRadius: '0.6rem', border: '1px solid var(--admin-border)' }}>
+          {rangeOptions.map((opt) => (
+            <button
+              key={String(opt.value)}
+              type="button"
+              onClick={() => setRange(opt.value)}
+              style={{
+                padding: '0.4rem 0.85rem',
+                borderRadius: '0.45rem',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '0.78rem',
+                fontWeight: 700,
+                background: range === opt.value ? 'var(--admin-primary)' : 'transparent',
+                color: range === opt.value ? '#fff' : 'var(--admin-text-muted)',
+              }}
+            >
+              {opt.label}
+            </button>
+          ))}
         </div>
       </div>
+
+      <AnalyticsOverview
+        analytics={analytics as DashboardRow[]}
+        filtered={filtered}
+        range={range}
+        contentTitles={contentTitles}
+        homeworkTitles={homeworkTitles}
+      />
 
       <div className="admin-card" style={{ marginBottom: '1.5rem' }}>
         <h2 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '0.5rem', color: 'var(--admin-text-main)' }}>
@@ -515,6 +558,14 @@ export default function AdminAnalyticsPanel({ analytics }: { analytics: Analytic
                   </div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--admin-text-muted)', marginTop: '0.2rem' }}>
                     {g.email || 'ไม่ได้ล็อกอิน'} · {g.device} · {g.browser}
+                  </div>
+                  <div style={{ fontSize: '0.72rem', marginTop: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                    <span style={{ color: 'var(--admin-text-main)', fontWeight: 600 }}>Last page: {g.lastPage}</span>
+                    {g.likelyOnline && (
+                      <span style={{ fontSize: '0.65rem', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: 'rgba(16,185,129,0.15)', color: '#10b981' }}>
+                        อาจยังออนไลน์
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>

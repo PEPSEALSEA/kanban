@@ -64,7 +64,7 @@ export default function LearningContentPage() {
         const found = learningContent.find((c: LearningContent) => c.id === id);
         if (found) {
           setActiveContent(found);
-          logEvent('check_content');
+          logEvent('check_content', { content_id: id });
           setView('detail');
           return;
         }

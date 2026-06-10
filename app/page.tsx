@@ -108,7 +108,7 @@ export default function StudyFlow() {
 
   const openHomework = useCallback((hw: Homework) => {
     setActiveHomework(hw);
-    logEvent('do_work');
+    logEvent('do_work', { content_id: hw.id });
     window.location.hash = `#/view?id=${hw.id}`;
   }, [logEvent]);
 
