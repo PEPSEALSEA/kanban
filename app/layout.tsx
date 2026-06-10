@@ -19,9 +19,25 @@ const robotoMono = Roboto_Mono({
   variable: "--font-roboto-mono",
 });
 
+const BASE_PATH = '/kanban';
+
 export const metadata: Metadata = {
   title: "StudyFlow - Homework Sorter",
   description: "Organize your workflow with style.",
+  applicationName: "StudyFlow",
+  appleWebApp: {
+    capable: true,
+    title: "StudyFlow",
+    statusBarStyle: "default",
+  },
+  icons: {
+    icon: [{ url: `${BASE_PATH}/icon.png`, type: 'image/png' }],
+    apple: [{ url: `${BASE_PATH}/apple-icon.png`, type: 'image/png', sizes: '180x180' }],
+  },
+};
+
+export const viewport = {
+  themeColor: '#bae6fd',
 };
 
 export default function RootLayout({
