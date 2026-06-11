@@ -441,6 +441,20 @@ async function generateDailySummary(env: Bindings, targetDate?: string) {
     message += "\n> (AI สรุปเนื้อหา แต่มีรูปเนื้อหาและไฟล์เสียงในห้องนะ)\n";
   }
 
+  const todayHomework = homework.filter(hw => {
+    if (!hw.created_at) return false;
+    const created = new Date(hw.created_at);
+    if (isNaN(created.getTime())) return false;
+    return getMidnightGMT7(created).getTime() === gmt7Now.getTime();
+  }).sort(sortHomeworkByDeadline);
+
+  if (todayHomework.length > 0) {
+    message += "\n## การบ้านวันนี้\n";
+    todayHomework.forEach(hw => {
+      message += homeworkSummaryLine(hw, hw.note ? ` ${hw.note}` : "");
+    });
+  }
+
   const upcoming = homework.filter(hw => {
     if (!hw.deadline) return false;
     const d = new Date(hw.deadline);
@@ -457,7 +471,7 @@ async function generateDailySummary(env: Bindings, targetDate?: string) {
   });
 
   for (const key in grouped) {
-    message += `\n${key}\n`;
+    message += `${key}\n`;
     grouped[key].forEach(hw => {
       message += homeworkSummaryLine(hw, hw.note ? ` ${hw.note}` : "");
     });
@@ -469,7 +483,7 @@ async function generateDailySummary(env: Bindings, targetDate?: string) {
   }).sort(sortHomeworkByDeadline);
 
   if (longTerm.length > 0) {
-    message += "\n## งานดองเค็ม\n";
+    message += "## งานดองเค็ม\n";
     longTerm.forEach(hw => {
       let dateSuffix = "";
       if (hw.deadline) {

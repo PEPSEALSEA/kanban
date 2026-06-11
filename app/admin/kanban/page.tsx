@@ -10,6 +10,9 @@ export default function KanbanEditor() {
   const [editingHomework, setEditingHomework] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [isSendingSummary, setIsSendingSummary] = useState(false);
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
+  const [summaryPreview, setSummaryPreview] = useState<string | null>(null);
+  const [summaryPreviewError, setSummaryPreviewError] = useState<string | null>(null);
   const [summaryLogs, setSummaryLogs] = useState<string | null>(null);
   const [summaryDate, setSummaryDate] = useState(() => {
     const d = new Date();
@@ -45,14 +48,37 @@ export default function KanbanEditor() {
     return tasks;
   }, [allHomework, searchTerm]);
 
-  const handleSendSummary = async () => {
-    if (!confirm('Are you sure you want to send the daily summary to Discord now?')) return;
-
-    setIsSendingSummary(true);
-    setSummaryLogs('Sending...');
+  const handleOpenSummaryPreview = async () => {
+    setIsLoadingPreview(true);
+    setSummaryPreviewError(null);
 
     try {
-      // We use a POST request with the action parameter
+      const response = await fetch(`${GAS_WEB_APP_URL}?action=dailySummary&date=${summaryDate}`);
+      const data = (await response.json()) as any;
+      if (data.success) {
+        const text = data.summary ?? data.data?.summary ?? '';
+        if (!text) {
+          setSummaryPreviewError('Preview is empty.');
+          return;
+        }
+        setSummaryPreview(text);
+      } else {
+        setSummaryPreviewError(data.error || 'Failed to load preview.');
+      }
+    } catch (e: any) {
+      console.error(e);
+      setSummaryPreviewError(e.message || 'Failed to load preview.');
+    } finally {
+      setIsLoadingPreview(false);
+    }
+  };
+
+  const handleConfirmSendSummary = async () => {
+    setIsSendingSummary(true);
+    setSummaryLogs('Sending...');
+    setSummaryPreview(null);
+
+    try {
       const response = await fetch(`${GAS_WEB_APP_URL}?action=sendSummary&date=${summaryDate}`, {
         method: 'POST',
       });
@@ -97,29 +123,121 @@ export default function KanbanEditor() {
               />
             </div>
             <button
-              onClick={handleSendSummary}
-              disabled={isSendingSummary}
+              onClick={handleOpenSummaryPreview}
+              disabled={isSendingSummary || isLoadingPreview}
               style={{
-                background: '#5865F2', // Discord color
+                background: '#5865F2',
                 color: 'white',
                 border: 'none',
                 padding: '10px 20px',
                 borderRadius: '0.75rem',
-                cursor: isSendingSummary ? 'not-allowed' : 'pointer',
+                cursor: isSendingSummary || isLoadingPreview ? 'not-allowed' : 'pointer',
                 fontWeight: 700,
                 fontSize: '0.9rem',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
-                opacity: isSendingSummary ? 0.7 : 1,
+                opacity: isSendingSummary || isLoadingPreview ? 0.7 : 1,
                 transition: 'all 0.2s ease'
               }}
             >
-              {isSendingSummary ? '⌛ Sending...' : '📢 Send Daily Summary to Discord'}
+              {isLoadingPreview ? '⌛ Loading preview...' : isSendingSummary ? '⌛ Sending...' : '📢 Send Daily Summary to Discord'}
             </button>
           </div>
         </div>
       </header>
+
+      {(summaryPreview || summaryPreviewError) && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div className="admin-card" style={{ width: '100%', maxWidth: '720px', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--admin-border)', paddingBottom: '1rem' }}>
+              <div>
+                <h2 style={{ fontSize: '1.25rem', color: 'var(--admin-text-main)', margin: 0 }}>Daily Summary Preview</h2>
+                <p style={{ margin: '0.35rem 0 0', fontSize: '0.85rem', color: 'var(--admin-text-muted)' }}>
+                  Target date: {summaryDate} — ข้อความนี้จะถูกส่งไป Discord
+                </p>
+              </div>
+              <button
+                onClick={() => { setSummaryPreview(null); setSummaryPreviewError(null); }}
+                style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: 'var(--admin-text-muted)' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {summaryPreviewError ? (
+              <p style={{ color: '#f87171', margin: 0 }}>{summaryPreviewError}</p>
+            ) : (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--admin-text-muted)', fontWeight: 600 }}>
+                    {summaryPreview!.length} characters
+                    {summaryPreview!.length > 2000 && (
+                      <span style={{ color: '#fbbf24', marginLeft: '0.5rem' }}>
+                        (Discord limit is 2000 — may be truncated)
+                      </span>
+                    )}
+                  </span>
+                </div>
+                <pre style={{
+                  flex: 1,
+                  background: '#0f172a',
+                  color: '#e2e8f0',
+                  padding: '1.25rem',
+                  borderRadius: '0.5rem',
+                  fontSize: '0.85rem',
+                  overflow: 'auto',
+                  maxHeight: '50vh',
+                  fontFamily: 'monospace',
+                  whiteSpace: 'pre-wrap',
+                  margin: 0,
+                  border: '1px solid var(--admin-border)'
+                }}>
+                  {summaryPreview}
+                </pre>
+              </>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid var(--admin-border)' }}>
+              <button
+                onClick={() => { setSummaryPreview(null); setSummaryPreviewError(null); }}
+                disabled={isSendingSummary}
+                style={{
+                  background: 'transparent',
+                  color: 'var(--admin-text-muted)',
+                  border: '1px solid var(--admin-border)',
+                  padding: '10px 20px',
+                  borderRadius: '0.75rem',
+                  cursor: isSendingSummary ? 'not-allowed' : 'pointer',
+                  fontWeight: 600,
+                  fontSize: '0.9rem'
+                }}
+              >
+                ยกเลิก
+              </button>
+              {!summaryPreviewError && summaryPreview && (
+                <button
+                  onClick={handleConfirmSendSummary}
+                  disabled={isSendingSummary}
+                  style={{
+                    background: '#5865F2',
+                    color: 'white',
+                    border: 'none',
+                    padding: '10px 20px',
+                    borderRadius: '0.75rem',
+                    cursor: isSendingSummary ? 'not-allowed' : 'pointer',
+                    fontWeight: 700,
+                    fontSize: '0.9rem',
+                    opacity: isSendingSummary ? 0.7 : 1
+                  }}
+                >
+                  {isSendingSummary ? '⌛ Sending...' : 'ยืนยันส่งไป Discord'}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {summaryLogs && (
         <div className="admin-card" style={{ marginBottom: '2rem', borderLeft: '4px solid #5865F2', position: 'relative' }}>
