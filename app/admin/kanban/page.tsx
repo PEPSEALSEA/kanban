@@ -3,7 +3,10 @@
 import React, { useState, useMemo } from 'react';
 import { useData, GAS_WEB_APP_URL } from '@/components/DataProvider';
 import EditHomeworkModal from '@/components/EditHomeworkModal';
+import DiscordSummaryPreview from '@/components/DiscordSummaryPreview';
 import { useDeviceDetection } from '@/hooks/useDeviceDetection';
+
+type SummaryPreviewMode = 'rendered' | 'raw';
 
 export default function KanbanEditor() {
   const { allHomework, refreshData, subjects } = useData();
@@ -12,6 +15,7 @@ export default function KanbanEditor() {
   const [isSendingSummary, setIsSendingSummary] = useState(false);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
   const [summaryPreview, setSummaryPreview] = useState<string | null>(null);
+  const [summaryPreviewMode, setSummaryPreviewMode] = useState<SummaryPreviewMode>('rendered');
   const [summaryPreviewError, setSummaryPreviewError] = useState<string | null>(null);
   const [summaryLogs, setSummaryLogs] = useState<string | null>(null);
   const [summaryDate, setSummaryDate] = useState(() => {
@@ -61,6 +65,7 @@ export default function KanbanEditor() {
           setSummaryPreviewError('Preview is empty.');
           return;
         }
+        setSummaryPreviewMode('rendered');
         setSummaryPreview(text);
       } else {
         setSummaryPreviewError(data.error || 'Failed to load preview.');
@@ -158,7 +163,7 @@ export default function KanbanEditor() {
                 </p>
               </div>
               <button
-                onClick={() => { setSummaryPreview(null); setSummaryPreviewError(null); }}
+                onClick={() => { setSummaryPreview(null); setSummaryPreviewError(null); setSummaryPreviewMode('rendered'); }}
                 style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: 'var(--admin-text-muted)' }}
               >
                 ✕
@@ -169,7 +174,7 @@ export default function KanbanEditor() {
               <p style={{ color: '#f87171', margin: 0 }}>{summaryPreviewError}</p>
             ) : (
               <>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', gap: '0.75rem', flexWrap: 'wrap' }}>
                   <span style={{ fontSize: '0.8rem', color: 'var(--admin-text-muted)', fontWeight: 600 }}>
                     {summaryPreview!.length} characters
                     {summaryPreview!.length > 2000 && (
@@ -178,29 +183,67 @@ export default function KanbanEditor() {
                       </span>
                     )}
                   </span>
+                  <div style={{ display: 'flex', borderRadius: '0.5rem', overflow: 'hidden', border: '1px solid var(--admin-border)' }}>
+                    <button
+                      type="button"
+                      onClick={() => setSummaryPreviewMode('rendered')}
+                      style={{
+                        padding: '6px 12px',
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                        border: 'none',
+                        cursor: 'pointer',
+                        background: summaryPreviewMode === 'rendered' ? '#5865F2' : 'transparent',
+                        color: summaryPreviewMode === 'rendered' ? '#fff' : 'var(--admin-text-muted)',
+                      }}
+                    >
+                      Preview
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSummaryPreviewMode('raw')}
+                      style={{
+                        padding: '6px 12px',
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                        border: 'none',
+                        borderLeft: '1px solid var(--admin-border)',
+                        cursor: 'pointer',
+                        background: summaryPreviewMode === 'raw' ? '#5865F2' : 'transparent',
+                        color: summaryPreviewMode === 'raw' ? '#fff' : 'var(--admin-text-muted)',
+                      }}
+                    >
+                      Raw text
+                    </button>
+                  </div>
                 </div>
-                <pre style={{
-                  flex: 1,
-                  background: '#0f172a',
-                  color: '#e2e8f0',
-                  padding: '1.25rem',
-                  borderRadius: '0.5rem',
-                  fontSize: '0.85rem',
-                  overflow: 'auto',
-                  maxHeight: '50vh',
-                  fontFamily: 'monospace',
-                  whiteSpace: 'pre-wrap',
-                  margin: 0,
-                  border: '1px solid var(--admin-border)'
-                }}>
-                  {summaryPreview}
-                </pre>
+                <div style={{ flex: 1, overflow: 'auto', maxHeight: '50vh' }}>
+                  {summaryPreviewMode === 'rendered' ? (
+                    <DiscordSummaryPreview content={summaryPreview!} />
+                  ) : (
+                    <pre style={{
+                      background: '#0f172a',
+                      color: '#e2e8f0',
+                      padding: '1.25rem',
+                      borderRadius: '0.5rem',
+                      fontSize: '0.85rem',
+                      overflow: 'auto',
+                      fontFamily: 'monospace',
+                      whiteSpace: 'pre-wrap',
+                      margin: 0,
+                      border: '1px solid var(--admin-border)',
+                      minHeight: '100%',
+                    }}>
+                      {summaryPreview}
+                    </pre>
+                  )}
+                </div>
               </>
             )}
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid var(--admin-border)' }}>
               <button
-                onClick={() => { setSummaryPreview(null); setSummaryPreviewError(null); }}
+                onClick={() => { setSummaryPreview(null); setSummaryPreviewError(null); setSummaryPreviewMode('rendered'); }}
                 disabled={isSendingSummary}
                 style={{
                   background: 'transparent',

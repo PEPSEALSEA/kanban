@@ -470,28 +470,33 @@ async function generateDailySummary(env: Bindings, targetDate?: string) {
     grouped[key].push(hw);
   });
 
-  for (const key in grouped) {
-    message += `${key}\n`;
-    grouped[key].forEach(hw => {
-      message += homeworkSummaryLine(hw, hw.note ? ` ${hw.note}` : "");
-    });
-  }
-
   const longTerm = homework.filter(hw => {
     if (!hw.deadline) return true;
     return getMidnightGMT7(new Date(hw.deadline)).getTime() > oneWeekLater.getTime();
   }).sort(sortHomeworkByDeadline);
 
-  if (longTerm.length > 0) {
-    message += "## งานดองเค็ม\n";
-    longTerm.forEach(hw => {
-      let dateSuffix = "";
-      if (hw.deadline) {
-        const d = new Date(hw.deadline);
-        dateSuffix = ` (${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')})`;
-      }
-      message += homeworkSummaryLine(hw, dateSuffix);
-    });
+  const hasAllHomework = Object.keys(grouped).length > 0 || longTerm.length > 0;
+  if (hasAllHomework) {
+    message += "\n## การบ้านทั้งหมด\n";
+
+    for (const key in grouped) {
+      message += `${key}\n`;
+      grouped[key].forEach(hw => {
+        message += homeworkSummaryLine(hw, hw.note ? ` ${hw.note}` : "");
+      });
+    }
+
+    if (longTerm.length > 0) {
+      message += "## งานดองเค็ม\n";
+      longTerm.forEach(hw => {
+        let dateSuffix = "";
+        if (hw.deadline) {
+          const d = new Date(hw.deadline);
+          dateSuffix = ` (${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')})`;
+        }
+        message += homeworkSummaryLine(hw, dateSuffix);
+      });
+    }
   }
 
   message += `\nเนื้อหาทั้งหมดอยู่ใน link นี้\n<${APP_BASE_URL}/>\n\n> Have question **Reply** to this Bot. || <@&1162383289575817326> ||`;
