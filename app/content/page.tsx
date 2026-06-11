@@ -9,10 +9,8 @@ import MarkdownRenderer from '@/components/MarkdownRenderer';
 import ResizableContentPanel from '@/components/ResizableContentPanel';
 import { useDeviceDetection } from '@/hooks/useDeviceDetection';
 
-import { API_URL } from '@/lib/config';
+import { parseAudioItems } from '@/lib/audioItems';
 
-// --- CONFIGURATION ---
-const GAS_WEB_APP_URL = API_URL;
 const SUBJECT_COLORS: Record<string, string> = {
   'Math': '#6366f1',
   'Science': '#10b981',
@@ -205,14 +203,10 @@ export default function LearningContentPage() {
     return items;
   }, [activeContent?.id, activeContent?.links, activeContent?.attachments]);
 
-  const memoizedAudioProps = useMemo(() => {
-    if (!activeContent) return null;
-    return {
-      url: activeContent.audio_url?.replace(/[{}]/g, '').split('#')[0].trim(),
-      fileId: activeContent.audio_file_id?.replace(/[{}]/g, '').split('#')[0].trim(),
-      title: activeContent.title
-    };
-  }, [activeContent?.id, activeContent?.audio_url, activeContent?.audio_file_id, activeContent?.title]);
+  const memoizedAudioList = useMemo(() => {
+    if (!activeContent) return [];
+    return parseAudioItems(activeContent.audio_url, activeContent.audio_file_id);
+  }, [activeContent?.id, activeContent?.audio_url, activeContent?.audio_file_id]);
 
   const selectedDateContents = useMemo(() => {
     if (!selectedDate) return [];
@@ -276,20 +270,23 @@ export default function LearningContentPage() {
                 {activeContent.title}
               </h1>
 
-              {memoizedAudioProps && (memoizedAudioProps.url || memoizedAudioProps.fileId) && (
+              {memoizedAudioList.length > 0 && (
                 <motion.div
-                  className="mb-10"
+                  className="mb-10 flex flex-col gap-6"
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.1 }}
                 >
-                  <AudioPlayer
-                    contentId={activeContent.id}
-                    contentType="learning_content"
-                    audioUrl={memoizedAudioProps.url}
-                    driveId={memoizedAudioProps.fileId}
-                    title={memoizedAudioProps.title}
-                  />
+                  {memoizedAudioList.map((audio, idx) => (
+                    <AudioPlayer
+                      key={audio.fileId || idx}
+                      contentId={`${activeContent.id}_${audio.fileId || idx}`}
+                      contentType="learning_content"
+                      audioUrl={audio.url}
+                      driveId={audio.fileId}
+                      title={memoizedAudioList.length > 1 ? audio.filename : activeContent.title}
+                    />
+                  ))}
                 </motion.div>
               )}
 

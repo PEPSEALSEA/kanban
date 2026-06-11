@@ -1,14 +1,15 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { uploadToTelegramDirect } from '@/lib/telegram';
 import { compressAudioIfNeeded } from '@/lib/audio-compressor';
 import { useDeviceDetection } from '@/hooks/useDeviceDetection';
 import { useData } from '@/components/DataProvider';
 
-import { API_URL, UPLOAD_SERVICE_URL } from '@/lib/config';
+import { UPLOAD_SERVICE_URL } from '@/lib/config';
+import { makeAudioEntry } from '@/lib/audioItems';
+import { saveLearningContent } from '@/lib/contentSave';
 
-const GAS_WEB_APP_URL = API_URL;
 const UPLOAD_WEB_APP_URL = UPLOAD_SERVICE_URL;
 
 export default function CreateContentModal({ onClose, onRefresh }: { onClose: () => void; onRefresh: () => void }) {
@@ -18,18 +19,33 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
     subject: subjects[0]?.name || 'Other',
     title: '',
     description: '',
-    audio_file_id: '',
-    audio_url: '',
+    audios: [] as string[],
     attachments: [] as string[],
     links: [] as string[]
   });
 
+  const [savedContentId, setSavedContentId] = useState<string | null>(null);
+  const savedContentIdRef = useRef<string | null>(null);
   const [customSubject, setCustomSubject] = useState('');
+  const customSubjectRef = useRef(customSubject);
+  customSubjectRef.current = customSubject;
   const [isUploading, setIsUploading] = useState(false);
   const [activeUploadType, setActiveUploadType] = useState<'audio' | 'attachment' | null>(null);
   const [uploadProgress, setUploadProgress] = useState<string>('');
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
   const { isMobile } = useDeviceDetection();
+
+  const tryAutoSave = async (nextFormData: typeof formData) => {
+    if (!nextFormData.title.trim()) return;
+    try {
+      const id = await saveLearningContent(nextFormData, customSubjectRef.current, savedContentIdRef.current);
+      savedContentIdRef.current = id;
+      setSavedContentId(id);
+      onRefresh();
+    } catch (err) {
+      console.error('Auto-save failed:', err);
+    }
+  };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'audio' | 'attachment') => {
     const files = Array.from(e.target.files || []);
@@ -75,7 +91,12 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
           }).catch(err => console.error('Metadata registration failed:', err));
 
           if (type === 'audio') {
-            setFormData(prev => ({ ...prev, audio_url: result.url, audio_file_id: result.fileId }));
+            const entry = makeAudioEntry(result.url, file.name, result.fileId);
+            setFormData(prev => {
+              const next = { ...prev, audios: [...prev.audios, entry] };
+              tryAutoSave(next);
+              return next;
+            });
           } else {
             setFormData(prev => ({ ...prev, attachments: [...prev.attachments, `${result.url}#${encodeURIComponent(file.name)}#${result.fileId}`] }));
           }
@@ -100,7 +121,12 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
           const res = (await response.json()) as any;
           if (res.success) {
             if (type === 'audio') {
-              setFormData(prev => ({ ...prev, audio_url: res.url, audio_file_id: res.id }));
+              const entry = makeAudioEntry(res.url, file.name, res.id);
+              setFormData(prev => {
+                const next = { ...prev, audios: [...prev.audios, entry] };
+                tryAutoSave(next);
+                return next;
+              });
             } else {
               setFormData(prev => ({ ...prev, attachments: [...prev.attachments, `${res.url}#${encodeURIComponent(file.name)}#${res.id}`] }));
             }
@@ -117,22 +143,19 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
     }
   };
 
+  const removeAudio = (entryToRemove: string) => {
+    setFormData(prev => {
+      const next = { ...prev, audios: prev.audios.filter(a => a !== entryToRemove) };
+      if (savedContentIdRef.current && next.title.trim()) tryAutoSave(next);
+      return next;
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatus('submitting');
     try {
-      await fetch(GAS_WEB_APP_URL, {
-        method: 'POST',
-        body: new URLSearchParams({
-          action: 'addLearningContent',
-          ...formData,
-          audio_file_id: formData.audio_file_id?.replace(/[{}]/g, '').split('#')[0].trim(),
-          audio_url: formData.audio_url?.replace(/[{}]/g, '').split('#')[0].trim(),
-          subject: formData.subject === 'Other' ? customSubject : formData.subject,
-          attachments: formData.attachments.join(','),
-          links: formData.links.join(',')
-        })
-      });
+      await saveLearningContent(formData, customSubject, savedContentIdRef.current);
       setStatus('success');
       onRefresh();
       setTimeout(onClose, 1500);
@@ -218,6 +241,7 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
               <input
                 type="file"
                 accept="audio/*"
+                multiple
                 onChange={e => handleFileUpload(e, 'audio')}
                 disabled={isUploading}
                 style={{ fontSize: '0.8rem' }}
@@ -227,7 +251,15 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
                   {uploadProgress}
                 </p>
               )}
-              {formData.audio_url && !isUploading && <p style={{ fontSize: '0.7rem', color: '#10b981', marginTop: '0.5rem' }}>✓ Audio file ready</p>}
+              <div style={{ marginTop: '0.5rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                {formData.audios.map((entry, i) => (
+                  <div key={i} style={{ background: 'var(--admin-bg-soft)', padding: '4px 8px', borderRadius: '4px', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '0.4rem', border: '1px solid var(--admin-border)' }}>
+                    <span>🎵 {decodeURIComponent(entry.split('#')[1] || 'Audio')}</span>
+                    <button type="button" onClick={() => removeAudio(entry)} style={{ background: 'none', border: 'none', color: '#ef4444', fontWeight: 'bold', cursor: 'pointer' }}>✕</button>
+                  </div>
+                ))}
+              </div>
+              {savedContentId && !isUploading && <p style={{ fontSize: '0.65rem', color: '#10b981', marginTop: '0.4rem' }}>✓ Auto-saved</p>}
             </div>
             <div>
               <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.4rem', color: 'var(--admin-text-muted)' }}>PDF / Attachments</label>

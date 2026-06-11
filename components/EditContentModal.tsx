@@ -7,6 +7,8 @@ import { useDeviceDetection } from '@/hooks/useDeviceDetection';
 import { useData } from '@/components/DataProvider';
 
 import { API_URL, UPLOAD_SERVICE_URL } from '@/lib/config';
+import { audioItemsFromContent, makeAudioEntry } from '@/lib/audioItems';
+import { saveLearningContent } from '@/lib/contentSave';
 
 const GAS_WEB_APP_URL = API_URL;
 const UPLOAD_WEB_APP_URL = UPLOAD_SERVICE_URL;
@@ -33,8 +35,7 @@ export default function EditContentModal({
     subject: isPredefinedSubject ? content.subject : 'Other',
     title: content.title || '',
     description: content.description || '',
-    audio_file_id: content.audio_file_id || '',
-    audio_url: content.audio_url || '',
+    audios: audioItemsFromContent(content.audio_url, content.audio_file_id),
     attachments: parseItems(content.attachments),
     links: parseItems(content.links)
   });
@@ -45,6 +46,16 @@ export default function EditContentModal({
   const [activeUploadType, setActiveUploadType] = useState<'audio' | 'attachment' | null>(null);
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error' | 'deleting'>('idle');
   const { isMobile } = useDeviceDetection();
+
+  const tryAutoSave = async (nextFormData: typeof formData) => {
+    if (!nextFormData.title.trim()) return;
+    try {
+      await saveLearningContent(nextFormData, customSubject, content.id);
+      onRefresh();
+    } catch (err) {
+      console.error('Auto-save failed:', err);
+    }
+  };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'audio' | 'attachment') => {
     const files = Array.from(e.target.files || []);
@@ -90,7 +101,12 @@ export default function EditContentModal({
           }).catch(err => console.error('Metadata registration failed:', err));
 
           if (type === 'audio') {
-            setFormData(prev => ({ ...prev, audio_url: result.url, audio_file_id: result.fileId }));
+            const entry = makeAudioEntry(result.url, file.name, result.fileId);
+            setFormData(prev => {
+              const next = { ...prev, audios: [...prev.audios, entry] };
+              tryAutoSave(next);
+              return next;
+            });
           } else {
             setFormData(prev => ({ ...prev, attachments: [...prev.attachments, `${result.url}#${encodeURIComponent(file.name)}#${result.fileId}`] }));
           }
@@ -114,7 +130,12 @@ export default function EditContentModal({
           const res = (await response.json()) as any;
           if (res.success) {
             if (type === 'audio') {
-              setFormData(prev => ({ ...prev, audio_url: res.url, audio_file_id: res.id }));
+              const entry = makeAudioEntry(res.url, file.name, res.id);
+              setFormData(prev => {
+                const next = { ...prev, audios: [...prev.audios, entry] };
+                tryAutoSave(next);
+                return next;
+              });
             } else {
               setFormData(prev => ({ ...prev, attachments: [...prev.attachments, `${res.url}#${encodeURIComponent(file.name)}#${res.id}`] }));
             }
@@ -138,27 +159,19 @@ export default function EditContentModal({
     }));
   };
 
-  const removeAudio = () => {
-    setFormData(prev => ({ ...prev, audio_url: '', audio_file_id: '' }));
+  const removeAudio = (entryToRemove: string) => {
+    setFormData(prev => {
+      const next = { ...prev, audios: prev.audios.filter(a => a !== entryToRemove) };
+      if (next.title.trim()) tryAutoSave(next);
+      return next;
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatus('submitting');
     try {
-      await fetch(GAS_WEB_APP_URL, {
-        method: 'POST',
-        body: new URLSearchParams({
-          action: 'editLearningContent',
-          id: content.id,
-          ...formData,
-          audio_file_id: formData.audio_file_id?.replace(/[{}]/g, '').split('#')[0].trim(),
-          audio_url: formData.audio_url?.replace(/[{}]/g, '').split('#')[0].trim(),
-          subject: formData.subject === 'Other' ? customSubject : formData.subject,
-          attachments: formData.attachments.join(','),
-          links: formData.links.join(',')
-        })
-      });
+      await saveLearningContent(formData, customSubject, content.id);
       setStatus('success');
       onRefresh();
       setTimeout(onClose, 1500);
@@ -265,7 +278,8 @@ export default function EditContentModal({
               <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.4rem', color: 'var(--admin-text-muted)' }}>Audio Lecture (MP3)</label>
               <input 
                 type="file" 
-                accept="audio/*" 
+                accept="audio/*"
+                multiple
                 onChange={e => handleFileUpload(e, 'audio')} 
                 disabled={isUploading}
               />
@@ -274,12 +288,14 @@ export default function EditContentModal({
                   {uploadProgress}
                 </p>
               )}
-              {formData.audio_url && !isUploading && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
-                  <span style={{ fontSize: '0.7rem', color: '#10b981' }}>✓ Audio file ready</span>
-                  <button type="button" onClick={removeAudio} style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '0.7rem', cursor: 'pointer' }}>Remove</button>
-                </div>
-              )}
+              <div style={{ marginTop: '0.5rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                {formData.audios.map((entry, i) => (
+                  <div key={i} style={{ background: 'var(--admin-bg-soft)', padding: '4px 8px', borderRadius: '4px', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '0.4rem', border: '1px solid var(--admin-border)' }}>
+                    <span>🎵 {decodeURIComponent(entry.split('#')[1] || 'Audio')}</span>
+                    <button type="button" onClick={() => removeAudio(entry)} style={{ background: 'none', border: 'none', color: '#ef4444', fontWeight: 'bold', cursor: 'pointer' }}>✕</button>
+                  </div>
+                ))}
+              </div>
             </div>
             <div>
               <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.4rem', color: 'var(--admin-text-muted)' }}>PDF / Attachments</label>
