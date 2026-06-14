@@ -8,6 +8,7 @@ import {
   type ChatMessage,
   type ChatAttachment,
   type GeminiContextRow,
+  type GeminiFilterSummary,
 } from "@/lib/geminiChat";
 
 const ACCEPTED_TYPES = ["application/pdf"];
@@ -18,7 +19,7 @@ export default function ChatWidget() {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<
-    Array<ChatMessage & { contextRows?: GeminiContextRow[] }>
+    Array<ChatMessage & { contextRows?: GeminiContextRow[]; filterSummary?: GeminiFilterSummary }>
   >([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -56,7 +57,9 @@ export default function ChatWidget() {
     setLoading(true);
     setError("");
 
-    const nextMessages: Array<ChatMessage & { contextRows?: GeminiContextRow[] }> = message
+    const nextMessages: Array<
+      ChatMessage & { contextRows?: GeminiContextRow[]; filterSummary?: GeminiFilterSummary }
+    > = message
       ? [...messages, { role: "user", text: message }]
       : messages;
     if (message) {
@@ -79,7 +82,12 @@ export default function ChatWidget() {
       });
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", text: res.answer, contextRows: res.contextRows || [] },
+        {
+          role: "assistant",
+          text: res.answer,
+          contextRows: res.contextRows || [],
+          filterSummary: res.filterSummary,
+        },
       ]);
       setAttachment(null);
       setAttachmentName("");
@@ -138,6 +146,12 @@ export default function ChatWidget() {
                                 <span className="font-medium">การบ้าน:</span> {row.homework}
                               </div>
                             )}
+                            {(row.homeworkDeadline || row.deadlineDate) && (
+                              <div>
+                                <span className="font-medium">กำหนดส่ง:</span>{" "}
+                                {row.homeworkDeadline || row.deadlineDate}
+                              </div>
+                            )}
                             {row.content && (
                               <div>
                                 <span className="font-medium">เนื้อหา:</span> {row.content}
@@ -151,6 +165,22 @@ export default function ChatWidget() {
                           </div>
                         ))}
                       </div>
+                      {m.filterSummary && (
+                        <div className="mt-2 rounded bg-slate-50 px-2 py-1 text-[10px] text-slate-600">
+                          <div>matched: {m.filterSummary.matchedRowsCount}</div>
+                          {m.filterSummary.subjectKeywords.length > 0 && (
+                            <div>subjects: {m.filterSummary.subjectKeywords.join(", ")}</div>
+                          )}
+                          {m.filterSummary.dueDateTarget && (
+                            <div>dueTarget: {m.filterSummary.dueDateTarget}</div>
+                          )}
+                          {m.filterSummary.dateRange && (
+                            <div>
+                              range: {m.filterSummary.dateRange.start} - {m.filterSummary.dateRange.end}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

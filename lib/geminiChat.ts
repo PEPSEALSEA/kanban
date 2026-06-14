@@ -26,14 +26,30 @@ export type GeminiChatRequest = {
 export type GeminiChatResponse = {
   answer: string;
   contextRows?: GeminiContextRow[];
+  filterSummary?: GeminiFilterSummary;
 };
 
 export type GeminiContextRow = {
   date: string;
   subject: string;
   homework: string;
+  homeworkDeadline?: string;
+  createdDate?: string;
+  deadlineDate?: string;
   content: string;
   emphasis: string;
+};
+
+export type GeminiFilterSummary = {
+  subjectKeywords: string[];
+  dateRange: { start: string; end: string } | null;
+  dateTarget: "today" | "tomorrow" | null;
+  dueDateTarget: "today" | "tomorrow" | null;
+  wantsEmphasis: boolean;
+  explicitWebSearch: boolean;
+  matchedRowsCount: number;
+  sourceDates: string[];
+  sourceSubjects: string[];
 };
 
 function readFileAsBase64(file: File): Promise<string> {

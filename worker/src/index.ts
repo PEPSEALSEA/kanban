@@ -156,8 +156,11 @@ type ClassContextRow = {
   subject: string;
   homework: string;
   homeworkDeadline: string;
+  createdDate: string;
+  deadlineDate: string;
   content: string;
   emphasis: string;
+  rowType: "homework" | "content";
 };
 
 function normalizeText(value: unknown): string {
@@ -228,7 +231,38 @@ function inferEmphasisIntent(message: string): boolean {
   );
 }
 
-function inferDueDateTarget(message: string): "today" | "tomorrow" | null {
+type DateTarget = "today" | "tomorrow" | null;
+
+type QueryIntent = {
+  subjectKeywords: string[];
+  dateRange: { start: string; end: string } | null;
+  dateTarget: DateTarget;
+  dueDateTarget: DateTarget;
+  wantsEmphasis: boolean;
+  todayHomework: boolean;
+  explicitWebSearch: boolean;
+};
+
+type FilterSummary = {
+  subjectKeywords: string[];
+  dateRange: { start: string; end: string } | null;
+  dateTarget: DateTarget;
+  dueDateTarget: DateTarget;
+  wantsEmphasis: boolean;
+  explicitWebSearch: boolean;
+  matchedRowsCount: number;
+  sourceDates: string[];
+  sourceSubjects: string[];
+};
+
+function inferDateTarget(message: string): DateTarget {
+  const text = normalizeText(message);
+  if (text.includes("พรุ่งนี้") || text.includes("พน") || text.includes("tomorrow")) return "tomorrow";
+  if (text.includes("วันนี้") || text.includes("today")) return "today";
+  return null;
+}
+
+function inferDueDateTarget(message: string): DateTarget {
   const text = normalizeText(message);
   const asksDueDate =
     text.includes("ต้องส่ง") ||
@@ -236,11 +270,44 @@ function inferDueDateTarget(message: string): "today" | "tomorrow" | null {
     text.includes("ครบกำหนด") ||
     text.includes("deadline") ||
     text.includes("due");
-
   if (!asksDueDate) return null;
-  if (text.includes("พรุ่งนี้") || text.includes("พน") || text.includes("tomorrow")) return "tomorrow";
-  if (text.includes("วันนี้") || text.includes("today")) return "today";
-  return null;
+  return inferDateTarget(message);
+}
+
+function shouldUseGrounding(message: string): boolean {
+  const text = normalizeText(message);
+  return (
+    text.includes("ค้นเว็บ") ||
+    text.includes("ค้นหาเว็บ") ||
+    text.includes("google search") ||
+    text.includes("web search") ||
+    text.includes("internet") ||
+    text.includes("อินเทอร์เน็ต") ||
+    text.includes("ข้อมูลจากเว็บ")
+  );
+}
+
+function extractSubjectKeywords(message: string, availableSubjects: string[]): string[] {
+  const text = normalizeText(message);
+  const fromSubjects = availableSubjects
+    .map((item) => String(item || "").trim())
+    .filter(Boolean)
+    .filter((subject) => text.includes(normalizeText(subject)));
+  const staticKeywords = ["คณิต", "คณิตศาสตร์", "อังกฤษ", "eng", "วิทย์", "science", "ไทย", "สังคม"];
+  const fromStatic = staticKeywords.filter((item) => text.includes(normalizeText(item)));
+  return Array.from(new Set([...fromSubjects, ...fromStatic]));
+}
+
+function parseUserQueryIntent(message: string, availableSubjects: string[]): QueryIntent {
+  return {
+    subjectKeywords: extractSubjectKeywords(message, availableSubjects),
+    dateRange: parseDateRangeFromMessage(message),
+    dateTarget: inferDateTarget(message),
+    dueDateTarget: inferDueDateTarget(message),
+    wantsEmphasis: inferEmphasisIntent(message),
+    todayHomework: inferTodayHomeworkIntent(message),
+    explicitWebSearch: shouldUseGrounding(message),
+  };
 }
 
 function buildClassContextRows(homeworkList: any[], learningContentList: any[]): ClassContextRow[] {
@@ -254,8 +321,11 @@ function buildClassContextRows(homeworkList: any[], learningContentList: any[]):
       subject: String(item.subject || ""),
       homework: "",
       homeworkDeadline: "",
+      createdDate: formatDateOnly(itemDate),
+      deadlineDate: "",
       content: `${String(item.title || "")} ${description}`.trim(),
       emphasis: extractEmphasis(description),
+      rowType: "content",
     });
   }
 
@@ -270,8 +340,11 @@ function buildClassContextRows(homeworkList: any[], learningContentList: any[]):
       subject: String(item.subject || ""),
       homework: `${String(item.title || "")} ${description} ${note}`.trim(),
       homeworkDeadline: formatDateOnly(deadlineDate),
+      createdDate: formatDateOnly(createdDate),
+      deadlineDate: formatDateOnly(deadlineDate),
       content: "",
       emphasis: `${extractEmphasis(description)} ${extractEmphasis(note)}`.trim(),
+      rowType: "homework",
     });
   }
 
@@ -283,7 +356,9 @@ function buildClassContextRows(homeworkList: any[], learningContentList: any[]):
 function rowMatchesMessage(row: ClassContextRow, message: string): boolean {
   const text = normalizeText(message);
   if (!text) return true;
-  const source = normalizeText(`${row.subject} ${row.homework} ${row.content} ${row.emphasis}`);
+  const source = normalizeText(
+    `${row.subject} ${row.homework} ${row.content} ${row.emphasis} ${row.deadlineDate} ${row.createdDate}`
+  );
   if (source.includes(text)) return true;
   const tokens = text.split(/\s+/).filter((t) => t.length >= 3).slice(0, 8);
   if (tokens.length <= 1) return true;
@@ -291,31 +366,49 @@ function rowMatchesMessage(row: ClassContextRow, message: string): boolean {
   return hitCount >= Math.max(1, Math.floor(tokens.length / 3));
 }
 
-function filterContextRows(rows: ClassContextRow[], message: string): ClassContextRow[] {
-  const wantsTodayHomework = inferTodayHomeworkIntent(message);
-  const dueDateTarget = inferDueDateTarget(message);
-  const wantsEmphasis = inferEmphasisIntent(message);
-  const dateRange = parseDateRangeFromMessage(message);
+function dateTargetToValue(target: DateTarget): string {
   const today = formatDateOnly(getMidnightGMT7(new Date()));
   const tomorrow = formatDateOnly(new Date(getMidnightGMT7(new Date()).getTime() + 86400000));
+  if (target === "today") return today;
+  if (target === "tomorrow") return tomorrow;
+  return "";
+}
+
+function filterRowsByIntent(rows: ClassContextRow[], message: string, intent: QueryIntent): ClassContextRow[] {
+  const targetDate = dateTargetToValue(intent.dateTarget);
+  const dueTargetDate = dateTargetToValue(intent.dueDateTarget);
 
   let result = rows;
 
-  if (dueDateTarget === "today") {
-    result = result.filter((row) => row.homework && row.homeworkDeadline === today);
-  } else if (dueDateTarget === "tomorrow") {
-    result = result.filter((row) => row.homework && row.homeworkDeadline === tomorrow);
+  if (intent.dueDateTarget && dueTargetDate) {
+    result = result.filter((row) => row.rowType === "homework" && row.deadlineDate === dueTargetDate);
   }
 
-  if (wantsTodayHomework) {
+  if (intent.subjectKeywords.length > 0) {
+    result = result.filter((row) =>
+      intent.subjectKeywords.some((subjectKey) => {
+        const key = normalizeText(subjectKey);
+        const subject = normalizeText(row.subject);
+        return subject.includes(key) || key.includes(subject);
+      })
+    );
+  }
+
+  if (intent.todayHomework) {
+    const today = dateTargetToValue("today");
     result = result.filter((row) => row.date === today && row.homework);
   }
 
-  if (dateRange) {
+  if (intent.dateRange) {
     result = result.filter((row) => {
-      if (!row.date) return false;
-      return row.date >= dateRange.start && row.date <= dateRange.end;
+      const compareDate = intent.dueDateTarget ? row.deadlineDate : row.date;
+      if (!compareDate) return false;
+      return compareDate >= intent.dateRange!.start && compareDate <= intent.dateRange!.end;
     });
+  }
+
+  if (!intent.dateRange && intent.dateTarget && targetDate && !intent.dueDateTarget) {
+    result = result.filter((row) => row.date === targetDate);
   }
 
   const keywordFiltered = result.filter((row) => rowMatchesMessage(row, message));
@@ -323,7 +416,7 @@ function filterContextRows(rows: ClassContextRow[], message: string): ClassConte
     result = keywordFiltered;
   }
 
-  if (wantsEmphasis) {
+  if (intent.wantsEmphasis) {
     const withEmphasis = result.filter((row) => row.emphasis);
     if (withEmphasis.length > 0) result = withEmphasis;
   }
@@ -331,20 +424,70 @@ function filterContextRows(rows: ClassContextRow[], message: string): ClassConte
   return result.slice(0, 30);
 }
 
-function buildContextPrompt(rows: ClassContextRow[]): string {
-  if (rows.length === 0) {
-    return "ไม่พบข้อมูลที่ตรงเงื่อนไขใน Google Sheet ให้ตอบกลับอย่างสุภาพและแนะนำผู้ใช้ปรับคำถามหรือช่วงวันที่";
+function buildFilteredSheetDataChunk(rows: ClassContextRow[]): string {
+  const grouped = new Map<
+    string,
+    {
+      date: string;
+      subject: string;
+      homeworkItems: string[];
+      deadlineItems: string[];
+      contentItems: string[];
+      emphasisItems: string[];
+    }
+  >();
+
+  for (const row of rows) {
+    const key = `${row.date}__${row.subject}`;
+    const curr = grouped.get(key) || {
+      date: row.date || "-",
+      subject: row.subject || "-",
+      homeworkItems: [],
+      deadlineItems: [],
+      contentItems: [],
+      emphasisItems: [],
+    };
+
+    if (row.homework) curr.homeworkItems.push(row.homework);
+    if (row.deadlineDate) curr.deadlineItems.push(row.deadlineDate);
+    if (row.content) curr.contentItems.push(row.content);
+    if (row.emphasis) curr.emphasisItems.push(row.emphasis);
+    grouped.set(key, curr);
   }
 
-  const lines = rows.map((row) => {
-    return `- วันที่: ${row.date || "-"} | วิชา: ${row.subject || "-"} | การบ้าน: ${row.homework || "-"} | กำหนดส่ง: ${row.homeworkDeadline || "-"} | เนื้อหา: ${row.content || "-"} | จุดที่ครูเน้น: ${row.emphasis || "-"}`;
-  });
+  const compactRows = Array.from(grouped.values())
+    .map((row) => ({
+      date: row.date,
+      subject: row.subject,
+      homework: Array.from(new Set(row.homeworkItems)).join(" | "),
+      deadlines: Array.from(new Set(row.deadlineItems)).join(" | "),
+      content: Array.from(new Set(row.contentItems)).join(" | "),
+      emphasis: Array.from(new Set(row.emphasisItems)).join(" | "),
+    }))
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)));
 
-  return [
-    "ข้อมูลอ้างอิงจาก Google Sheet ห้องเรียน:",
-    ...lines,
-    "ให้ตอบโดยยึดข้อมูลข้างต้นเป็นหลัก และถ้าข้อมูลในชีตไม่พอให้เสริมจากเว็บด้วย google_search",
-  ].join("\n");
+  return JSON.stringify(compactRows, null, 2);
+}
+
+function buildSystemInstruction(filteredSheetDataChunk: string): string {
+  const chunk = filteredSheetDataChunk && filteredSheetDataChunk.trim() ? filteredSheetDataChunk : "[]";
+  return `คุณคือ "ผู้เชี่ยวชาญการวิเคราะห์ข้อมูลและสรุปเนื้อหาห้องเรียน" หน้าที่ของคุณคือตอบคำถามผู้ใช้โดยอิงจากข้อมูลใน Google Sheet ที่แนบมาให้เท่านั้น
+
+[ข้อมูลที่คุณต้องใช้ประมวลผล (Google Sheet Data Chunk)]
+${chunk}
+
+[กฎเหล็กและกระบวนการคิด]
+1. การจำกัดขอบเขตข้อมูล: ห้ามใช้จินตนาการหรือคิดคำตอบขึ้นมาเองเด็ดขาด หากคำถามของผู้ใช้ไม่มีคำตอบระบุอยู่ในข้อมูล Sheet ที่แนบมา ให้ตอบว่า "ขออภัยด้วยครับ/ค่ะ ไม่พบข้อมูลการบ้านหรือเนื้อหาในส่วนนี้ในระบบ"
+2. วิธีการอ่านและกรองข้อมูล:
+   - เมื่อผู้ใช้ระบุชื่อวิชา ให้ใช้เฉพาะแถวที่มีวิชานั้น
+   - เมื่อผู้ใช้ระบุวันที่หรือช่วงเวลา ให้เรียงจากเก่าไปใหม่และใช้เฉพาะช่วงที่ถาม
+3. รูปแบบการตอบกลับ:
+   - 📅 วันที่: [ว/ด/ป]
+   - 📘 วิชา: [ชื่อวิชา]
+   - 📝 สรุปเนื้อหาสำคัญ: [สรุปสั้นเฉพาะสาระหลัก]
+   - จุดที่คุณครูเน้นย้ำ: [ดึงจากข้อมูลจุดเน้น]
+   - 📌 การบ้านและกำหนดส่ง: [รายละเอียดการบ้าน; ถ้าไม่มีให้ระบุว่า ไม่มี]
+4. หากเจอข้อมูลวิชาเดียวกันในวันเดียวกันหลายรายการ ให้รวมให้เป็นภาพรวมเดียว ลดความซ้ำซ้อน`;
 }
 
 async function askGeminiWithContext(
@@ -353,7 +496,8 @@ async function askGeminiWithContext(
     message: string;
     history: Array<{ role: string; text: string }>;
     attachment?: { mimeType?: string; dataBase64?: string; name?: string };
-    contextPrompt: string;
+    systemInstruction: string;
+    useGrounding: boolean;
   }
 ) {
   const apiKey = env.GEMINI_API_KEY;
@@ -367,7 +511,9 @@ async function askGeminiWithContext(
       parts: [{ text: String(item.text) }],
     }));
 
-  const userParts: any[] = [{ text: payload.message }];
+  const userParts: Array<{ text?: string; inline_data?: { mime_type: string; data: string } }> = [
+    { text: payload.message },
+  ];
   if (payload.attachment?.dataBase64) {
     userParts.push({
       inline_data: {
@@ -381,9 +527,8 @@ async function askGeminiWithContext(
     system_instruction: {
       parts: [
         {
-          text: "คุณคือ Gemini Homework Assistant ตอบภาษาไทยเป็นหลัก สรุปให้อ่านง่ายและอ้างอิงข้อมูลจากชีตก่อนเสมอ",
+          text: payload.systemInstruction,
         },
-        { text: payload.contextPrompt },
       ],
     },
     contents: [
@@ -393,11 +538,11 @@ async function askGeminiWithContext(
         parts: userParts,
       },
     ],
-    tools: [{ google_search: {} }],
+    ...(payload.useGrounding ? { tools: [{ google_search: {} }] } : {}),
     generationConfig: {
-      temperature: 0.3,
-      topK: 32,
-      topP: 0.95,
+      temperature: 0.15,
+      topK: 24,
+      topP: 0.8,
       maxOutputTokens: 1024,
     },
   };
@@ -1005,25 +1150,46 @@ app.post('/api/gemini-chat', async (c) => {
       return c.json({ success: false, error: "User email is required" }, 401);
     }
 
-    const [homeworkList, learningContentList] = await Promise.all([
+    const [homeworkList, learningContentList, subjects] = await Promise.all([
       getHomeworkList(c.env),
       getLearningContent(c.env),
+      getSubjects(c.env),
     ]);
+    const availableSubjects = subjects.map((item) => String(item?.name || "")).filter(Boolean);
+    const intent = parseUserQueryIntent(message || "วิเคราะห์ไฟล์ที่แนบ", availableSubjects);
     const allRows = buildClassContextRows(homeworkList, learningContentList);
-    const contextRows = filterContextRows(allRows, message || "วิเคราะห์ไฟล์ที่แนบ");
-    const contextPrompt = buildContextPrompt(contextRows);
+    const contextRows = filterRowsByIntent(allRows, message || "วิเคราะห์ไฟล์ที่แนบ", intent);
+    const filteredSheetDataChunk = buildFilteredSheetDataChunk(contextRows);
+    const systemInstruction = buildSystemInstruction(filteredSheetDataChunk);
+    const useGrounding = intent.explicitWebSearch;
     const answer = await askGeminiWithContext(c.env, {
       message: message || "ช่วยวิเคราะห์ไฟล์ที่แนบ",
       history,
       attachment,
-      contextPrompt,
+      systemInstruction,
+      useGrounding,
     });
+
+    const sourceDates = Array.from(new Set(contextRows.map((row) => row.date).filter(Boolean))).slice(0, 10);
+    const sourceSubjects = Array.from(new Set(contextRows.map((row) => row.subject).filter(Boolean))).slice(0, 10);
+    const filterSummary: FilterSummary = {
+      subjectKeywords: intent.subjectKeywords,
+      dateRange: intent.dateRange,
+      dateTarget: intent.dateTarget,
+      dueDateTarget: intent.dueDateTarget,
+      wantsEmphasis: intent.wantsEmphasis,
+      explicitWebSearch: intent.explicitWebSearch,
+      matchedRowsCount: contextRows.length,
+      sourceDates,
+      sourceSubjects,
+    };
 
     return c.json({
       success: true,
       data: {
         answer,
         contextRows,
+        filterSummary,
       },
     });
   } catch (err: any) {
