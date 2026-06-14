@@ -8,7 +8,7 @@ type Bindings = {
   SUMMARY_WEBHOOK_URL: string;
   GOOGLE_CLIENT_EMAIL: string;
   GOOGLE_PRIVATE_KEY: string;
-ฌ  GEMINI_API_KEY?: string;
+  GEMINI_API_KEY?: string;
   TELEGRAM_BOT_TOKEN?: string;
   TELEGRAM_CHAT_ID?: string;
 };
@@ -155,6 +155,7 @@ type ClassContextRow = {
   date: string;
   subject: string;
   homework: string;
+  homeworkDeadline: string;
   content: string;
   emphasis: string;
 };
@@ -183,10 +184,12 @@ function parseDateValue(raw: string): Date | null {
 
 function formatDateOnly(rawDate: Date | null): string {
   if (!rawDate) return "";
-  const y = rawDate.getFullYear();
-  const m = String(rawDate.getMonth() + 1).padStart(2, "0");
-  const d = String(rawDate.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Bangkok",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(rawDate);
 }
 
 function extractEmphasis(text: string): string {
@@ -225,6 +228,21 @@ function inferEmphasisIntent(message: string): boolean {
   );
 }
 
+function inferDueDateTarget(message: string): "today" | "tomorrow" | null {
+  const text = normalizeText(message);
+  const asksDueDate =
+    text.includes("ต้องส่ง") ||
+    text.includes("กำหนดส่ง") ||
+    text.includes("ครบกำหนด") ||
+    text.includes("deadline") ||
+    text.includes("due");
+
+  if (!asksDueDate) return null;
+  if (text.includes("พรุ่งนี้") || text.includes("พน") || text.includes("tomorrow")) return "tomorrow";
+  if (text.includes("วันนี้") || text.includes("today")) return "today";
+  return null;
+}
+
 function buildClassContextRows(homeworkList: any[], learningContentList: any[]): ClassContextRow[] {
   const rows: ClassContextRow[] = [];
 
@@ -235,19 +253,23 @@ function buildClassContextRows(homeworkList: any[], learningContentList: any[]):
       date: formatDateOnly(itemDate),
       subject: String(item.subject || ""),
       homework: "",
+      homeworkDeadline: "",
       content: `${String(item.title || "")} ${description}`.trim(),
       emphasis: extractEmphasis(description),
     });
   }
 
   for (const item of homeworkList) {
-    const srcDate = parseDateValue(String(item.created_at || item.deadline || ""));
+    const createdDate = parseDateValue(String(item.created_at || ""));
+    const deadlineDate = parseDateValue(String(item.deadline || ""));
+    const srcDate = createdDate || deadlineDate;
     const description = String(item.description || "");
     const note = String(item.note || "");
     rows.push({
       date: formatDateOnly(srcDate),
       subject: String(item.subject || ""),
       homework: `${String(item.title || "")} ${description} ${note}`.trim(),
+      homeworkDeadline: formatDateOnly(deadlineDate),
       content: "",
       emphasis: `${extractEmphasis(description)} ${extractEmphasis(note)}`.trim(),
     });
@@ -264,18 +286,26 @@ function rowMatchesMessage(row: ClassContextRow, message: string): boolean {
   const source = normalizeText(`${row.subject} ${row.homework} ${row.content} ${row.emphasis}`);
   if (source.includes(text)) return true;
   const tokens = text.split(/\s+/).filter((t) => t.length >= 3).slice(0, 8);
-  if (tokens.length === 0) return true;
+  if (tokens.length <= 1) return true;
   const hitCount = tokens.reduce((acc, token) => acc + (source.includes(token) ? 1 : 0), 0);
   return hitCount >= Math.max(1, Math.floor(tokens.length / 3));
 }
 
 function filterContextRows(rows: ClassContextRow[], message: string): ClassContextRow[] {
   const wantsTodayHomework = inferTodayHomeworkIntent(message);
+  const dueDateTarget = inferDueDateTarget(message);
   const wantsEmphasis = inferEmphasisIntent(message);
   const dateRange = parseDateRangeFromMessage(message);
   const today = formatDateOnly(getMidnightGMT7(new Date()));
+  const tomorrow = formatDateOnly(new Date(getMidnightGMT7(new Date()).getTime() + 86400000));
 
   let result = rows;
+
+  if (dueDateTarget === "today") {
+    result = result.filter((row) => row.homework && row.homeworkDeadline === today);
+  } else if (dueDateTarget === "tomorrow") {
+    result = result.filter((row) => row.homework && row.homeworkDeadline === tomorrow);
+  }
 
   if (wantsTodayHomework) {
     result = result.filter((row) => row.date === today && row.homework);
@@ -288,7 +318,10 @@ function filterContextRows(rows: ClassContextRow[], message: string): ClassConte
     });
   }
 
-  result = result.filter((row) => rowMatchesMessage(row, message));
+  const keywordFiltered = result.filter((row) => rowMatchesMessage(row, message));
+  if (keywordFiltered.length > 0) {
+    result = keywordFiltered;
+  }
 
   if (wantsEmphasis) {
     const withEmphasis = result.filter((row) => row.emphasis);
@@ -304,7 +337,7 @@ function buildContextPrompt(rows: ClassContextRow[]): string {
   }
 
   const lines = rows.map((row) => {
-    return `- วันที่: ${row.date || "-"} | วิชา: ${row.subject || "-"} | การบ้าน: ${row.homework || "-"} | เนื้อหา: ${row.content || "-"} | จุดที่ครูเน้น: ${row.emphasis || "-"}`;
+    return `- วันที่: ${row.date || "-"} | วิชา: ${row.subject || "-"} | การบ้าน: ${row.homework || "-"} | กำหนดส่ง: ${row.homeworkDeadline || "-"} | เนื้อหา: ${row.content || "-"} | จุดที่ครูเน้น: ${row.emphasis || "-"}`;
   });
 
   return [
