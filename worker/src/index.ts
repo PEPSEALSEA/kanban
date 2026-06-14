@@ -8,6 +8,7 @@ type Bindings = {
   SUMMARY_WEBHOOK_URL: string;
   GOOGLE_CLIENT_EMAIL: string;
   GOOGLE_PRIVATE_KEY: string;
+ฌ  GEMINI_API_KEY?: string;
   TELEGRAM_BOT_TOKEN?: string;
   TELEGRAM_CHAT_ID?: string;
 };
@@ -148,6 +149,247 @@ function getMidnightGMT7(date?: Date) {
   const gmt7 = new Date(utc + (3600000 * 7));
   gmt7.setHours(0, 0, 0, 0);
   return gmt7;
+}
+
+type ClassContextRow = {
+  date: string;
+  subject: string;
+  homework: string;
+  content: string;
+  emphasis: string;
+};
+
+function normalizeText(value: unknown): string {
+  return String(value || "").trim().toLowerCase();
+}
+
+function parseDateValue(raw: string): Date | null {
+  const value = String(raw || "").trim();
+  if (!value) return null;
+
+  const iso = new Date(value);
+  if (!Number.isNaN(iso.getTime())) return iso;
+
+  const m = value.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if (!m) return null;
+  const day = Number(m[1]);
+  const month = Number(m[2]) - 1;
+  let year = Number(m[3]);
+  if (year < 100) year += 2000;
+  if (year > 2400) year -= 543;
+  const parsed = new Date(year, month, day);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function formatDateOnly(rawDate: Date | null): string {
+  if (!rawDate) return "";
+  const y = rawDate.getFullYear();
+  const m = String(rawDate.getMonth() + 1).padStart(2, "0");
+  const d = String(rawDate.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function extractEmphasis(text: string): string {
+  const matches = [...String(text || "").matchAll(/\*\*(.+?)\*\*/g)];
+  if (matches.length === 0) return "";
+  return matches.map((item) => item[1].trim()).filter(Boolean).join(" | ");
+}
+
+function parseDateRangeFromMessage(message: string): { start: string; end: string } | null {
+  const dateMatches = message.match(/\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}|\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}/g);
+  if (!dateMatches || dateMatches.length < 2) return null;
+  const d1 = parseDateValue(dateMatches[0]);
+  const d2 = parseDateValue(dateMatches[1]);
+  if (!d1 || !d2) return null;
+  const start = d1 <= d2 ? d1 : d2;
+  const end = d1 <= d2 ? d2 : d1;
+  return { start: formatDateOnly(start), end: formatDateOnly(end) };
+}
+
+function inferTodayHomeworkIntent(message: string): boolean {
+  const text = normalizeText(message);
+  return (
+    (text.includes("การบ้าน") || text.includes("homework")) &&
+    (text.includes("วันนี้") || text.includes("today"))
+  );
+}
+
+function inferEmphasisIntent(message: string): boolean {
+  const text = normalizeText(message);
+  return (
+    text.includes("เน้น") ||
+    text.includes("จุดสำคัญ") ||
+    text.includes("สำคัญ") ||
+    text.includes("highlight") ||
+    text.includes("emphasis")
+  );
+}
+
+function buildClassContextRows(homeworkList: any[], learningContentList: any[]): ClassContextRow[] {
+  const rows: ClassContextRow[] = [];
+
+  for (const item of learningContentList) {
+    const itemDate = parseDateValue(String(item.date || ""));
+    const description = String(item.description || "");
+    rows.push({
+      date: formatDateOnly(itemDate),
+      subject: String(item.subject || ""),
+      homework: "",
+      content: `${String(item.title || "")} ${description}`.trim(),
+      emphasis: extractEmphasis(description),
+    });
+  }
+
+  for (const item of homeworkList) {
+    const srcDate = parseDateValue(String(item.created_at || item.deadline || ""));
+    const description = String(item.description || "");
+    const note = String(item.note || "");
+    rows.push({
+      date: formatDateOnly(srcDate),
+      subject: String(item.subject || ""),
+      homework: `${String(item.title || "")} ${description} ${note}`.trim(),
+      content: "",
+      emphasis: `${extractEmphasis(description)} ${extractEmphasis(note)}`.trim(),
+    });
+  }
+
+  return rows
+    .filter((row) => row.date || row.homework || row.content)
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+}
+
+function rowMatchesMessage(row: ClassContextRow, message: string): boolean {
+  const text = normalizeText(message);
+  if (!text) return true;
+  const source = normalizeText(`${row.subject} ${row.homework} ${row.content} ${row.emphasis}`);
+  if (source.includes(text)) return true;
+  const tokens = text.split(/\s+/).filter((t) => t.length >= 3).slice(0, 8);
+  if (tokens.length === 0) return true;
+  const hitCount = tokens.reduce((acc, token) => acc + (source.includes(token) ? 1 : 0), 0);
+  return hitCount >= Math.max(1, Math.floor(tokens.length / 3));
+}
+
+function filterContextRows(rows: ClassContextRow[], message: string): ClassContextRow[] {
+  const wantsTodayHomework = inferTodayHomeworkIntent(message);
+  const wantsEmphasis = inferEmphasisIntent(message);
+  const dateRange = parseDateRangeFromMessage(message);
+  const today = formatDateOnly(getMidnightGMT7(new Date()));
+
+  let result = rows;
+
+  if (wantsTodayHomework) {
+    result = result.filter((row) => row.date === today && row.homework);
+  }
+
+  if (dateRange) {
+    result = result.filter((row) => {
+      if (!row.date) return false;
+      return row.date >= dateRange.start && row.date <= dateRange.end;
+    });
+  }
+
+  result = result.filter((row) => rowMatchesMessage(row, message));
+
+  if (wantsEmphasis) {
+    const withEmphasis = result.filter((row) => row.emphasis);
+    if (withEmphasis.length > 0) result = withEmphasis;
+  }
+
+  return result.slice(0, 30);
+}
+
+function buildContextPrompt(rows: ClassContextRow[]): string {
+  if (rows.length === 0) {
+    return "ไม่พบข้อมูลที่ตรงเงื่อนไขใน Google Sheet ให้ตอบกลับอย่างสุภาพและแนะนำผู้ใช้ปรับคำถามหรือช่วงวันที่";
+  }
+
+  const lines = rows.map((row) => {
+    return `- วันที่: ${row.date || "-"} | วิชา: ${row.subject || "-"} | การบ้าน: ${row.homework || "-"} | เนื้อหา: ${row.content || "-"} | จุดที่ครูเน้น: ${row.emphasis || "-"}`;
+  });
+
+  return [
+    "ข้อมูลอ้างอิงจาก Google Sheet ห้องเรียน:",
+    ...lines,
+    "ให้ตอบโดยยึดข้อมูลข้างต้นเป็นหลัก และถ้าข้อมูลในชีตไม่พอให้เสริมจากเว็บด้วย google_search",
+  ].join("\n");
+}
+
+async function askGeminiWithContext(
+  env: Bindings,
+  payload: {
+    message: string;
+    history: Array<{ role: string; text: string }>;
+    attachment?: { mimeType?: string; dataBase64?: string; name?: string };
+    contextPrompt: string;
+  }
+) {
+  const apiKey = env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error("GEMINI_API_KEY is missing");
+
+  const historyContents = (payload.history || [])
+    .filter((item) => item && item.text)
+    .slice(-10)
+    .map((item) => ({
+      role: item.role === "assistant" ? "model" : "user",
+      parts: [{ text: String(item.text) }],
+    }));
+
+  const userParts: any[] = [{ text: payload.message }];
+  if (payload.attachment?.dataBase64) {
+    userParts.push({
+      inline_data: {
+        mime_type: payload.attachment.mimeType || "application/octet-stream",
+        data: payload.attachment.dataBase64,
+      },
+    });
+  }
+
+  const reqBody = {
+    system_instruction: {
+      parts: [
+        {
+          text: "คุณคือ Gemini Homework Assistant ตอบภาษาไทยเป็นหลัก สรุปให้อ่านง่ายและอ้างอิงข้อมูลจากชีตก่อนเสมอ",
+        },
+        { text: payload.contextPrompt },
+      ],
+    },
+    contents: [
+      ...historyContents,
+      {
+        role: "user",
+        parts: userParts,
+      },
+    ],
+    tools: [{ google_search: {} }],
+    generationConfig: {
+      temperature: 0.3,
+      topK: 32,
+      topP: 0.95,
+      maxOutputTokens: 1024,
+    },
+  };
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(reqBody),
+    }
+  );
+
+  const data = (await response.json()) as any;
+  if (!response.ok) {
+    throw new Error(data?.error?.message || "Gemini API request failed");
+  }
+
+  const answer = (data?.candidates?.[0]?.content?.parts || [])
+    .map((part: any) => part?.text || "")
+    .join("\n")
+    .trim();
+
+  if (!answer) throw new Error("Gemini returned empty answer");
+  return answer;
 }
 
 // --- CORE DATA GETTERS ---
@@ -714,6 +956,47 @@ async function sendSubmissionNotification(env: Bindings, studentName: string | a
 // --- ROUTES ---
 
 app.get('/health', (c) => c.text('ok'));
+
+app.post('/api/gemini-chat', async (c) => {
+  try {
+    const body = await c.req.json();
+    const message = String(body?.message || "").trim();
+    const history = Array.isArray(body?.history) ? body.history : [];
+    const userEmail = String(body?.user?.email || "").trim().toLowerCase();
+    const attachment = body?.attachment;
+
+    if (!message && !attachment?.dataBase64) {
+      return c.json({ success: false, error: "Message or attachment is required" }, 400);
+    }
+    if (!userEmail) {
+      return c.json({ success: false, error: "User email is required" }, 401);
+    }
+
+    const [homeworkList, learningContentList] = await Promise.all([
+      getHomeworkList(c.env),
+      getLearningContent(c.env),
+    ]);
+    const allRows = buildClassContextRows(homeworkList, learningContentList);
+    const contextRows = filterContextRows(allRows, message || "วิเคราะห์ไฟล์ที่แนบ");
+    const contextPrompt = buildContextPrompt(contextRows);
+    const answer = await askGeminiWithContext(c.env, {
+      message: message || "ช่วยวิเคราะห์ไฟล์ที่แนบ",
+      history,
+      attachment,
+      contextPrompt,
+    });
+
+    return c.json({
+      success: true,
+      data: {
+        answer,
+        contextRows,
+      },
+    });
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message || "gemini chat failed" }, 500);
+  }
+});
 
 app.get('/', async (c) => {
   const action = c.req.query('action');

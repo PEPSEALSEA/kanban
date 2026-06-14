@@ -7,6 +7,7 @@ interface __BaseEnv_Env {
 	SPREADSHEET_ID: string;
 	DISCORD_WEBHOOK_URL: string;
 	SUMMARY_WEBHOOK_URL: string;
+	GEMINI_API_KEY: string;
 }
 declare namespace Cloudflare {
 	interface GlobalProps {

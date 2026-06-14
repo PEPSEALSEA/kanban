@@ -5,6 +5,7 @@ import { DataProvider } from "@/components/DataProvider";
 import HeaderNav from "@/components/HeaderNav";
 import SyncToast from "@/components/SyncToast";
 import AnalyticsTracker from "@/components/AnalyticsTracker";
+import ChatWidget from "@/components/ChatWidget";
 import "./globals.css";
 import "katex/dist/katex.min.css";
 
@@ -52,6 +53,7 @@ export default function RootLayout({
           <DataProvider>
             <AnalyticsTracker />
             <SyncToast />
+            <ChatWidget />
             <HeaderNav />
             {children}
           </DataProvider>
