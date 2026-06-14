@@ -167,6 +167,21 @@ function normalizeText(value: unknown): string {
   return String(value || "").trim().toLowerCase();
 }
 
+function sanitizeForPrompt(value: unknown): string {
+  return String(value || "")
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/[#>*_`~\-]{1,}/g, " ")
+    .replace(/\|/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function shortText(value: unknown, maxLen: number): string {
+  const text = sanitizeForPrompt(value);
+  if (text.length <= maxLen) return text;
+  return `${text.slice(0, Math.max(0, maxLen - 3))}...`;
+}
+
 function parseDateValue(raw: string): Date | null {
   const value = String(raw || "").trim();
   if (!value) return null;
@@ -459,10 +474,10 @@ function buildFilteredSheetDataChunk(rows: ClassContextRow[]): string {
     .map((row) => ({
       date: row.date,
       subject: row.subject,
-      homework: Array.from(new Set(row.homeworkItems)).join(" | "),
-      deadlines: Array.from(new Set(row.deadlineItems)).join(" | "),
-      content: Array.from(new Set(row.contentItems)).join(" | "),
-      emphasis: Array.from(new Set(row.emphasisItems)).join(" | "),
+      homework: shortText(Array.from(new Set(row.homeworkItems)).join(" | "), 220),
+      deadlines: shortText(Array.from(new Set(row.deadlineItems)).join(" | "), 80),
+      content: shortText(Array.from(new Set(row.contentItems)).join(" | "), 320),
+      emphasis: shortText(Array.from(new Set(row.emphasisItems)).join(" | "), 180),
     }))
     .sort((a, b) => String(a.date).localeCompare(String(b.date)));
 
@@ -487,7 +502,8 @@ ${chunk}
    - 📝 สรุปเนื้อหาสำคัญ: [สรุปสั้นเฉพาะสาระหลัก]
    - จุดที่คุณครูเน้นย้ำ: [ดึงจากข้อมูลจุดเน้น]
    - 📌 การบ้านและกำหนดส่ง: [รายละเอียดการบ้าน; ถ้าไม่มีให้ระบุว่า ไม่มี]
-4. หากเจอข้อมูลวิชาเดียวกันในวันเดียวกันหลายรายการ ให้รวมให้เป็นภาพรวมเดียว ลดความซ้ำซ้อน`;
+4. ห้ามคัดลอกข้อมูลดิบยาวๆ จากชีตมาตอบตรงๆ ให้สรุปใหม่แบบกระชับเสมอ (ไม่เกิน 6 บรรทัดต่อ 1 วัน/วิชา)
+5. หากเจอข้อมูลวิชาเดียวกันในวันเดียวกันหลายรายการ ให้รวมให้เป็นภาพรวมเดียว ลดความซ้ำซ้อน`;
 }
 
 async function askGeminiWithContext(
@@ -543,7 +559,7 @@ async function askGeminiWithContext(
       temperature: 0.15,
       topK: 24,
       topP: 0.8,
-      maxOutputTokens: 1024,
+      maxOutputTokens: 700,
     },
   };
 
@@ -1170,8 +1186,15 @@ app.post('/api/gemini-chat', async (c) => {
       useGrounding,
     });
 
-    const sourceDates = Array.from(new Set(contextRows.map((row) => row.date).filter(Boolean))).slice(0, 10);
-    const sourceSubjects = Array.from(new Set(contextRows.map((row) => row.subject).filter(Boolean))).slice(0, 10);
+    const contextRowsForResponse = contextRows.slice(0, 8).map((row) => ({
+      ...row,
+      homework: shortText(row.homework, 160),
+      content: shortText(row.content, 180),
+      emphasis: shortText(row.emphasis, 140),
+    }));
+
+    const sourceDates = Array.from(new Set(contextRowsForResponse.map((row) => row.date).filter(Boolean))).slice(0, 10);
+    const sourceSubjects = Array.from(new Set(contextRowsForResponse.map((row) => row.subject).filter(Boolean))).slice(0, 10);
     const filterSummary: FilterSummary = {
       subjectKeywords: intent.subjectKeywords,
       dateRange: intent.dateRange,
@@ -1188,7 +1211,7 @@ app.post('/api/gemini-chat', async (c) => {
       success: true,
       data: {
         answer,
-        contextRows,
+        contextRows: contextRowsForResponse,
         filterSummary,
       },
     });

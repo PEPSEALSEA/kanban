@@ -14,6 +14,12 @@ import {
 const ACCEPTED_TYPES = ["application/pdf"];
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 
+function clampText(value: string | undefined, maxLen: number): string {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+  if (text.length <= maxLen) return text;
+  return `${text.slice(0, Math.max(0, maxLen - 3))}...`;
+}
+
 export default function ChatWidget() {
   const { user } = useData();
   const [open, setOpen] = useState(false);
@@ -143,7 +149,7 @@ export default function ChatWidget() {
                             </div>
                             {row.homework && (
                               <div>
-                                <span className="font-medium">การบ้าน:</span> {row.homework}
+                                <span className="font-medium">การบ้าน:</span> {clampText(row.homework, 130)}
                               </div>
                             )}
                             {(row.homeworkDeadline || row.deadlineDate) && (
@@ -154,12 +160,12 @@ export default function ChatWidget() {
                             )}
                             {row.content && (
                               <div>
-                                <span className="font-medium">เนื้อหา:</span> {row.content}
+                                <span className="font-medium">เนื้อหา:</span> {clampText(row.content, 150)}
                               </div>
                             )}
                             {row.emphasis && (
                               <div>
-                                <span className="font-medium">ครูเน้น:</span> {row.emphasis}
+                                <span className="font-medium">ครูเน้น:</span> {clampText(row.emphasis, 120)}
                               </div>
                             )}
                           </div>
