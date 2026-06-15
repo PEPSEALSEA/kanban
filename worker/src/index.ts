@@ -810,6 +810,7 @@ async function updateSpreadsheetLink(env: Bindings, contentId: string, contentTy
 // --- DAILY SUMMARY (Ported from google-apps-script.js) ---
 
 const APP_BASE_URL = "https://pepsealsea.github.io/kanban";
+const DISCORD_CONTENT_MAX = 2000;
 
 function sortHomeworkByDeadline(a: any, b: any) {
   const tA = a.deadline ? getMidnightGMT7(new Date(a.deadline)).getTime() : Infinity;
@@ -827,6 +828,43 @@ function summaryLineWithLink(label: string, url: string, suffix = "") {
 
 function summaryLinePlain(label: string, suffix = "") {
   return `- ${label}${suffix}\n`;
+}
+
+function splitDiscordContent(content: string, maxLen = DISCORD_CONTENT_MAX): string[] {
+  const text = String(content || "");
+  if (!text) return [""];
+  if (text.length <= maxLen) return [text];
+
+  const chunks: string[] = [];
+  let remaining = text;
+
+  while (remaining.length > maxLen) {
+    const slice = remaining.slice(0, maxLen);
+    const cutAtNewline = slice.lastIndexOf('\n');
+    const cutAtSpace = slice.lastIndexOf(' ');
+    const cutIndex = cutAtNewline > 0 ? cutAtNewline + 1 : cutAtSpace > 0 ? cutAtSpace + 1 : maxLen;
+    const part = remaining.slice(0, cutIndex);
+    chunks.push(part);
+    remaining = remaining.slice(cutIndex);
+  }
+
+  if (remaining) chunks.push(remaining);
+  return chunks;
+}
+
+async function postDiscordContent(webhookUrl: string, content: string) {
+  const chunks = splitDiscordContent(content, DISCORD_CONTENT_MAX);
+  for (const part of chunks) {
+    const response = await fetch(webhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: part }),
+    });
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Discord summary webhook failed (${response.status}): ${errText || response.statusText}`);
+    }
+  }
 }
 
 function homeworkHasDetailContent(hw: any): boolean {
@@ -1248,15 +1286,7 @@ app.get('/', async (c) => {
         if (c.req.query('send') === 'true') {
           const summaryWebhookUrl = String(c.env.SUMMARY_WEBHOOK_URL || "").trim();
           if (!summaryWebhookUrl) throw new Error("SUMMARY_WEBHOOK_URL is missing");
-          const response = await fetch(summaryWebhookUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ content: summary }),
-          });
-          if (!response.ok) {
-            const errText = await response.text();
-            throw new Error(`Discord summary webhook failed (${response.status}): ${errText || response.statusText}`);
-          }
+          await postDiscordContent(summaryWebhookUrl, summary);
         }
         result = { summary };
         break;
@@ -1315,15 +1345,7 @@ app.post('/', async (c) => {
         const summaryText = await generateDailySummary(c.env, getVal('date'));
         const summaryWebhookUrl = String(c.env.SUMMARY_WEBHOOK_URL || "").trim();
         if (!summaryWebhookUrl) throw new Error("SUMMARY_WEBHOOK_URL is missing");
-        const response = await fetch(summaryWebhookUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ content: summaryText })
-        });
-        if (!response.ok) {
-          const errText = await response.text();
-          throw new Error(`Discord summary webhook failed (${response.status}): ${errText || response.statusText}`);
-        }
+        await postDiscordContent(summaryWebhookUrl, summaryText);
         result = "Summary sent to Discord successfully! 📢";
         break;
       case "registerUpload":
