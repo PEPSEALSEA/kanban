@@ -41,6 +41,84 @@ function countPipes(line: string): number {
   return line.match(/\|/g)?.length ?? 0;
 }
 
+function tableColumnCount(line: string): number {
+  const trimmed = line.trim();
+  if (!trimmed.startsWith('|')) return 0;
+  return trimmed.replace(/^\|/, '').replace(/\|$/, '').split('|').length;
+}
+
+function mergeTableHeaderFragments(fragments: string[], expectedColumns: number): string {
+  let cells = fragments
+    .flatMap((fragment) =>
+      fragment
+        .trim()
+        .replace(/^\|/, '')
+        .replace(/\|$/, '')
+        .split('|')
+        .map((cell) => cell.trim())
+    )
+    .filter(Boolean);
+
+  if (expectedColumns > 0) {
+    if (cells.length < expectedColumns) {
+      cells = [...cells, ...Array(expectedColumns - cells.length).fill('')];
+    } else if (cells.length > expectedColumns) {
+      cells = [...cells.slice(0, expectedColumns - 1), cells.slice(expectedColumns - 1).join(' ')];
+    }
+  }
+
+  return `| ${cells.join(' | ')} |`;
+}
+
+function repairSplitTableHeaders(lines: string[]): string[] {
+  const out = [...lines];
+
+  for (let i = 0; i < out.length; i++) {
+    const trimmed = out[i].trim();
+    if (!looksLikeTableSeparator(trimmed)) continue;
+
+    const expectedColumns = tableColumnCount(trimmed);
+    let end = i - 1;
+    while (end >= 0 && !out[end].trim()) end--;
+    if (end < 0) continue;
+
+    const endTrimmed = out[end].trim();
+    if (!endTrimmed.startsWith('|') || looksLikeTableSeparator(endTrimmed)) continue;
+
+    let start = end;
+    while (start - 1 >= 0) {
+      const prev = out[start - 1].trim();
+      if (!prev || prev === '|') {
+        start--;
+        continue;
+      }
+      if (prev.startsWith('|') && !looksLikeTableSeparator(prev)) {
+        start--;
+        continue;
+      }
+      break;
+    }
+
+    const fragments: string[] = [];
+    for (let j = start; j <= end; j++) {
+      const part = out[j].trim();
+      if (!part || part === '|') continue;
+      if (part.startsWith('|') && !looksLikeTableSeparator(part)) {
+        fragments.push(part);
+      }
+    }
+
+    const shouldMerge = fragments.length > 1 || (fragments.length === 1 && !rowLooksComplete(fragments[0]));
+    if (!shouldMerge) continue;
+
+    const merged = mergeTableHeaderFragments(fragments, expectedColumns);
+    out.splice(start, end - start + 1, merged);
+    i = start;
+  }
+
+  return out;
+}
+
 /**
  * Repair AI-generated markdown tables:
  * - Merge row lines broken by newlines inside cells
@@ -49,7 +127,7 @@ function countPipes(line: string): number {
 function preprocessMarkdownTables(text: string): string {
   if (!text || !text.includes('|')) return text;
 
-  const lines = text.split('\n');
+  const lines = repairSplitTableHeaders(text.split('\n'));
   const out: string[] = [];
   let inTable = false;
   let rowBuffer: string | null = null;
