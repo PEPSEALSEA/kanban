@@ -1124,7 +1124,7 @@ async function logAnalytics(env: Bindings, data: any, req: any) {
 // --- NOTIFICATIONS ---
 
 async function sendSubmissionNotification(env: Bindings, studentName: string | any, homeworkTitle?: string, status?: string, content?: string) {
-  const url = env.DISCORD_WEBHOOK_URL;
+  const url = String(env.DISCORD_WEBHOOK_URL || "").trim();
   if (!url) return;
   
   let payload: any;
@@ -1144,7 +1144,15 @@ async function sendSubmissionNotification(env: Bindings, studentName: string | a
     payload = { embeds: [{ title: label, color: color, fields: [{ name: "Student", value: studentName, inline: true }, { name: "Homework", value: homeworkTitle, inline: true }, { name: "Content", value: displayContent.substring(0, 1000) }], footer: { text: "StudyFlow Activity Feed" }, timestamp: new Date().toISOString() }] };
   }
 
-  await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`Discord webhook failed (${response.status}): ${errText || response.statusText}`);
+  }
 }
 
 // --- ROUTES ---
@@ -1238,7 +1246,17 @@ app.get('/', async (c) => {
       case "dailySummary": 
         const summary = await generateDailySummary(c.env, c.req.query('date'));
         if (c.req.query('send') === 'true') {
-          await fetch(c.env.SUMMARY_WEBHOOK_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: summary }) });
+          const summaryWebhookUrl = String(c.env.SUMMARY_WEBHOOK_URL || "").trim();
+          if (!summaryWebhookUrl) throw new Error("SUMMARY_WEBHOOK_URL is missing");
+          const response = await fetch(summaryWebhookUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ content: summary }),
+          });
+          if (!response.ok) {
+            const errText = await response.text();
+            throw new Error(`Discord summary webhook failed (${response.status}): ${errText || response.statusText}`);
+          }
         }
         result = { summary };
         break;
@@ -1295,11 +1313,17 @@ app.post('/', async (c) => {
       case "addComment": result = await addComment(c.env, getVal('homework_id'), getVal('owner_email'), getVal('commenter_email'), getVal('text')); break;
       case "sendSummary":
         const summaryText = await generateDailySummary(c.env, getVal('date'));
-        await fetch(c.env.SUMMARY_WEBHOOK_URL, { 
-          method: "POST", 
-          headers: { "Content-Type": "application/json" }, 
-          body: JSON.stringify({ content: summaryText }) 
+        const summaryWebhookUrl = String(c.env.SUMMARY_WEBHOOK_URL || "").trim();
+        if (!summaryWebhookUrl) throw new Error("SUMMARY_WEBHOOK_URL is missing");
+        const response = await fetch(summaryWebhookUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content: summaryText })
         });
+        if (!response.ok) {
+          const errText = await response.text();
+          throw new Error(`Discord summary webhook failed (${response.status}): ${errText || response.statusText}`);
+        }
         result = "Summary sent to Discord successfully! 📢";
         break;
       case "registerUpload":
