@@ -7,8 +7,6 @@ import {
   sendGeminiChat,
   type ChatMessage,
   type ChatAttachment,
-  type GeminiContextRow,
-  type GeminiFilterSummary,
 } from "@/lib/geminiChat";
 
 const ACCEPTED_TYPES = ["application/pdf"];
@@ -24,9 +22,7 @@ export default function ChatWidget() {
   const { user } = useData();
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<
-    Array<ChatMessage & { contextRows?: GeminiContextRow[]; filterSummary?: GeminiFilterSummary }>
-  >([]);
+  const [messages, setMessages] = useState<Array<ChatMessage & { sourceLinks?: string[] }>>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [attachment, setAttachment] = useState<ChatAttachment | null>(null);
@@ -63,9 +59,7 @@ export default function ChatWidget() {
     setLoading(true);
     setError("");
 
-    const nextMessages: Array<
-      ChatMessage & { contextRows?: GeminiContextRow[]; filterSummary?: GeminiFilterSummary }
-    > = message
+    const nextMessages: Array<ChatMessage & { sourceLinks?: string[] }> = message
       ? [...messages, { role: "user", text: message }]
       : messages;
     if (message) {
@@ -91,8 +85,7 @@ export default function ChatWidget() {
         {
           role: "assistant",
           text: res.answer,
-          contextRows: res.contextRows || [],
-          filterSummary: res.filterSummary,
+          sourceLinks: res.sourceLinks || [],
         },
       ]);
       setAttachment(null);
@@ -135,58 +128,24 @@ export default function ChatWidget() {
                   }`}
                 >
                   {m.text}
-                  {m.role === "assistant" && (m.contextRows || []).length > 0 && (
+                  {m.role === "assistant" && (m.sourceLinks || []).length > 0 && (
                     <div className="mt-2 rounded-md border border-slate-300 bg-white/80 p-2 text-[11px] leading-relaxed text-slate-700">
                       <div className="mb-1 font-semibold text-slate-800">
-                        แหล่งอ้างอิงจากชีต
+                        ลิงก์แหล่งที่มา
                       </div>
                       <div className="space-y-1">
-                        {(m.contextRows || []).slice(0, 3).map((row, rowIndex) => (
-                          <div key={`${idx}-${rowIndex}`} className="rounded bg-slate-50 px-2 py-1">
-                            <div>
-                              <span className="font-medium">วันที่:</span> {row.date || "-"} |{" "}
-                              <span className="font-medium">วิชา:</span> {row.subject || "-"}
-                            </div>
-                            {row.homework && (
-                              <div>
-                                <span className="font-medium">การบ้าน:</span> {clampText(row.homework, 130)}
-                              </div>
-                            )}
-                            {(row.homeworkDeadline || row.deadlineDate) && (
-                              <div>
-                                <span className="font-medium">กำหนดส่ง:</span>{" "}
-                                {row.homeworkDeadline || row.deadlineDate}
-                              </div>
-                            )}
-                            {row.content && (
-                              <div>
-                                <span className="font-medium">เนื้อหา:</span> {clampText(row.content, 150)}
-                              </div>
-                            )}
-                            {row.emphasis && (
-                              <div>
-                                <span className="font-medium">ครูเน้น:</span> {clampText(row.emphasis, 120)}
-                              </div>
-                            )}
-                          </div>
+                        {(m.sourceLinks || []).slice(0, 8).map((link, linkIndex) => (
+                          <a
+                            key={`${idx}-${linkIndex}`}
+                            href={link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block break-all rounded bg-slate-50 px-2 py-1 text-sky-700 underline"
+                          >
+                            {clampText(link, 140)}
+                          </a>
                         ))}
                       </div>
-                      {m.filterSummary && (
-                        <div className="mt-2 rounded bg-slate-50 px-2 py-1 text-[10px] text-slate-600">
-                          <div>matched: {m.filterSummary.matchedRowsCount}</div>
-                          {m.filterSummary.subjectKeywords.length > 0 && (
-                            <div>subjects: {m.filterSummary.subjectKeywords.join(", ")}</div>
-                          )}
-                          {m.filterSummary.dueDateTarget && (
-                            <div>dueTarget: {m.filterSummary.dueDateTarget}</div>
-                          )}
-                          {m.filterSummary.dateRange && (
-                            <div>
-                              range: {m.filterSummary.dateRange.start} - {m.filterSummary.dateRange.end}
-                            </div>
-                          )}
-                        </div>
-                      )}
                     </div>
                   )}
                 </div>

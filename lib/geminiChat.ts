@@ -25,6 +25,7 @@ export type GeminiChatRequest = {
 
 export type GeminiChatResponse = {
   answer: string;
+  sourceLinks?: string[];
   contextRows?: GeminiContextRow[];
   filterSummary?: GeminiFilterSummary;
 };
@@ -38,6 +39,7 @@ export type GeminiContextRow = {
   deadlineDate?: string;
   content: string;
   emphasis: string;
+  sourceLinks?: string[];
 };
 
 export type GeminiFilterSummary = {

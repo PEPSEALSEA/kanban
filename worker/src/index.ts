@@ -56,6 +56,7 @@ const EXPECTED_HEADERS = {
 
 const ANALYTICS_COLUMNS = EXPECTED_HEADERS[SHEETS.ANALYTICS];
 const ANALYTICS_IP_NOTES_COLUMNS = EXPECTED_HEADERS[SHEETS.ANALYTICS_IP_NOTES];
+const APP_BASE_URL = "https://pepsealsea.github.io/kanban";
 
 
 // --- AUTH & API HELPERS ---
@@ -160,6 +161,7 @@ type ClassContextRow = {
   deadlineDate: string;
   content: string;
   emphasis: string;
+  sourceLinks: string[];
   rowType: "homework" | "content";
 };
 
@@ -180,6 +182,24 @@ function shortText(value: unknown, maxLen: number): string {
   const text = sanitizeForPrompt(value);
   if (text.length <= maxLen) return text;
   return `${text.slice(0, Math.max(0, maxLen - 3))}...`;
+}
+
+function stripCitationMarkers(text: string): string {
+  return String(text || "")
+    .replace(/\[(\d+(?:\s*,\s*\d+)*)\]/g, "")
+    .replace(/\((?:ref|reference|citation)[^)]*\)/gi, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function parseUrlList(raw: unknown): string[] {
+  return String(raw || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item) => item.split("#")[0].trim())
+    .filter((item) => /^https?:\/\//i.test(item));
 }
 
 function parseDateValue(raw: string): Date | null {
@@ -331,6 +351,14 @@ function buildClassContextRows(homeworkList: any[], learningContentList: any[]):
   for (const item of learningContentList) {
     const itemDate = parseDateValue(String(item.date || ""));
     const description = String(item.description || "");
+    const sourceLinks = Array.from(
+      new Set([
+        `${APP_BASE_URL}/content#/view?id=${encodeURIComponent(String(item.id || ""))}`,
+        ...parseUrlList(item.links),
+        ...parseUrlList(item.attachments),
+        ...parseUrlList(item.audio_url),
+      ])
+    ).filter(Boolean);
     rows.push({
       date: formatDateOnly(itemDate),
       subject: String(item.subject || ""),
@@ -340,6 +368,7 @@ function buildClassContextRows(homeworkList: any[], learningContentList: any[]):
       deadlineDate: "",
       content: `${String(item.title || "")} ${description}`.trim(),
       emphasis: extractEmphasis(description),
+      sourceLinks,
       rowType: "content",
     });
   }
@@ -350,6 +379,13 @@ function buildClassContextRows(homeworkList: any[], learningContentList: any[]):
     const srcDate = createdDate || deadlineDate;
     const description = String(item.description || "");
     const note = String(item.note || "");
+    const sourceLinks = Array.from(
+      new Set([
+        `${APP_BASE_URL}/#/view?id=${encodeURIComponent(String(item.id || ""))}`,
+        ...parseUrlList(item.link_work),
+        ...parseUrlList(item.link_image),
+      ])
+    ).filter(Boolean);
     rows.push({
       date: formatDateOnly(srcDate),
       subject: String(item.subject || ""),
@@ -359,6 +395,7 @@ function buildClassContextRows(homeworkList: any[], learningContentList: any[]):
       deadlineDate: formatDateOnly(deadlineDate),
       content: "",
       emphasis: `${extractEmphasis(description)} ${extractEmphasis(note)}`.trim(),
+      sourceLinks,
       rowType: "homework",
     });
   }
@@ -372,7 +409,7 @@ function rowMatchesMessage(row: ClassContextRow, message: string): boolean {
   const text = normalizeText(message);
   if (!text) return true;
   const source = normalizeText(
-    `${row.subject} ${row.homework} ${row.content} ${row.emphasis} ${row.deadlineDate} ${row.createdDate}`
+    `${row.subject} ${row.homework} ${row.content} ${row.emphasis} ${row.deadlineDate} ${row.createdDate} ${row.sourceLinks.join(" ")}`
   );
   if (source.includes(text)) return true;
   const tokens = text.split(/\s+/).filter((t) => t.length >= 3).slice(0, 8);
@@ -449,6 +486,7 @@ function buildFilteredSheetDataChunk(rows: ClassContextRow[]): string {
       deadlineItems: string[];
       contentItems: string[];
       emphasisItems: string[];
+      sourceLinks: string[];
     }
   >();
 
@@ -461,12 +499,14 @@ function buildFilteredSheetDataChunk(rows: ClassContextRow[]): string {
       deadlineItems: [],
       contentItems: [],
       emphasisItems: [],
+      sourceLinks: [],
     };
 
     if (row.homework) curr.homeworkItems.push(row.homework);
     if (row.deadlineDate) curr.deadlineItems.push(row.deadlineDate);
     if (row.content) curr.contentItems.push(row.content);
     if (row.emphasis) curr.emphasisItems.push(row.emphasis);
+    curr.sourceLinks.push(...(row.sourceLinks || []));
     grouped.set(key, curr);
   }
 
@@ -474,10 +514,11 @@ function buildFilteredSheetDataChunk(rows: ClassContextRow[]): string {
     .map((row) => ({
       date: row.date,
       subject: row.subject,
-      homework: shortText(Array.from(new Set(row.homeworkItems)).join(" | "), 220),
-      deadlines: shortText(Array.from(new Set(row.deadlineItems)).join(" | "), 80),
-      content: shortText(Array.from(new Set(row.contentItems)).join(" | "), 320),
-      emphasis: shortText(Array.from(new Set(row.emphasisItems)).join(" | "), 180),
+      homework: shortText(Array.from(new Set(row.homeworkItems)).join(" | "), 2200),
+      deadlines: shortText(Array.from(new Set(row.deadlineItems)).join(" | "), 160),
+      content: shortText(Array.from(new Set(row.contentItems)).join(" | "), 2800),
+      emphasis: shortText(Array.from(new Set(row.emphasisItems)).join(" | "), 600),
+      sourceLinks: Array.from(new Set(row.sourceLinks)).slice(0, 12),
     }))
     .sort((a, b) => String(a.date).localeCompare(String(b.date)));
 
@@ -492,18 +533,19 @@ function buildSystemInstruction(filteredSheetDataChunk: string): string {
 ${chunk}
 
 [กฎเหล็กและกระบวนการคิด]
-1. การจำกัดขอบเขตข้อมูล: ห้ามใช้จินตนาการหรือคิดคำตอบขึ้นมาเองเด็ดขาด หากคำถามของผู้ใช้ไม่มีคำตอบระบุอยู่ในข้อมูล Sheet ที่แนบมา ให้ตอบว่า "ขออภัยด้วยครับ/ค่ะ ไม่พบข้อมูลการบ้านหรือเนื้อหาในส่วนนี้ในระบบ"
+1. การจำกัดขอบเขตข้อมูล: ห้ามใช้จินตนาการหรือคิดคำตอบขึ้นมาเองเด็ดขาด หากคำถามของผู้ใช้ไม่มีคำตอบระบุอยู่ในข้อมูล Sheet ที่แนบมา ให้ตอบว่า "ขออภัยครับ ไม่พบข้อมูลในระบบตามช่วงเวลา/วิชาที่ระบุ"
 2. วิธีการอ่านและกรองข้อมูล:
    - เมื่อผู้ใช้ระบุชื่อวิชา ให้ใช้เฉพาะแถวที่มีวิชานั้น
    - เมื่อผู้ใช้ระบุวันที่หรือช่วงเวลา ให้เรียงจากเก่าไปใหม่และใช้เฉพาะช่วงที่ถาม
 3. รูปแบบการตอบกลับ:
    - 📅 วันที่: [ว/ด/ป]
    - 📘 วิชา: [ชื่อวิชา]
-   - 📝 สรุปเนื้อหาสำคัญ: [สรุปสั้นเฉพาะสาระหลัก]
+   - 📝 สรุปเนื้อหาสำคัญ: [สรุปจากข้อมูล content แบบครบประเด็นหลัก]
    - จุดที่คุณครูเน้นย้ำ: [ดึงจากข้อมูลจุดเน้น]
    - 📌 การบ้านและกำหนดส่ง: [รายละเอียดการบ้าน; ถ้าไม่มีให้ระบุว่า ไม่มี]
-4. ห้ามคัดลอกข้อมูลดิบยาวๆ จากชีตมาตอบตรงๆ ให้สรุปใหม่แบบกระชับเสมอ (ไม่เกิน 6 บรรทัดต่อ 1 วัน/วิชา)
-5. หากเจอข้อมูลวิชาเดียวกันในวันเดียวกันหลายรายการ ให้รวมให้เป็นภาพรวมเดียว ลดความซ้ำซ้อน`;
+4. ห้ามคัดลอกข้อมูลดิบยาวๆ จากชีตมาตอบตรงๆ ให้สรุปใหม่แบบกระชับแต่ครบสาระ (ไม่เกิน 10 บรรทัดต่อ 1 วัน/วิชา)
+5. หากเจอข้อมูลวิชาเดียวกันในวันเดียวกันหลายรายการ ให้รวมให้เป็นภาพรวมเดียว ลดความซ้ำซ้อน
+6. ห้ามใส่รูปแบบอ้างอิงแบบ [1], [2], (ref), หรือ citation ใดๆ ในเนื้อหา หากต้องระบุแหล่งที่มาให้แสดงเฉพาะลิงก์จริงภายใต้หัวข้อ "แหล่งที่มา" เท่านั้น`;
 }
 
 async function askGeminiWithContext(
@@ -583,7 +625,7 @@ async function askGeminiWithContext(
     .trim();
 
   if (!answer) throw new Error("Gemini returned empty answer");
-  return answer;
+  return stripCitationMarkers(answer);
 }
 
 // --- CORE DATA GETTERS ---
@@ -809,7 +851,6 @@ async function updateSpreadsheetLink(env: Bindings, contentId: string, contentTy
 
 // --- DAILY SUMMARY (Ported from google-apps-script.js) ---
 
-const APP_BASE_URL = "https://pepsealsea.github.io/kanban";
 const DISCORD_CONTENT_MAX = 2000;
 
 function sortHomeworkByDeadline(a: any, b: any) {
@@ -1223,7 +1264,7 @@ app.post('/api/gemini-chat', async (c) => {
     const contextRows = filterRowsByIntent(allRows, message || "วิเคราะห์ไฟล์ที่แนบ", intent);
     const filteredSheetDataChunk = buildFilteredSheetDataChunk(contextRows);
     const systemInstruction = buildSystemInstruction(filteredSheetDataChunk);
-    const useGrounding = intent.explicitWebSearch;
+    const useGrounding = false;
     const answer = await askGeminiWithContext(c.env, {
       message: message || "ช่วยวิเคราะห์ไฟล์ที่แนบ",
       history,
@@ -1237,7 +1278,11 @@ app.post('/api/gemini-chat', async (c) => {
       homework: shortText(row.homework, 160),
       content: shortText(row.content, 180),
       emphasis: shortText(row.emphasis, 140),
+      sourceLinks: (row.sourceLinks || []).slice(0, 8),
     }));
+    const sourceLinks = Array.from(
+      new Set(contextRows.flatMap((row) => row.sourceLinks || []))
+    ).slice(0, 20);
 
     const sourceDates = Array.from(new Set(contextRowsForResponse.map((row) => row.date).filter(Boolean))).slice(0, 10);
     const sourceSubjects = Array.from(new Set(contextRowsForResponse.map((row) => row.subject).filter(Boolean))).slice(0, 10);
@@ -1257,6 +1302,7 @@ app.post('/api/gemini-chat', async (c) => {
       success: true,
       data: {
         answer,
+        sourceLinks,
         contextRows: contextRowsForResponse,
         filterSummary,
       },
