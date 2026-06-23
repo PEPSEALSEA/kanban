@@ -220,6 +220,25 @@ export default function LearningContentPage() {
   }, [activeContent?.description]);
 
   const isSearching = searchTerm.trim() || selectedSubject !== 'All';
+  const getContentHref = useCallback((id: string) => `#/view?id=${encodeURIComponent(id)}`, []);
+
+  const handleContentLinkClick = useCallback((
+    e: React.MouseEvent<HTMLAnchorElement>,
+    id: string,
+    options?: { closeDateModal?: boolean; clearFilters?: boolean }
+  ) => {
+    if (e.defaultPrevented) return;
+    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    window.location.hash = getContentHref(id);
+    if (options?.clearFilters) {
+      setSearchTerm('');
+      setSelectedSubject('All');
+    }
+    if (options?.closeDateModal) {
+      setSelectedDate(null);
+    }
+  }, [getContentHref]);
 
   return (
     <ResizableContentPanel
@@ -417,9 +436,10 @@ export default function LearningContentPage() {
                     <div className="space-y-3 max-h-[calc(100vh-22rem)] overflow-y-auto pr-1 -mr-1">
                     {searchResults.length > 0 ? (
                       searchResults.map((c: LearningContent, idx) => (
-                        <motion.button
+                        <motion.a
                           key={c.id}
-                          onClick={() => { window.location.hash = `#/view?id=${c.id}`; setSearchTerm(''); setSelectedSubject('All'); }}
+                          href={getContentHref(c.id)}
+                          onClick={(e) => handleContentLinkClick(e, c.id, { clearFilters: true })}
                           className="card w-full p-5 md:p-6 text-left flex items-center gap-4 md:gap-6 group shrink-0"
                           initial={{ opacity: 0, y: 12 }}
                           animate={{ opacity: 1, y: 0 }}
@@ -442,7 +462,7 @@ export default function LearningContentPage() {
                             <div className="text-[11px] font-medium text-slate-400 mt-1.5">{new Date(c.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
                           </div>
                           <span className="text-slate-300 group-hover:text-sky-500 transition-colors">→</span>
-                        </motion.button>
+                        </motion.a>
                       ))
                     ) : (
                       <motion.div
@@ -558,9 +578,10 @@ export default function LearningContentPage() {
 
               <div className="flex flex-col gap-3 overflow-y-auto pr-2 min-h-0 flex-1">
                 {selectedDateContents.map((c: LearningContent, idx) => (
-                  <motion.button
+                  <motion.a
                     key={c.id}
-                    onClick={() => { window.location.hash = `#/view?id=${c.id}`; setSelectedDate(null); }}
+                    href={getContentHref(c.id)}
+                    onClick={(e) => handleContentLinkClick(e, c.id, { closeDateModal: true })}
                     className="w-full p-4 bg-slate-50 hover:bg-slate-100 transition-all rounded-2xl flex items-center gap-4 text-left group shrink-0"
                     initial={{ opacity: 0, x: -8 }}
                     animate={{ opacity: 1, x: 0 }}
@@ -576,7 +597,7 @@ export default function LearningContentPage() {
                       <div className="font-semibold text-sm text-slate-800 leading-tight truncate">{c.title}</div>
                     </div>
                     <span className="text-slate-300 group-hover:text-sky-500 shrink-0">→</span>
-                  </motion.button>
+                  </motion.a>
                 ))}
               </div>
 
