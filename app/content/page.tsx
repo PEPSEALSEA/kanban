@@ -5,11 +5,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useData } from '@/components/DataProvider';
 import AttachmentList from '@/components/AttachmentList';
 import AudioPlayer from '@/components/AudioPlayer';
+import ContentExportImageModal from '@/components/ContentExportImageModal';
 import MarkdownRenderer from '@/components/MarkdownRenderer';
 import ResizableContentPanel from '@/components/ResizableContentPanel';
 import { useDeviceDetection } from '@/hooks/useDeviceDetection';
 
 import { parseAudioItems } from '@/lib/audioItems';
+import { parseContentDescription } from '@/lib/parseContentDescription';
 
 const SUBJECT_COLORS: Record<string, string> = {
   'Math': '#6366f1',
@@ -50,6 +52,7 @@ export default function LearningContentPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSubject, setSelectedSubject] = useState('All');
   const [mounted, setMounted] = useState(false);
+  const [isExportOpen, setIsExportOpen] = useState(false);
   const { isMobile } = useDeviceDetection();
 
   // --- HASH ROUTING ---
@@ -70,7 +73,8 @@ export default function LearningContentPage() {
     }
     setView('calendar');
     setActiveContent(null);
-  }, [learningContent]);
+    setIsExportOpen(false);
+  }, [learningContent, logEvent]);
 
   useEffect(() => {
     setMounted(true);
@@ -149,28 +153,6 @@ export default function LearningContentPage() {
     });
   }, [learningContent, searchTerm, selectedSubject]);
 
-  // --- PARSER LOGIC ---
-  const parseDescription = (desc: string) => {
-    const regex = /\[Card\s*(\d+):\s*([\s\S]*?)\]/g;
-    const cards: { num: string; text: string }[] = [];
-    let match;
-    let intro = desc;
-
-    // Extract all {N Text} patterns
-    const matches = Array.from(desc.matchAll(regex));
-    if (matches.length > 0) {
-      // Find the first index of a match to get the intro
-      const firstMatchIndex = desc.indexOf(matches[0][0]);
-      intro = desc.substring(0, firstMatchIndex).trim();
-      
-      matches.forEach(m => {
-        cards.push({ num: m[1], text: m[2].trim() });
-      });
-    }
-
-    return { intro, cards };
-  };
-
   const memoizedAttachments = useMemo(() => {
     if (!activeContent) return [];
 
@@ -216,7 +198,7 @@ export default function LearningContentPage() {
 
   const detailParsed = useMemo(() => {
     if (!activeContent) return { intro: '', cards: [] as { num: string; text: string }[] };
-    return parseDescription(activeContent.description);
+    return parseContentDescription(activeContent.description);
   }, [activeContent?.description]);
 
   const isSearching = searchTerm.trim() || selectedSubject !== 'All';
@@ -258,14 +240,25 @@ export default function LearningContentPage() {
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.25 }}
           >
-            <motion.button
-              onClick={() => { window.location.hash = ''; }}
-              className="text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors mb-10 flex items-center gap-2"
-              whileHover={{ x: -4 }}
-              transition={{ duration: 0.15 }}
-            >
-              ← BACK TO ARCHIVE
-            </motion.button>
+            <div className="mb-10 flex items-center justify-between gap-3 flex-wrap">
+              <motion.button
+                onClick={() => { window.location.hash = ''; }}
+                className="text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors flex items-center gap-2"
+                whileHover={{ x: -4 }}
+                transition={{ duration: 0.15 }}
+              >
+                ← BACK TO ARCHIVE
+              </motion.button>
+              <motion.button
+                type="button"
+                onClick={() => setIsExportOpen(true)}
+                className="neo-button px-4 py-2 text-xs"
+                whileHover={{ y: -1 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                Export as PNG
+              </motion.button>
+            </div>
 
             <motion.div
               className="neo-card p-8 md:p-14 shadow-2xl border-none rounded-3xl relative max-h-[calc(100vh-6rem)] overflow-y-auto"
@@ -635,6 +628,17 @@ export default function LearningContentPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {activeContent && (
+        <ContentExportImageModal
+          isOpen={isExportOpen}
+          onClose={() => setIsExportOpen(false)}
+          content={activeContent}
+          parsed={detailParsed}
+          subjectColors={dynamicSubjectColors}
+          mounted={mounted}
+        />
+      )}
     </ResizableContentPanel>
   );
 }
