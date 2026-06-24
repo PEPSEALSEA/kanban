@@ -58,6 +58,21 @@ function shortVisitorId(visitorId: string, isLegacy: boolean): string {
   return `#${visitorId.slice(-8)}`;
 }
 
+function visitorColor(visitorId: string): string {
+  const palette = ['#6366f1', '#8b5cf6', '#ec4899', '#0d9488', '#2563eb', '#f59e0b', '#10b981', '#06b6d4'];
+  let h = 0;
+  for (const c of visitorId) h = ((h << 5) - h + c.charCodeAt(0)) | 0;
+  return palette[Math.abs(h) % palette.length];
+}
+
+function visitorInitials(group: VisitorGroup, note?: IpNote): string {
+  const src = note?.name || group.email;
+  if (!src) return '?';
+  const parts = src.trim().split(/[\s@.]+/);
+  if (parts.length >= 2 && parts[0] && parts[1]) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return src.slice(0, 2).toUpperCase();
+}
+
 function buildVisitorGroups(rows: AnalyticsRow[]): VisitorGroup[] {
   const map = new Map<string, VisitorGroup>();
 
@@ -107,9 +122,7 @@ function buildVisitorGroups(rows: AnalyticsRow[]): VisitorGroup[] {
       group.totalDurationSec += Number(meta.duration_sec) || 0;
     }
     const scrollPct = Number(meta.max_scroll_percent ?? meta.percent ?? 0);
-    if (scrollPct > group.maxScrollPercent) {
-      group.maxScrollPercent = scrollPct;
-    }
+    if (scrollPct > group.maxScrollPercent) group.maxScrollPercent = scrollPct;
   }
 
   for (const g of map.values()) {
@@ -145,6 +158,15 @@ function formatTime(iso: string) {
   });
 }
 
+function daysSince(iso: string): string {
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+  if (days === 0) return 'วันนี้เป็นครั้งแรก';
+  if (days === 1) return 'เริ่มใช้เมื่อวาน';
+  return `ใช้มา ${days} วัน`;
+}
+
+// ---- Detail Modal ----
+
 type IpDetailModalProps = {
   group: VisitorGroup;
   ipNotes: Record<string, IpNote>;
@@ -159,6 +181,7 @@ function IpDetailModal({ group, ipNotes, onClose, onSaveNote }: IpDetailModalPro
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const color = visitorColor(group.visitorId);
 
   const sessions = useMemo(() => buildIpTimeline(group.events), [group.events]);
   const pageSummary = useMemo(() => buildPageSummary(sessions), [sessions]);
@@ -178,9 +201,7 @@ function IpDetailModal({ group, ipNotes, onClose, onSaveNote }: IpDetailModalPro
   };
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
@@ -189,13 +210,12 @@ function IpDetailModal({ group, ipNotes, onClose, onSaveNote }: IpDetailModalPro
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={`Activity ${shortVisitorId(group.visitorId, group.isLegacy)}`}
       onClick={onClose}
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(0, 0, 0, 0.65)',
-        backdropFilter: 'blur(6px)',
+        background: 'rgba(0,0,0,0.7)',
+        backdropFilter: 'blur(8px)',
         zIndex: 3000,
         display: 'flex',
         alignItems: 'center',
@@ -207,191 +227,184 @@ function IpDetailModal({ group, ipNotes, onClose, onSaveNote }: IpDetailModalPro
         onClick={(e) => e.stopPropagation()}
         style={{
           width: '100%',
-          maxWidth: '720px',
-          maxHeight: '90vh',
+          maxWidth: '740px',
+          maxHeight: '92vh',
           background: 'var(--admin-card-bg)',
           border: '1px solid var(--admin-border)',
-          borderRadius: '1rem',
+          borderRadius: '1.25rem',
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
-          boxShadow: '0 24px 48px rgba(0,0,0,0.4)',
+          boxShadow: '0 32px 64px rgba(0,0,0,0.5)',
         }}
       >
-        <div
-          style={{
-            padding: '1.25rem 1.5rem',
-            borderBottom: '1px solid var(--admin-border)',
+        {/* Modal Header */}
+        <div style={{
+          padding: '1.25rem 1.5rem',
+          borderBottom: '1px solid var(--admin-border)',
+          display: 'flex',
+          gap: '1rem',
+          alignItems: 'flex-start',
+          flexShrink: 0,
+          background: `linear-gradient(135deg, ${color}12, transparent)`,
+        }}>
+          <div style={{
+            width: '48px',
+            height: '48px',
+            borderRadius: '50%',
+            background: `${color}28`,
+            border: `2px solid ${color}60`,
             display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'flex-start',
-            gap: '1rem',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '1rem',
+            fontWeight: 800,
+            color,
             flexShrink: 0,
-          }}
-        >
+          }}>
+            {visitorInitials(group, existing)}
+          </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <h2 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0, color: 'var(--admin-text-main)' }}>
-              {existing?.name || shortVisitorId(group.visitorId, group.isLegacy)}
-            </h2>
-            <div style={{ fontSize: '0.72rem', color: 'var(--admin-text-muted)', marginTop: '0.2rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-              {!group.isLegacy && <span style={{ fontFamily: 'monospace' }}>{group.visitorId}</span>}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+              <h2 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0, color: 'var(--admin-text-main)' }}>
+                {existing?.name || shortVisitorId(group.visitorId, group.isLegacy)}
+              </h2>
+              {group.likelyOnline && (
+                <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.7rem', fontWeight: 700, padding: '2px 8px', borderRadius: '20px', background: 'rgba(16,185,129,0.15)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)' }}>
+                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }} />
+                  ออนไลน์อยู่
+                </span>
+              )}
+            </div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--admin-text-muted)', marginTop: '0.25rem', display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+              {!group.isLegacy && <span style={{ fontFamily: 'monospace', opacity: 0.7 }}>{group.visitorId}</span>}
               {group.displayIp && <span>IP: {group.displayIp}</span>}
             </div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--admin-text-muted)', marginTop: '0.5rem' }}>
+            <div style={{ fontSize: '0.8rem', color: 'var(--admin-text-muted)', marginTop: '0.4rem' }}>
               {group.email || 'ไม่ได้ล็อกอิน'} · {group.device} · {group.browser}
             </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.75rem' }}>
-              <span style={chipStyle('#10b981')}>ออนไลน์ล่าสุด {formatRelativeTime(group.lastSeen)}</span>
-              <span style={chipStyle('#6366f1')}>อยู่รวม ~{formatDuration(group.totalDurationSec)}</span>
-              <span style={chipStyle('#94a3b8')}>{group.eventCount} events</span>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.65rem' }}>
+              <span style={chip('#10b981')}>ล่าสุด {formatRelativeTime(group.lastSeen)}</span>
+              {group.totalDurationSec > 0 && <span style={chip('#6366f1')}>อยู่รวม ~{formatDuration(group.totalDurationSec)}</span>}
+              <span style={chip('#94a3b8')}>{group.eventCount} events</span>
+              <span style={chip('#64748b')}>{daysSince(group.firstSeen)}</span>
             </div>
           </div>
-          <button type="button" onClick={onClose} style={closeBtnStyle} aria-label="ปิด">
-            ✕
-          </button>
+          <button type="button" onClick={onClose} style={closeBtnStyle} aria-label="ปิด">✕</button>
         </div>
 
+        {/* Note editor */}
         <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--admin-border)', flexShrink: 0 }}>
-          <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--admin-text-muted)', textTransform: 'uppercase', marginBottom: '0.6rem' }}>
-            บันทึกชื่อ / Note
+          <div style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--admin-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.6rem' }}>
+            ตั้งชื่อ / บันทึก
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             <input
               type="text"
               placeholder="ชื่อผู้ใช้ เช่น น้องมิ้นท์"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              style={inputStyle}
+              style={{ ...inputStyle, flex: '1 1 160px' }}
             />
-            <textarea
+            <input
+              type="text"
               placeholder="Note เพิ่มเติม (optional)"
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              rows={2}
-              style={{ ...inputStyle, resize: 'vertical', minHeight: '52px' }}
+              style={{ ...inputStyle, flex: '2 1 200px' }}
             />
-            <button type="button" onClick={handleSave} disabled={saving} style={{ ...saveBtnStyle, opacity: saving ? 0.7 : 1 }}>
-              {saving ? 'กำลังบันทึก...' : saved ? 'บันทึกแล้ว ✓' : 'บันทึก Note'}
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              style={{ ...saveBtnStyle, opacity: saving ? 0.7 : 1, flexShrink: 0 }}
+            >
+              {saving ? 'กำลังบันทึก...' : saved ? '✓ บันทึกแล้ว' : 'บันทึก'}
             </button>
-            {saveError && (
-              <div style={{ fontSize: '0.75rem', color: '#f87171', marginTop: '0.25rem' }}>{saveError}</div>
-            )}
-            {existing?.updatedAt && (
-              <div style={{ fontSize: '0.68rem', color: 'var(--admin-text-muted)' }}>
-                อัปเดตล่าสุด: {formatTime(existing.updatedAt)}
-              </div>
-            )}
           </div>
+          {saveError && <div style={{ fontSize: '0.75rem', color: '#f87171', marginTop: '0.4rem' }}>{saveError}</div>}
+          {existing?.updatedAt && (
+            <div style={{ fontSize: '0.65rem', color: 'var(--admin-text-muted)', marginTop: '0.3rem' }}>
+              อัปเดตล่าสุด: {formatTime(existing.updatedAt)}
+            </div>
+          )}
         </div>
 
+        {/* Page summary */}
         {pageSummary.length > 0 && (
-          <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--admin-border)', flexShrink: 0 }}>
-            <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--admin-text-muted)', textTransform: 'uppercase', marginBottom: '0.6rem' }}>
+          <div style={{ padding: '0.75rem 1.5rem', borderBottom: '1px solid var(--admin-border)', flexShrink: 0 }}>
+            <div style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--admin-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>
               เวลาต่อหน้า (ประมาณ)
             </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
               {pageSummary.map((p) => (
-                <span key={p.pageLabel} style={chipStyle('#2563eb')}>
-                  {p.pageLabel}: {formatDuration(p.totalSec)} ({p.visits} ครั้ง)
+                <span key={p.pageLabel} style={chip('#2563eb')}>
+                  {p.pageLabel}: {formatDuration(p.totalSec)} ({p.visits}×)
                 </span>
               ))}
             </div>
           </div>
         )}
 
+        {/* Timeline */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '1rem 1.5rem 1.5rem', minHeight: 0 }}>
-          <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--admin-text-muted)', textTransform: 'uppercase', marginBottom: '1rem' }}>
-            Timeline (ใหม่ → เก่า · เลื่อนดูย้อนหลังได้)
+          <div style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--admin-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '1rem' }}>
+            Timeline — ใหม่ → เก่า
           </div>
 
           {sessions.length === 0 ? (
             <p style={{ textAlign: 'center', color: 'var(--admin-text-muted)', padding: '2rem' }}>ไม่มี activity</p>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               {sessions.map((session) => (
                 <div
                   key={session.sessionId}
-                  style={{
-                    border: '1px solid var(--admin-border)',
-                    borderRadius: '0.75rem',
-                    overflow: 'hidden',
-                    background: 'var(--admin-bg-soft)',
-                  }}
+                  style={{ border: '1px solid var(--admin-border)', borderRadius: '0.75rem', overflow: 'hidden', background: 'var(--admin-bg-soft)' }}
                 >
-                  <div
-                    style={{
-                      padding: '0.65rem 1rem',
-                      background: 'rgba(99, 102, 241, 0.1)',
-                      borderBottom: '1px solid var(--admin-border)',
-                      fontSize: '0.75rem',
-                      fontWeight: 700,
-                      color: 'var(--admin-text-main)',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      flexWrap: 'wrap',
-                      gap: '0.5rem',
-                    }}
-                  >
+                  <div style={{
+                    padding: '0.6rem 1rem',
+                    background: 'rgba(99,102,241,0.08)',
+                    borderBottom: '1px solid var(--admin-border)',
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    color: 'var(--admin-text-main)',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '0.5rem',
+                  }}>
                     <span>เซสชัน · {formatTime(session.startedAt)}</span>
                     <span style={{ color: '#a5b4fc' }}>รวม {formatDuration(session.totalDurationSec)}</span>
                   </div>
-
                   <div style={{ padding: '0.75rem 1rem' }}>
                     {session.entries.map((entry, idx) => {
                       const color = EVENT_COLORS[entry.eventType] || '#64748b';
                       const isLast = idx === session.entries.length - 1;
                       return (
-                        <div key={entry.id} style={{ display: 'flex', gap: '0.75rem', minHeight: '48px' }}>
+                        <div key={entry.id} style={{ display: 'flex', gap: '0.75rem', minHeight: '44px' }}>
                           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '14px', flexShrink: 0 }}>
-                            <div
-                              style={{
-                                width: '10px',
-                                height: '10px',
-                                borderRadius: '50%',
-                                background: color,
-                                marginTop: '5px',
-                                flexShrink: 0,
-                              }}
-                            />
-                            {!isLast && (
-                              <div style={{ width: '2px', flex: 1, background: 'var(--admin-border)', marginTop: '4px', minHeight: '20px' }} />
-                            )}
+                            <div style={{ width: '9px', height: '9px', borderRadius: '50%', background: color, marginTop: '5px', flexShrink: 0 }} />
+                            {!isLast && <div style={{ width: '2px', flex: 1, background: 'var(--admin-border)', marginTop: '4px', minHeight: '16px' }} />}
                           </div>
-                          <div style={{ flex: 1, paddingBottom: isLast ? 0 : '0.85rem', minWidth: 0 }}>
+                          <div style={{ flex: 1, paddingBottom: isLast ? 0 : '0.75rem', minWidth: 0 }}>
                             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.4rem' }}>
-                              <span
-                                style={{
-                                  fontSize: '0.7rem',
-                                  fontWeight: 700,
-                                  padding: '2px 7px',
-                                  borderRadius: '4px',
-                                  background: `${color}22`,
-                                  color,
-                                }}
-                              >
+                              <span style={{ fontSize: '0.68rem', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: `${color}22`, color }}>
                                 {entry.label}
                               </span>
                               {entry.eventType === 'visit' && entry.durationSec != null && (
-                                <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#10b981' }}>
+                                <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#10b981' }}>
                                   อยู่ {formatDuration(entry.durationSec)}
                                 </span>
                               )}
-                              <span style={{ fontSize: '0.68rem', color: 'var(--admin-text-muted)', marginLeft: 'auto' }}>
+                              <span style={{ fontSize: '0.65rem', color: 'var(--admin-text-muted)', marginLeft: 'auto' }}>
                                 {formatTime(entry.at)}
                               </span>
                             </div>
-                            <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--admin-text-main)', marginTop: '0.25rem' }}>
+                            <div style={{ fontSize: '0.83rem', fontWeight: 600, color: 'var(--admin-text-main)', marginTop: '0.2rem' }}>
                               {entry.pageLabel}
                             </div>
                             {entry.detail && (
-                              <div style={{ fontSize: '0.78rem', color: 'var(--admin-text-muted)', marginTop: '0.2rem' }}>
-                                {entry.detail}
-                              </div>
-                            )}
-                            {entry.contentId && (
-                              <div style={{ fontSize: '0.72rem', color: 'var(--admin-text-muted)', marginTop: '0.15rem' }}>
-                                ID: {entry.contentId}
-                              </div>
+                              <div style={{ fontSize: '0.75rem', color: 'var(--admin-text-muted)', marginTop: '0.15rem' }}>{entry.detail}</div>
                             )}
                           </div>
                         </div>
@@ -408,14 +421,139 @@ function IpDetailModal({ group, ipNotes, onClose, onSaveNote }: IpDetailModalPro
   );
 }
 
-const chipStyle = (color: string): React.CSSProperties => ({
-  fontSize: '0.7rem',
+// ---- Visitor Card ----
+
+function VisitorCard({
+  g,
+  note,
+  onClick,
+}: {
+  g: VisitorGroup;
+  note?: IpNote;
+  onClick: () => void;
+}) {
+  const color = visitorColor(g.visitorId);
+  const displayName = note?.name || shortVisitorId(g.visitorId, g.isLegacy);
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        display: 'grid',
+        gridTemplateColumns: '48px 1fr auto',
+        alignItems: 'center',
+        gap: '0.9rem',
+        padding: '0.9rem 1rem',
+        borderRadius: '0.85rem',
+        border: `1px solid ${g.likelyOnline ? 'rgba(16,185,129,0.35)' : 'var(--admin-border)'}`,
+        background: g.likelyOnline ? 'rgba(16,185,129,0.04)' : 'var(--admin-bg-soft)',
+        cursor: 'pointer',
+        textAlign: 'left',
+        width: '100%',
+        color: 'var(--admin-text-main)',
+        transition: 'border-color 0.15s, background 0.15s',
+      }}
+    >
+      {/* Avatar */}
+      <div style={{ position: 'relative', flexShrink: 0 }}>
+        <div style={{
+          width: '44px',
+          height: '44px',
+          borderRadius: '50%',
+          background: `${color}22`,
+          border: `2px solid ${color}50`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '0.9rem',
+          fontWeight: 800,
+          color,
+        }}>
+          {visitorInitials(g, note)}
+        </div>
+        {g.likelyOnline && (
+          <span style={{
+            position: 'absolute',
+            bottom: '0',
+            right: '0',
+            width: '11px',
+            height: '11px',
+            borderRadius: '50%',
+            background: '#10b981',
+            border: '2px solid var(--admin-card-bg)',
+          }} />
+        )}
+      </div>
+
+      {/* Info */}
+      <div style={{ minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+          <span style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--admin-text-main)' }}>
+            {displayName}
+          </span>
+          {g.isLegacy && (
+            <span style={{ fontSize: '0.58rem', padding: '1px 5px', borderRadius: '4px', background: 'rgba(100,116,139,0.15)', color: '#64748b' }}>
+              legacy
+            </span>
+          )}
+          {note?.note && (
+            <span title={note.note} style={{ fontSize: '0.62rem', padding: '1px 6px', borderRadius: '4px', background: 'rgba(245,158,11,0.12)', color: '#f59e0b' }}>
+              Note
+            </span>
+          )}
+        </div>
+
+        <div style={{ fontSize: '0.72rem', color: 'var(--admin-text-muted)', marginTop: '0.15rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {g.email || 'ไม่ได้ล็อกอิน'} · {g.device} · {g.browser}
+          {!g.isLegacy && g.displayIp && <> · {g.displayIp}</>}
+        </div>
+
+        <div style={{ fontSize: '0.72rem', marginTop: '0.25rem', color: 'var(--admin-text-muted)', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <span style={{ color: 'var(--admin-text-main)', fontWeight: 600 }}>📄 {g.lastPage}</span>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.4rem', flexWrap: 'wrap' }}>
+          {g.totalDurationSec > 0 && (
+            <span style={{ fontSize: '0.68rem', color: 'var(--admin-text-muted)' }}>
+              ⏱ ~{formatDuration(g.totalDurationSec)}
+            </span>
+          )}
+          <span style={{ fontSize: '0.68rem', color: 'var(--admin-text-muted)' }}>{g.eventCount} events</span>
+          {g.maxScrollPercent > 0 && (
+            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span style={{ fontSize: '0.65rem', color: 'var(--admin-text-muted)' }}>อ่าน {g.maxScrollPercent}%</span>
+              <span style={{ display: 'inline-flex', width: '40px', height: '4px', background: 'rgba(255,255,255,0.08)', borderRadius: '2px', overflow: 'hidden' }}>
+                <span style={{ height: '100%', width: `${g.maxScrollPercent}%`, background: '#10b981', borderRadius: '2px' }} />
+              </span>
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Right: time */}
+      <div style={{ textAlign: 'right', flexShrink: 0 }}>
+        <div style={{ fontSize: '0.72rem', fontWeight: 700, color: g.likelyOnline ? '#10b981' : 'var(--admin-text-muted)', whiteSpace: 'nowrap' }}>
+          {g.likelyOnline ? '● ออนไลน์' : formatRelativeTime(g.lastSeen)}
+        </div>
+        <div style={{ fontSize: '0.65rem', color: 'var(--admin-text-muted)', marginTop: '0.2rem', whiteSpace: 'nowrap' }}>
+          {daysSince(g.firstSeen)}
+        </div>
+      </div>
+    </button>
+  );
+}
+
+// ---- Shared styles ----
+
+const chip = (color: string): React.CSSProperties => ({
+  fontSize: '0.68rem',
   fontWeight: 700,
-  padding: '3px 8px',
+  padding: '2px 8px',
   borderRadius: '6px',
   background: `${color}18`,
   color,
-  border: `1px solid ${color}33`,
+  border: `1px solid ${color}30`,
 });
 
 const closeBtnStyle: React.CSSProperties = {
@@ -431,19 +569,18 @@ const closeBtnStyle: React.CSSProperties = {
 };
 
 const inputStyle: React.CSSProperties = {
-  width: '100%',
-  padding: '0.55rem 0.75rem',
+  padding: '0.5rem 0.75rem',
   borderRadius: '0.5rem',
   border: '1px solid var(--admin-border)',
   background: 'rgba(255,255,255,0.06)',
   color: 'var(--admin-text-main)',
-  fontSize: '0.85rem',
+  fontSize: '0.82rem',
   outline: 'none',
+  minWidth: 0,
 };
 
 const saveBtnStyle: React.CSSProperties = {
-  alignSelf: 'flex-start',
-  padding: '0.45rem 1rem',
+  padding: '0.5rem 1.1rem',
   borderRadius: '0.5rem',
   border: 'none',
   background: 'var(--admin-primary)',
@@ -453,10 +590,14 @@ const saveBtnStyle: React.CSSProperties = {
   cursor: 'pointer',
 };
 
+// ---- Main Panel ----
+
 export default function AdminAnalyticsPanel({ analytics }: { analytics: AnalyticsRow[] }) {
   const { analyticsIpNotes, saveAnalyticsIpNote, learningContent, allHomework } = useData();
+  const [activeTab, setActiveTab] = useState<'overview' | 'visitors'>('overview');
   const [selectedVisitorId, setSelectedVisitorId] = useState<string | null>(null);
   const [range, setRange] = useState<DateRangeDays>(7);
+  const [search, setSearch] = useState('');
 
   const ipNotes = useMemo(() => ipNotesToMap(analyticsIpNotes), [analyticsIpNotes]);
   const filtered = useMemo(() => filterAnalytics(analytics as DashboardRow[], range), [analytics, range]);
@@ -475,6 +616,21 @@ export default function AdminAnalyticsPanel({ analytics }: { analytics: Analytic
 
   const visitorGroups = useMemo(() => buildVisitorGroups(analytics), [analytics]);
   const selected = visitorGroups.find((g) => g.visitorId === selectedVisitorId);
+  const onlineCount = useMemo(() => visitorGroups.filter((g) => g.likelyOnline).length, [visitorGroups]);
+
+  const filteredVisitors = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return visitorGroups;
+    return visitorGroups.filter((g) => {
+      const note = ipNotes[g.visitorId];
+      return (
+        (note?.name || '').toLowerCase().includes(q) ||
+        g.email.toLowerCase().includes(q) ||
+        g.visitorId.toLowerCase().includes(q) ||
+        g.displayIp.includes(q)
+      );
+    });
+  }, [visitorGroups, search, ipNotes]);
 
   const rangeOptions: { value: DateRangeDays; label: string }[] = [
     { value: 'today', label: 'วันนี้' },
@@ -485,120 +641,129 @@ export default function AdminAnalyticsPanel({ analytics }: { analytics: Analytic
 
   return (
     <div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', marginBottom: '1.25rem' }}>
-        <div>
-          <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--admin-text-main)', margin: 0 }}>Analytics Overview</h2>
-          <p style={{ fontSize: '0.8rem', color: 'var(--admin-text-muted)', marginTop: '0.35rem' }}>
-            สรุปการใช้งาน · กราฟ · live feed
-          </p>
-        </div>
-        <div style={{ display: 'flex', gap: '0.35rem', background: 'var(--admin-bg-soft)', padding: '0.25rem', borderRadius: '0.6rem', border: '1px solid var(--admin-border)' }}>
-          {rangeOptions.map((opt) => (
+      {/* Header + Tabs */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', marginBottom: '1.25rem' }}>
+        {/* Tab bar */}
+        <div style={{ display: 'flex', gap: '0.25rem', background: 'var(--admin-bg-soft)', padding: '0.2rem', borderRadius: '0.65rem', border: '1px solid var(--admin-border)' }}>
+          {(
+            [
+              { id: 'overview', label: 'ภาพรวม' },
+              { id: 'visitors', label: `Visitors${visitorGroups.length ? ` (${visitorGroups.length})` : ''}${onlineCount > 0 ? ` · ${onlineCount} ออนไลน์` : ''}` },
+            ] as const
+          ).map((tab) => (
             <button
-              key={String(opt.value)}
+              key={tab.id}
               type="button"
-              onClick={() => setRange(opt.value)}
+              onClick={() => setActiveTab(tab.id)}
               style={{
-                padding: '0.4rem 0.85rem',
-                borderRadius: '0.45rem',
+                padding: '0.45rem 1rem',
+                borderRadius: '0.5rem',
                 border: 'none',
                 cursor: 'pointer',
-                fontSize: '0.78rem',
+                fontSize: '0.8rem',
                 fontWeight: 700,
-                background: range === opt.value ? 'var(--admin-primary)' : 'transparent',
-                color: range === opt.value ? '#fff' : 'var(--admin-text-muted)',
+                background: activeTab === tab.id ? 'var(--admin-primary)' : 'transparent',
+                color: activeTab === tab.id ? '#fff' : 'var(--admin-text-muted)',
+                transition: 'background 0.15s, color 0.15s',
               }}
             >
-              {opt.label}
+              {tab.label}
             </button>
           ))}
         </div>
-      </div>
 
-      <AnalyticsOverview
-        analytics={analytics as DashboardRow[]}
-        filtered={filtered}
-        range={range}
-        contentTitles={contentTitles}
-        homeworkTitles={homeworkTitles}
-      />
-
-      <div className="admin-card" style={{ marginBottom: '1.5rem' }}>
-        <h2 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '0.5rem', color: 'var(--admin-text-main)' }}>
-          Last online (เรียงตาม Visitor)
-        </h2>
-        <p style={{ fontSize: '0.8rem', color: 'var(--admin-text-muted)', marginBottom: '1.25rem' }}>
-          คลิก visitor เพื่อเปิด Popup ดู timeline · ชื่อ/Note sync ผ่าน Google Sheet (AnalyticsIpNotes)
-        </p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          {visitorGroups.map((g) => {
-            const note = ipNotes[g.visitorId];
-            const label = note?.name || shortVisitorId(g.visitorId, g.isLegacy);
-            return (
+        {/* Range picker (overview only) */}
+        {activeTab === 'overview' && (
+          <div style={{ display: 'flex', gap: '0.25rem', background: 'var(--admin-bg-soft)', padding: '0.2rem', borderRadius: '0.65rem', border: '1px solid var(--admin-border)' }}>
+            {rangeOptions.map((opt) => (
               <button
-                key={g.visitorId}
+                key={String(opt.value)}
                 type="button"
-                onClick={() => setSelectedVisitorId(g.visitorId)}
+                onClick={() => setRange(opt.value)}
                 style={{
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: '0.75rem',
-                  padding: '0.85rem 1rem',
-                  borderRadius: '0.75rem',
-                  border: '1px solid var(--admin-border)',
-                  background: 'var(--admin-bg-soft)',
+                  padding: '0.4rem 0.8rem',
+                  borderRadius: '0.45rem',
+                  border: 'none',
                   cursor: 'pointer',
-                  textAlign: 'left',
-                  width: '100%',
-                  color: 'var(--admin-text-main)',
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  background: range === opt.value ? 'rgba(99,102,241,0.3)' : 'transparent',
+                  color: range === opt.value ? '#a5b4fc' : 'var(--admin-text-muted)',
+                  transition: 'background 0.15s',
                 }}
               >
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <span>{label}</span>
-                    {g.isLegacy && (
-                      <span style={{ fontSize: '0.6rem', padding: '1px 5px', borderRadius: '4px', background: 'rgba(100,116,139,0.15)', color: '#94a3b8' }}>
-                        legacy IP
-                      </span>
-                    )}
-                    {note?.note && (
-                      <span title={note.note} style={{ fontSize: '0.65rem', padding: '2px 6px', borderRadius: '4px', background: 'rgba(245,158,11,0.15)', color: '#f59e0b' }}>
-                        Note
-                      </span>
-                    )}
-                  </div>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--admin-text-muted)', marginTop: '0.2rem' }}>
-                    {g.email || 'ไม่ได้ล็อกอิน'} · {g.device} · {g.browser}
-                    {!g.isLegacy && g.displayIp && <span> · {g.displayIp}</span>}
-                  </div>
-                  <div style={{ fontSize: '0.72rem', marginTop: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
-                    <span style={{ color: 'var(--admin-text-main)', fontWeight: 600 }}>Last page: {g.lastPage}</span>
-                    {g.likelyOnline && (
-                      <span style={{ fontSize: '0.65rem', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: 'rgba(16,185,129,0.15)', color: '#10b981' }}>
-                        อาจยังออนไลน์
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#10b981' }}>{formatRelativeTime(g.lastSeen)}</div>
-                  <div style={{ fontSize: '0.7rem', color: 'var(--admin-text-muted)' }}>
-                    {g.eventCount} events
-                    {g.totalDurationSec > 0 ? ` · ~${formatDuration(g.totalDurationSec)}` : ''}
-                    {g.maxScrollPercent > 0 ? ` · อ่าน ~${g.maxScrollPercent}%` : ''}
-                  </div>
-                </div>
+                {opt.label}
               </button>
-            );
-          })}
-          {visitorGroups.length === 0 && (
-            <p style={{ textAlign: 'center', padding: '2rem', color: 'var(--admin-text-muted)' }}>ยังไม่มีข้อมูล analytics</p>
-          )}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
+      {/* Tab: Overview */}
+      {activeTab === 'overview' && (
+        <AnalyticsOverview
+          analytics={analytics as DashboardRow[]}
+          filtered={filtered}
+          range={range}
+          contentTitles={contentTitles}
+          homeworkTitles={homeworkTitles}
+        />
+      )}
+
+      {/* Tab: Visitors */}
+      {activeTab === 'visitors' && (
+        <div>
+          {/* Search */}
+          <div style={{ marginBottom: '1rem', position: 'relative' }}>
+            <span style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', fontSize: '0.9rem', pointerEvents: 'none', opacity: 0.4 }}>
+              🔍
+            </span>
+            <input
+              type="text"
+              placeholder="ค้นหาด้วย ชื่อ, email, visitor id, IP..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '0.65rem 0.75rem 0.65rem 2.25rem',
+                borderRadius: '0.65rem',
+                border: '1px solid var(--admin-border)',
+                background: 'var(--admin-bg-soft)',
+                color: 'var(--admin-text-main)',
+                fontSize: '0.85rem',
+                outline: 'none',
+                boxSizing: 'border-box',
+              }}
+            />
+          </div>
+
+          {/* Stats bar */}
+          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+            <span style={chip('#6366f1')}>{visitorGroups.length} visitors ทั้งหมด</span>
+            {onlineCount > 0 && <span style={chip('#10b981')}>{onlineCount} ออนไลน์อยู่</span>}
+            {search && <span style={chip('#f59e0b')}>พบ {filteredVisitors.length} รายการ</span>}
+          </div>
+
+          {/* Visitor list */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {filteredVisitors.map((g) => (
+              <VisitorCard
+                key={g.visitorId}
+                g={g}
+                note={ipNotes[g.visitorId]}
+                onClick={() => setSelectedVisitorId(g.visitorId)}
+              />
+            ))}
+            {filteredVisitors.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--admin-text-muted)', fontSize: '0.9rem' }}>
+                {search ? `ไม่พบ "${search}"` : 'ยังไม่มีข้อมูล analytics'}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Detail Modal */}
       {selected && (
         <IpDetailModal
           group={selected}
