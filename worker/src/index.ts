@@ -67,7 +67,7 @@ const EXPECTED_HEADERS = {
   [SHEETS.SUBJECTS]: ["id", "name", "color", "created_at"],
   [SHEETS.COMMENTS]: ["homework_id", "owner_email", "commenter_email", "text", "created_at"],
   [SHEETS.URLS]: ["id", "filename", "contentType", "url", "created_at", "uploader", "fileId"],
-  [SHEETS.ANALYTICS]: ["id", "event_type", "device_name", "browser", "ip_address", "email", "created_at", "page_visited", "content_id", "fingerprint", "session_id", "metadata"],
+  [SHEETS.ANALYTICS]: ["id", "event_type", "device_name", "browser", "ip_address", "email", "created_at", "page_visited", "content_id", "fingerprint", "session_id", "metadata", "visitor_id"],
   [SHEETS.ANALYTICS_IP_NOTES]: ["ip_address", "name", "note", "updated_at", "updated_by"],
   [SHEETS.AUDIO_PERMISSIONS]: ["email", "note", "created_at"]
 };
@@ -1259,7 +1259,8 @@ async function logAnalytics(env: Bindings, data: any, req: any) {
     data.content_id || "",
     data.fingerprint || "",
     data.session_id || "",
-    typeof data.metadata === 'string' ? data.metadata : (data.metadata ? JSON.stringify(data.metadata) : "")
+    typeof data.metadata === 'string' ? data.metadata : (data.metadata ? JSON.stringify(data.metadata) : ""),
+    data.visitor_id || "",
   ];
   const endCol = String.fromCharCode(64 + ANALYTICS_COLUMNS.length);
   await appendSheetRow(env, `${SHEETS.ANALYTICS}!A:${endCol}`, row);

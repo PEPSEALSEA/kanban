@@ -32,11 +32,14 @@ export type AnalyticsRow = {
   content_id: string;
   fingerprint: string;
   session_id?: string;
+  visitor_id?: string;
   metadata?: string;
 };
 
-type IpGroup = {
-  ip: string;
+type VisitorGroup = {
+  visitorId: string;
+  displayIp: string;
+  isLegacy: boolean;
   email: string;
   device: string;
   browser: string;
@@ -50,18 +53,26 @@ type IpGroup = {
   events: AnalyticsRow[];
 };
 
-function buildIpGroups(rows: AnalyticsRow[]): IpGroup[] {
-  const map = new Map<string, IpGroup>();
+function shortVisitorId(visitorId: string, isLegacy: boolean): string {
+  if (isLegacy) return visitorId;
+  return `#${visitorId.slice(-8)}`;
+}
+
+function buildVisitorGroups(rows: AnalyticsRow[]): VisitorGroup[] {
+  const map = new Map<string, VisitorGroup>();
 
   for (const row of rows) {
     if (row.event_type === 'heartbeat') continue;
-    const ip = row.ip_address || 'unknown';
+    const isLegacy = !row.visitor_id;
+    const visitorId = row.visitor_id || row.ip_address || 'unknown';
     const meta = parseMetadata(row.metadata);
-    let group = map.get(ip);
+    let group = map.get(visitorId);
 
     if (!group) {
       group = {
-        ip,
+        visitorId,
+        displayIp: row.ip_address || '',
+        isLegacy,
         email: row.email || '',
         device: row.device_name || '',
         browser: row.browser || '',
@@ -74,7 +85,7 @@ function buildIpGroups(rows: AnalyticsRow[]): IpGroup[] {
         maxScrollPercent: 0,
         events: [],
       };
-      map.set(ip, group);
+      map.set(visitorId, group);
     }
 
     group.events.push(row);
@@ -85,6 +96,7 @@ function buildIpGroups(rows: AnalyticsRow[]): IpGroup[] {
       if (row.email) group.email = row.email;
       if (row.device_name) group.device = row.device_name;
       if (row.browser) group.browser = row.browser;
+      if (row.ip_address) group.displayIp = row.ip_address;
     }
     if (new Date(row.created_at) < new Date(group.firstSeen)) {
       group.firstSeen = row.created_at;
@@ -134,14 +146,14 @@ function formatTime(iso: string) {
 }
 
 type IpDetailModalProps = {
-  group: IpGroup;
+  group: VisitorGroup;
   ipNotes: Record<string, IpNote>;
   onClose: () => void;
   onSaveNote: (ip: string, name: string, note: string) => Promise<void>;
 };
 
 function IpDetailModal({ group, ipNotes, onClose, onSaveNote }: IpDetailModalProps) {
-  const existing = ipNotes[group.ip];
+  const existing = ipNotes[group.visitorId];
   const [name, setName] = useState(existing?.name || '');
   const [note, setNote] = useState(existing?.note || '');
   const [saved, setSaved] = useState(false);
@@ -155,7 +167,7 @@ function IpDetailModal({ group, ipNotes, onClose, onSaveNote }: IpDetailModalPro
     setSaving(true);
     setSaveError('');
     try {
-      await onSaveNote(group.ip, name, note);
+      await onSaveNote(group.visitorId, name, note);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (e: unknown) {
@@ -177,7 +189,7 @@ function IpDetailModal({ group, ipNotes, onClose, onSaveNote }: IpDetailModalPro
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={`Activity ${group.ip}`}
+      aria-label={`Activity ${shortVisitorId(group.visitorId, group.isLegacy)}`}
       onClick={onClose}
       style={{
         position: 'fixed',
@@ -219,11 +231,12 @@ function IpDetailModal({ group, ipNotes, onClose, onSaveNote }: IpDetailModalPro
         >
           <div style={{ flex: 1, minWidth: 0 }}>
             <h2 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0, color: 'var(--admin-text-main)' }}>
-              {existing?.name || group.ip}
+              {existing?.name || shortVisitorId(group.visitorId, group.isLegacy)}
             </h2>
-            {existing?.name && (
-              <div style={{ fontSize: '0.75rem', color: 'var(--admin-text-muted)', marginTop: '0.2rem' }}>{group.ip}</div>
-            )}
+            <div style={{ fontSize: '0.72rem', color: 'var(--admin-text-muted)', marginTop: '0.2rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              {!group.isLegacy && <span style={{ fontFamily: 'monospace' }}>{group.visitorId}</span>}
+              {group.displayIp && <span>IP: {group.displayIp}</span>}
+            </div>
             <div style={{ fontSize: '0.8rem', color: 'var(--admin-text-muted)', marginTop: '0.5rem' }}>
               {group.email || 'ไม่ได้ล็อกอิน'} · {group.device} · {group.browser}
             </div>
@@ -442,7 +455,7 @@ const saveBtnStyle: React.CSSProperties = {
 
 export default function AdminAnalyticsPanel({ analytics }: { analytics: AnalyticsRow[] }) {
   const { analyticsIpNotes, saveAnalyticsIpNote, learningContent, allHomework } = useData();
-  const [selectedIp, setSelectedIp] = useState<string | null>(null);
+  const [selectedVisitorId, setSelectedVisitorId] = useState<string | null>(null);
   const [range, setRange] = useState<DateRangeDays>(7);
 
   const ipNotes = useMemo(() => ipNotesToMap(analyticsIpNotes), [analyticsIpNotes]);
@@ -460,8 +473,8 @@ export default function AdminAnalyticsPanel({ analytics }: { analytics: Analytic
     return map;
   }, [allHomework]);
 
-  const ipGroups = useMemo(() => buildIpGroups(analytics), [analytics]);
-  const selected = ipGroups.find((g) => g.ip === selectedIp);
+  const visitorGroups = useMemo(() => buildVisitorGroups(analytics), [analytics]);
+  const selected = visitorGroups.find((g) => g.visitorId === selectedVisitorId);
 
   const rangeOptions: { value: DateRangeDays; label: string }[] = [
     { value: 'today', label: 'วันนี้' },
@@ -512,19 +525,20 @@ export default function AdminAnalyticsPanel({ analytics }: { analytics: Analytic
 
       <div className="admin-card" style={{ marginBottom: '1.5rem' }}>
         <h2 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '0.5rem', color: 'var(--admin-text-main)' }}>
-          Last online (เรียงตาม IP)
+          Last online (เรียงตาม Visitor)
         </h2>
         <p style={{ fontSize: '0.8rem', color: 'var(--admin-text-muted)', marginBottom: '1.25rem' }}>
-          คลิก IP เพื่อเปิด Popup ดู timeline · ชื่อ/Note sync ผ่าน Google Sheet (AnalyticsIpNotes)
+          คลิก visitor เพื่อเปิด Popup ดู timeline · ชื่อ/Note sync ผ่าน Google Sheet (AnalyticsIpNotes)
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          {ipGroups.map((g) => {
-            const note = ipNotes[g.ip];
+          {visitorGroups.map((g) => {
+            const note = ipNotes[g.visitorId];
+            const label = note?.name || shortVisitorId(g.visitorId, g.isLegacy);
             return (
               <button
-                key={g.ip}
+                key={g.visitorId}
                 type="button"
-                onClick={() => setSelectedIp(g.ip)}
+                onClick={() => setSelectedVisitorId(g.visitorId)}
                 style={{
                   display: 'flex',
                   flexWrap: 'wrap',
@@ -543,13 +557,11 @@ export default function AdminAnalyticsPanel({ analytics }: { analytics: Analytic
               >
                 <div>
                   <div style={{ fontWeight: 700, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    {note?.name ? (
-                      <>
-                        <span>{note.name}</span>
-                        <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--admin-text-muted)' }}>{g.ip}</span>
-                      </>
-                    ) : (
-                      g.ip
+                    <span>{label}</span>
+                    {g.isLegacy && (
+                      <span style={{ fontSize: '0.6rem', padding: '1px 5px', borderRadius: '4px', background: 'rgba(100,116,139,0.15)', color: '#94a3b8' }}>
+                        legacy IP
+                      </span>
                     )}
                     {note?.note && (
                       <span title={note.note} style={{ fontSize: '0.65rem', padding: '2px 6px', borderRadius: '4px', background: 'rgba(245,158,11,0.15)', color: '#f59e0b' }}>
@@ -557,8 +569,9 @@ export default function AdminAnalyticsPanel({ analytics }: { analytics: Analytic
                       </span>
                     )}
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--admin-text-muted)', marginTop: '0.2rem' }}>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--admin-text-muted)', marginTop: '0.2rem' }}>
                     {g.email || 'ไม่ได้ล็อกอิน'} · {g.device} · {g.browser}
+                    {!g.isLegacy && g.displayIp && <span> · {g.displayIp}</span>}
                   </div>
                   <div style={{ fontSize: '0.72rem', marginTop: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
                     <span style={{ color: 'var(--admin-text-main)', fontWeight: 600 }}>Last page: {g.lastPage}</span>
@@ -580,7 +593,7 @@ export default function AdminAnalyticsPanel({ analytics }: { analytics: Analytic
               </button>
             );
           })}
-          {ipGroups.length === 0 && (
+          {visitorGroups.length === 0 && (
             <p style={{ textAlign: 'center', padding: '2rem', color: 'var(--admin-text-muted)' }}>ยังไม่มีข้อมูล analytics</p>
           )}
         </div>
@@ -590,7 +603,7 @@ export default function AdminAnalyticsPanel({ analytics }: { analytics: Analytic
         <IpDetailModal
           group={selected}
           ipNotes={ipNotes}
-          onClose={() => setSelectedIp(null)}
+          onClose={() => setSelectedVisitorId(null)}
           onSaveNote={saveAnalyticsIpNote}
         />
       )}

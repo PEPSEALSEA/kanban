@@ -239,6 +239,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     metadata?: Record<string, string | number | boolean | null | undefined>;
   }) => {
     try {
+      const VISITOR_KEY = 'analytics_visitor_id';
+      let visitorId = localStorage.getItem(VISITOR_KEY);
+      if (!visitorId) {
+        visitorId = `vis_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+        localStorage.setItem(VISITOR_KEY, visitorId);
+      }
       const isMobile = /Mobi|Android/i.test(navigator.userAgent);
       const isTablet = /Tablet|iPad/i.test(navigator.userAgent);
       let device_name = "Desktop";
@@ -293,6 +299,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           content_id: extraData?.content_id || "",
           fingerprint,
           session_id: extraData?.session_id || "",
+          visitor_id: visitorId,
           metadata: extraData?.metadata ? JSON.stringify(extraData.metadata) : "",
         })
       }).catch(e => console.error("Analytics error", e));

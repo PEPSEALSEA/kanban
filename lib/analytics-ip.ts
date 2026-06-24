@@ -7,6 +7,7 @@ export type AnalyticsEvent = {
   page_visited: string;
   content_id: string;
   session_id?: string;
+  visitor_id?: string;
   metadata?: string;
 };
 

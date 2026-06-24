@@ -7,6 +7,7 @@ export type AnalyticsRow = AnalyticsEvent & {
   ip_address?: string;
   email?: string;
   fingerprint?: string;
+  visitor_id?: string;
 };
 
 export type DateRangeDays = 'today' | 7 | 30 | 'month';
@@ -90,13 +91,14 @@ export type TodaySummary = {
 
 export function buildTodaySummary(rows: AnalyticsRow[]): TodaySummary {
   const today = rows.filter((r) => isToday(r.created_at) && !SKIP.has(r.event_type));
-  const ips = new Set<string>();
+  const visitors = new Set<string>();
   const emails = new Set<string>();
   let sessionTotal = 0;
   let sessionCount = 0;
 
   for (const r of today) {
-    if (r.ip_address) ips.add(r.ip_address);
+    const vid = r.visitor_id || r.ip_address;
+    if (vid) visitors.add(vid);
     if (r.email) emails.add(r.email.toLowerCase());
     if (r.event_type === 'session_end') {
       const meta = parseMetadata(r.metadata);
@@ -108,12 +110,12 @@ export function buildTodaySummary(rows: AnalyticsRow[]): TodaySummary {
   const scrollReaders = new Set(
     today
       .filter((r) => r.event_type === 'scroll_milestone')
-      .map((r) => r.ip_address || r.email)
+      .map((r) => r.visitor_id || r.ip_address || r.email)
       .filter(Boolean)
   ).size;
 
   return {
-    uniqueVisitors: Math.max(ips.size, emails.size),
+    uniqueVisitors: Math.max(visitors.size, emails.size),
     visits: today.filter((r) => r.event_type === 'visit').length,
     avgSessionSec: sessionCount > 0 ? Math.round(sessionTotal / sessionCount) : 0,
     scrollReaders,
@@ -297,7 +299,7 @@ export function buildLiveFeed(rows: AnalyticsRow[], limit = 15): FeedItem[] {
         label: EVENT_LABELS[r.event_type] || r.event_type,
         detail: formatEventDetail(r.event_type, meta),
         pageLabel: formatPageLabel(r),
-        who: r.email || r.ip_address || 'Guest',
+        who: r.email || (r.visitor_id ? `#${r.visitor_id.slice(-8)}` : r.ip_address) || 'Guest',
       };
     });
 }
