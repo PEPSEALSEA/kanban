@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { JWT } from 'google-auth-library';
+import { buildContentExport } from './contentExport';
 
 type Bindings = {
   SPREADSHEET_ID: string;
@@ -1367,6 +1368,39 @@ app.post('/api/gemini-chat', async (c) => {
     });
   } catch (err: any) {
     return c.json({ success: false, error: err.message || "gemini chat failed" }, 500);
+  }
+});
+
+app.get('/content/:id', async (c) => {
+  const rawId = c.req.param('id') || '';
+  if (!rawId.endsWith('.json')) {
+    return c.json({ error: 'Not found' }, 404);
+  }
+  const id = rawId.slice(0, -5);
+
+  if (!id || !/^LC-\d+$/.test(id)) {
+    return c.json({ error: 'Invalid content ID. Expected format: LC-{timestamp}' }, 400);
+  }
+
+  try {
+    const items = await getLearningContent(c.env, undefined, id);
+    if (!items.length) {
+      return c.json({ error: 'Content not found', id }, 404);
+    }
+
+    const origin = new URL(c.req.url).origin;
+    const body = buildContentExport(items[0], origin);
+
+    return new Response(JSON.stringify(body, null, 2), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'public, max-age=300',
+        'Access-Control-Allow-Origin': '*',
+      },
+    });
+  } catch (err: any) {
+    return c.json({ error: err.message || 'Failed to export content' }, 500);
   }
 });
 

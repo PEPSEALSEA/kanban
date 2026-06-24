@@ -11,6 +11,7 @@ import ResizableContentPanel from '@/components/ResizableContentPanel';
 import { useDeviceDetection } from '@/hooks/useDeviceDetection';
 
 import { parseAudioItems } from '@/lib/audioItems';
+import { getContentJsonUrl } from '@/lib/contentJsonUrl';
 import { parseContentDescription } from '@/lib/parseContentDescription';
 
 const SUBJECT_COLORS: Record<string, string> = {
@@ -53,6 +54,7 @@ export default function LearningContentPage() {
   const [selectedSubject, setSelectedSubject] = useState('All');
   const [mounted, setMounted] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
+  const [copiedAiLink, setCopiedAiLink] = useState(false);
   const { isMobile } = useDeviceDetection();
 
   // --- HASH ROUTING ---
@@ -204,6 +206,17 @@ export default function LearningContentPage() {
   const isSearching = searchTerm.trim() || selectedSubject !== 'All';
   const getContentHref = useCallback((id: string) => `#/view?id=${encodeURIComponent(id)}`, []);
 
+  const copyAiLink = useCallback(async (id: string) => {
+    const url = getContentJsonUrl(id);
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedAiLink(true);
+      window.setTimeout(() => setCopiedAiLink(false), 2000);
+    } catch {
+      window.prompt('Copy this link for AI:', url);
+    }
+  }, []);
+
   const handleContentLinkClick = useCallback((
     e: React.MouseEvent<HTMLAnchorElement>,
     id: string,
@@ -249,15 +262,26 @@ export default function LearningContentPage() {
               >
                 ← BACK TO ARCHIVE
               </motion.button>
-              <motion.button
-                type="button"
-                onClick={() => setIsExportOpen(true)}
-                className="neo-button px-4 py-2 text-xs"
-                whileHover={{ y: -1 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                Export as PNG
-              </motion.button>
+              <div className="flex items-center gap-2 flex-wrap">
+                <motion.button
+                  type="button"
+                  onClick={() => copyAiLink(activeContent.id)}
+                  className="neo-button px-4 py-2 text-xs"
+                  whileHover={{ y: -1 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  {copiedAiLink ? 'Copied AI Link' : 'Copy AI Link'}
+                </motion.button>
+                <motion.button
+                  type="button"
+                  onClick={() => setIsExportOpen(true)}
+                  className="neo-button px-4 py-2 text-xs"
+                  whileHover={{ y: -1 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  Export as PNG
+                </motion.button>
+              </div>
             </div>
 
             <motion.div
