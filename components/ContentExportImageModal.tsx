@@ -232,19 +232,19 @@ export default function ContentExportImageModal({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
+            transition={{ duration: 0.28, ease: 'easeOut' }}
             className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[1100] p-4 md:p-6 flex items-center justify-center"
             onClick={onClose}
           >
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              initial={{ opacity: 0, scale: 0.97, y: 18 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="neo-card w-full max-w-7xl rounded-3xl p-5 md:p-7 border-none shadow-2xl"
+              exit={{ opacity: 0, scale: 0.98, y: 12 }}
+              transition={{ type: 'spring', damping: 30, stiffness: 230, mass: 0.9 }}
+              className="neo-card w-full max-w-7xl max-h-[92vh] rounded-3xl p-5 md:p-7 border-none shadow-2xl flex flex-col overflow-hidden"
               onClick={(event) => event.stopPropagation()}
             >
-              <div className="flex justify-between items-center gap-4 mb-5">
+              <div className="flex justify-between items-center gap-4 mb-5 shrink-0">
                 <div>
                   <h2 className="text-xl md:text-2xl font-bold text-slate-800">Export as PNG</h2>
                   <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 mt-1">
@@ -260,8 +260,16 @@ export default function ContentExportImageModal({
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-[340px_minmax(0,1fr)] gap-5">
-                <div className="rounded-2xl border border-slate-200/70 bg-white/80 p-5 space-y-5">
+              <motion.div
+                layout
+                transition={{ type: 'spring', stiffness: 180, damping: 24 }}
+                className="grid grid-cols-1 lg:grid-cols-[340px_minmax(0,1fr)] gap-5 flex-1 min-h-0 overflow-hidden"
+              >
+                <motion.div
+                  layout
+                  transition={{ type: 'spring', stiffness: 180, damping: 24 }}
+                  className="rounded-2xl border border-slate-200/70 bg-white/80 p-5 space-y-5 min-h-0 overflow-y-auto pr-3"
+                >
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <label className="text-xs font-bold uppercase tracking-widest text-slate-500">Canvas Width</label>
@@ -344,10 +352,14 @@ export default function ContentExportImageModal({
                       {error}
                     </div>
                   )}
-                </div>
+                </motion.div>
 
-                <div className="rounded-2xl border border-slate-200/70 bg-slate-50/70 p-4 md:p-5 min-h-[420px] flex flex-col">
-                  <div className="flex items-center justify-between mb-3">
+                <motion.div
+                  layout
+                  transition={{ type: 'spring', stiffness: 180, damping: 24 }}
+                  className="rounded-2xl border border-slate-200/70 bg-slate-50/70 p-4 md:p-5 min-h-[420px] md:min-h-0 flex flex-col min-w-0"
+                >
+                  <div className="flex items-center justify-between mb-3 shrink-0">
                     <div className="text-xs font-semibold uppercase tracking-widest text-slate-500">
                       {renderSize.width > 0 ? `${renderSize.width} x ${renderSize.height}px` : 'Generating preview...'}
                     </div>
@@ -374,27 +386,47 @@ export default function ContentExportImageModal({
                     </div>
                   </div>
 
-                  <div className="relative flex-1 rounded-xl border border-slate-200 bg-white overflow-auto p-3 md:p-5 flex items-start justify-center">
-                    {currentPreviewUrl ? (
-                      <img
-                        src={currentPreviewUrl}
-                        alt={`Export preview page ${previewIndex + 1}`}
-                        className="max-w-full h-auto shadow-md rounded"
-                      />
-                    ) : (
-                      <div className="w-full h-full text-sm text-slate-500 flex items-center justify-center">
-                        {isRendering ? 'Rendering preview...' : 'No preview available'}
-                      </div>
-                    )}
+                  <div className="relative flex-1 min-h-0 rounded-xl border border-slate-200 bg-white overflow-auto p-3 md:p-5 flex items-start justify-center scroll-smooth">
+                    <AnimatePresence mode="wait">
+                      {currentPreviewUrl ? (
+                        <motion.img
+                          key={currentPreviewUrl}
+                          src={currentPreviewUrl}
+                          alt={`Export preview page ${previewIndex + 1}`}
+                          className="max-w-full h-auto shadow-md rounded"
+                          initial={{ opacity: 0, y: 10, scale: 0.99 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: -8, scale: 0.99 }}
+                          transition={{ duration: 0.32, ease: 'easeOut' }}
+                        />
+                      ) : (
+                        <motion.div
+                          key="empty-preview"
+                          className="w-full h-full text-sm text-slate-500 flex items-center justify-center"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.22 }}
+                        >
+                          {isRendering ? 'Rendering preview...' : 'No preview available'}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
 
                     {isRendering && (
-                      <div className="absolute inset-0 bg-white/70 backdrop-blur-[1px] flex items-center justify-center text-sm font-semibold text-slate-600">
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="absolute inset-0 bg-white/70 backdrop-blur-[1px] flex items-center justify-center text-sm font-semibold text-slate-600"
+                      >
                         Rendering preview...
-                      </div>
+                      </motion.div>
                     )}
                   </div>
-                </div>
-              </div>
+                </motion.div>
+              </motion.div>
             </motion.div>
           </motion.div>
         )}
