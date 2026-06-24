@@ -9,9 +9,22 @@ import { isAdminEmail } from '@/lib/admin';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
   const { user } = useData();
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 1024px)');
+    const handleChange = () => {
+      setIsMobileViewport(mq.matches);
+      if (!mq.matches) setMobileSidebarOpen(false);
+    };
+    handleChange();
+    mq.addEventListener('change', handleChange);
+    return () => mq.removeEventListener('change', handleChange);
+  }, []);
 
   useEffect(() => {
     if (user) {
@@ -45,8 +58,32 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="admin-theme admin-layout">
-      <AdminSidebar collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} />
+      <AdminSidebar
+        collapsed={sidebarCollapsed}
+        setCollapsed={setSidebarCollapsed}
+        isMobile={isMobileViewport}
+        mobileOpen={mobileSidebarOpen}
+        onMobileClose={() => setMobileSidebarOpen(false)}
+      />
+      {mobileSidebarOpen && (
+        <button
+          type="button"
+          className="admin-sidebar-overlay"
+          aria-label="Close menu"
+          onClick={() => setMobileSidebarOpen(false)}
+        />
+      )}
       <main className="admin-main">
+        {isMobileViewport && (
+          <button
+            type="button"
+            className="admin-menu-toggle"
+            aria-label="Open menu"
+            onClick={() => setMobileSidebarOpen(true)}
+          >
+            ☰
+          </button>
+        )}
         {children}
       </main>
     </div>

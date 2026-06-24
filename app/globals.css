@@ -819,13 +819,52 @@ h4 {
     position: fixed;
     height: 100vh;
     left: -280px;
+    width: 280px;
+  }
+  .admin-sidebar.collapsed {
+    width: 280px;
   }
   .admin-sidebar.open {
     left: 0;
   }
+  .admin-main {
+    padding: 1rem;
+    width: 100%;
+  }
+  .admin-menu-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    margin-bottom: 1rem;
+    border: 1px solid var(--admin-border);
+    border-radius: 0.75rem;
+    background: var(--admin-card-bg);
+    color: var(--admin-text-main);
+    font-size: 1.25rem;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .admin-menu-toggle:hover {
+    background: rgba(255, 255, 255, 0.08);
+  }
+  .admin-sidebar-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1050;
+    border: none;
+    padding: 0;
+    background: rgba(0, 0, 0, 0.45);
+    cursor: pointer;
+  }
   .quick-create-grid {
     grid-template-columns: 1fr;
   }
+}
+
+.admin-menu-toggle {
+  display: none;
 }
 
 .admin-nav-item {
