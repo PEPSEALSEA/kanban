@@ -193,6 +193,55 @@ function stripCitationMarkers(text: string): string {
     .trim();
 }
 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    function isGeminiLocationRestrictionError(err: unknown): boolean {
+  const msg = normalizeText((err as Error | undefined)?.message || err || "");
+  return (
+    msg.includes("user location is not supported") ||
+    msg.includes("unsupported country") ||
+    msg.includes("location is not supported")
+  );
+}
+
+function buildFallbackAnswerFromRows(rows: ClassContextRow[], message: string): string {
+  if (!rows.length) {
+    return "ขออภัยครับ ไม่พบข้อมูลในระบบตามช่วงเวลา/วิชาที่ระบุ";
+  }
+
+  const grouped = new Map<string, { date: string; subject: string; content: string[]; emphasis: string[]; homework: string[]; deadlines: string[] }>();
+  for (const row of rows.slice(0, 20)) {
+    const key = `${row.date || "-"}__${row.subject || "-"}`;
+    const curr = grouped.get(key) || {
+      date: row.date || "-",
+      subject: row.subject || "-",
+      content: [],
+      emphasis: [],
+      homework: [],
+      deadlines: [],
+    };
+    if (row.content) curr.content.push(row.content);
+    if (row.emphasis) curr.emphasis.push(row.emphasis);
+    if (row.homework) curr.homework.push(row.homework);
+    if (row.homeworkDeadline || row.deadlineDate) curr.deadlines.push(row.homeworkDeadline || row.deadlineDate);
+    grouped.set(key, curr);
+  }
+
+  const lines: string[] = [];
+  lines.push(`สรุปจากข้อมูลในระบบ (โหมดสำรอง): ${shortText(message, 100)}`);
+  for (const item of Array.from(grouped.values()).slice(0, 6)) {
+    const content = shortText(Array.from(new Set(item.content)).join(" | "), 420) || "ไม่มี";
+    const emphasis = shortText(Array.from(new Set(item.emphasis)).join(" | "), 220) || "ไม่มี";
+    const homework = shortText(Array.from(new Set(item.homework)).join(" | "), 260) || "ไม่มี";
+    const deadlines = shortText(Array.from(new Set(item.deadlines)).join(" | "), 120) || "ไม่มี";
+    lines.push(`\n📅 วันที่: ${item.date}`);
+    lines.push(`📘 วิชา: ${item.subject}`);
+    lines.push(`📝 สรุปเนื้อหาสำคัญ: ${content}`);
+    lines.push(`จุดที่คุณครูเน้นย้ำ: ${emphasis}`);
+    lines.push(`📌 การบ้านและกำหนดส่ง: ${homework} | กำหนดส่ง: ${deadlines}`);
+  }
+  lines.push("\nหมายเหตุ: ระบบสรุปด้วยข้อมูลในชีตโดยตรง เนื่องจาก Gemini API ของ key ปัจจุบันถูกจำกัดพื้นที่ใช้งาน");
+  return lines.join("\n");
+}
+
 function parseUrlList(raw: unknown): string[] {
   return String(raw || "")
     .split(",")
@@ -1265,14 +1314,6 @@ app.post('/api/gemini-chat', async (c) => {
     const filteredSheetDataChunk = buildFilteredSheetDataChunk(contextRows);
     const systemInstruction = buildSystemInstruction(filteredSheetDataChunk);
     const useGrounding = false;
-    const answer = await askGeminiWithContext(c.env, {
-      message: message || "ช่วยวิเคราะห์ไฟล์ที่แนบ",
-      history,
-      attachment,
-      systemInstruction,
-      useGrounding,
-    });
-
     const contextRowsForResponse = contextRows.slice(0, 8).map((row) => ({
       ...row,
       homework: shortText(row.homework, 160),
@@ -1283,6 +1324,23 @@ app.post('/api/gemini-chat', async (c) => {
     const sourceLinks = Array.from(
       new Set(contextRows.flatMap((row) => row.sourceLinks || []))
     ).slice(0, 20);
+
+    let answer = "";
+    try {
+      answer = await askGeminiWithContext(c.env, {
+        message: message || "ช่วยวิเคราะห์ไฟล์ที่แนบ",
+        history,
+        attachment,
+        systemInstruction,
+        useGrounding,
+      });
+    } catch (err) {
+      if (isGeminiLocationRestrictionError(err)) {
+        answer = buildFallbackAnswerFromRows(contextRows, message || "สรุปข้อมูล");
+      } else {
+        throw err;
+      }
+    }
 
     const sourceDates = Array.from(new Set(contextRowsForResponse.map((row) => row.date).filter(Boolean))).slice(0, 10);
     const sourceSubjects = Array.from(new Set(contextRowsForResponse.map((row) => row.subject).filter(Boolean))).slice(0, 10);
