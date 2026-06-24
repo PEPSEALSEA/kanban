@@ -1,7 +1,11 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { JWT } from 'google-auth-library';
-import { buildContentExport } from './contentExport';
+import { buildContentExport, formatContentAsText } from './contentExport';
+import {
+  resolveAudioAccessLevel,
+  sanitizeLearningContentList,
+} from './audioSecurity';
 
 type Bindings = {
   SPREADSHEET_ID: string;
@@ -27,6 +31,19 @@ const ADMIN_EMAILS = new Set([
 function isAdminEmail(email: string | null | undefined): boolean {
   if (!email) return false;
   return ADMIN_EMAILS.has(email.trim().toLowerCase());
+}
+
+async function resolveAudioAccess(env: Bindings, email?: string) {
+  const permitted = await getAudioPermissions(env);
+  return resolveAudioAccessLevel(email, permitted, isAdminEmail);
+}
+
+async function assertAudioAccess(env: Bindings, email?: string) {
+  const level = await resolveAudioAccess(env, email);
+  if (level === 'none') {
+    throw new Error('Audio access denied');
+  }
+  return level;
 }
 
 const SHEETS = {
@@ -406,7 +423,6 @@ function buildClassContextRows(homeworkList: any[], learningContentList: any[]):
         `${APP_BASE_URL}/content#/view?id=${encodeURIComponent(String(item.id || ""))}`,
         ...parseUrlList(item.links),
         ...parseUrlList(item.attachments),
-        ...parseUrlList(item.audio_url),
       ])
     ).filter(Boolean);
     rows.push({
@@ -1373,10 +1389,18 @@ app.post('/api/gemini-chat', async (c) => {
 
 app.get('/content/:id', async (c) => {
   const rawId = c.req.param('id') || '';
-  if (!rawId.endsWith('.json')) {
+  let id: string;
+  let format: 'json' | 'txt';
+
+  if (rawId.endsWith('.json')) {
+    id = rawId.slice(0, -5);
+    format = 'json';
+  } else if (rawId.endsWith('.txt')) {
+    id = rawId.slice(0, -4);
+    format = 'txt';
+  } else {
     return c.json({ error: 'Not found' }, 404);
   }
-  const id = rawId.slice(0, -5);
 
   if (!id || !/^LC-\d+$/.test(id)) {
     return c.json({ error: 'Invalid content ID. Expected format: LC-{timestamp}' }, 400);
@@ -1390,6 +1414,17 @@ app.get('/content/:id', async (c) => {
 
     const origin = new URL(c.req.url).origin;
     const body = buildContentExport(items[0], origin);
+
+    if (format === 'txt') {
+      return new Response(formatContentAsText(body), {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/plain; charset=utf-8',
+          'Cache-Control': 'public, max-age=300',
+          'Access-Control-Allow-Origin': '*',
+        },
+      });
+    }
 
     return new Response(JSON.stringify(body, null, 2), {
       status: 200,
@@ -1417,7 +1452,12 @@ app.get('/', async (c) => {
       case "allProgress": result = await getAllProgress(c.env); break;
       case "users": result = await getUserList(c.env); break;
       case "comments": result = await getComments(c.env, c.req.query('homework_id'), c.req.query('owner_email')); break;
-      case "learningContent": result = await getLearningContent(c.env, c.req.query('date'), c.req.query('id')); break;
+      case "learningContent": {
+        const raw = await getLearningContent(c.env, c.req.query('date'), c.req.query('id'));
+        const level = await resolveAudioAccess(c.env, c.req.query('email') || '');
+        result = sanitizeLearningContentList(raw, level);
+        break;
+      }
       case "subjects": result = await getSubjects(c.env); break;
       case "dailySummary": 
         const summary = await generateDailySummary(c.env, c.req.query('date'));
@@ -1428,23 +1468,35 @@ app.get('/', async (c) => {
         }
         result = { summary };
         break;
-      case "getFreshLink":
+      case "getFreshLink": {
         const fileId = c.req.query('fileId');
         if (!fileId) throw new Error("fileId is required");
+        const email = c.req.query('email') || '';
+        await assertAudioAccess(c.env, email);
         result = await getFreshTelegramLink(c.env, fileId, c.req.query('contentId'), c.req.query('contentType'));
         break;
-      case "batchData": 
-        result = { 
-          homework: await getHomeworkList(c.env), 
-          users: await getUserList(c.env), 
-          progress: await getAllProgress(c.env), 
-          learningContent: await getLearningContent(c.env), 
+      }
+      case "batchData": {
+        const email = c.req.query('email') || '';
+        const audioLevel = await resolveAudioAccess(c.env, email);
+        const permitted = await getAudioPermissions(c.env);
+        const learningContent = sanitizeLearningContentList(
+          await getLearningContent(c.env),
+          audioLevel
+        );
+        result = {
+          homework: await getHomeworkList(c.env),
+          users: await getUserList(c.env),
+          progress: await getAllProgress(c.env),
+          learningContent,
           subjects: await getSubjects(c.env),
           analytics: await getAnalytics(c.env),
           analyticsIpNotes: await getAnalyticsIpNotes(c.env),
-          audioPermissions: await getAudioPermissions(c.env),
+          audioAccessGranted: audioLevel !== 'none',
+          ...(isAdminEmail(email) ? { audioPermissions: permitted } : {}),
         };
         break;
+      }
       default: return c.json({ success: false, error: "unknown action: " + action }, 400);
     }
     return c.json({ success: true, ...result, data: result });

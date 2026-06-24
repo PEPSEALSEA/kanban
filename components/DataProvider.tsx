@@ -4,7 +4,6 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 
 import { API_URL } from '@/lib/config';
 import { isAdminEmail } from '@/lib/admin';
-import { canAccessAudio } from '@/lib/audioAccess';
 
 export const GAS_WEB_APP_URL = API_URL;
 
@@ -96,6 +95,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [analytics, setAnalytics] = useState<any[]>([]);
   const [analyticsIpNotes, setAnalyticsIpNotes] = useState<AnalyticsIpNoteRow[]>([]);
   const [audioPermissions, setAudioPermissions] = useState<string[]>([]);
+  const [audioAccessGranted, setAudioAccessGranted] = useState(false);
   const [user, setUser] = useState<UserInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -121,6 +121,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         setAnalytics((parsed.analytics || []).filter((a: { email?: string }) => !isAdminEmail(a.email)));
         setAnalyticsIpNotes(parsed.analyticsIpNotes || []);
         setAudioPermissions(parsed.audioPermissions || []);
+        setAudioAccessGranted(Boolean(parsed.audioAccessGranted));
         setIsLoading(false); // We have cached data, so we can hide initial loader early
       } catch (e) {
         console.error("Cache parsing failed", e);
@@ -132,7 +133,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setIsSyncing(true);
     setError(null);
     try {
-      const res = await fetch(`${GAS_WEB_APP_URL}?action=batchData`);
+      const email =
+        user?.email ||
+        (typeof window !== 'undefined' && localStorage.getItem('homework_user')
+          ? JSON.parse(localStorage.getItem('homework_user')!).email
+          : '');
+      const emailParam = email ? `&email=${encodeURIComponent(email)}` : '';
+      const res = await fetch(`${GAS_WEB_APP_URL}?action=batchData${emailParam}`);
       if (!res.ok) throw new Error("Cloud synchronization failed");
       const data = (await res.json()) as any;
       
@@ -148,6 +155,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         setAnalytics((payload.analytics || []).filter((a: { email?: string }) => !isAdminEmail(a.email)));
         setAnalyticsIpNotes(payload.analyticsIpNotes || []);
         setAudioPermissions(payload.audioPermissions || []);
+        setAudioAccessGranted(Boolean(payload.audioAccessGranted));
         
         // Update cache
         localStorage.setItem('studyflow_cache', JSON.stringify(payload));
@@ -161,7 +169,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(false);
       setIsSyncing(false);
     }
-  }, []);
+  }, [user?.email]);
 
   const saveAnalyticsIpNote = useCallback(async (ip: string, name: string, note: string) => {
     const adminEmail =
@@ -295,12 +303,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     refreshData();
-    // Auto-refresh every 5 minutes in background
     const interval = setInterval(refreshData, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, [refreshData]);
 
-  const userCanAccessAudio = canAccessAudio(user?.email, audioPermissions);
+  const userCanAccessAudio = audioAccessGranted;
 
   return (
     <DataContext.Provider value={{

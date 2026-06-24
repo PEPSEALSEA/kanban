@@ -26,27 +26,63 @@ function AudioPlayerInner({
   const [showStatus, setShowStatus] = useState<string>('');
   const [jumpInput, setJumpInput] = useState('');
 
-  const [currentSrc, setCurrentSrc] = useState(
-    audioUrl || (driveId ? `https://docs.google.com/uc?id=${driveId}&export=download` : '')
-  );
+  const directUrl = audioUrl?.replace(/[{}]/g, '').split('#')[0].trim() || '';
+  const [currentSrc, setCurrentSrc] = useState(directUrl.startsWith('http') ? directUrl : '');
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  const fetchSecuredAudioLink = async () => {
+    if (!driveId) return '';
+    const { API_URL } = await import('@/lib/config');
+    const savedUser = typeof window !== 'undefined' ? localStorage.getItem('homework_user') : null;
+    const email = savedUser ? JSON.parse(savedUser).email : '';
+    const params = new URLSearchParams({
+      action: 'getFreshLink',
+      fileId: driveId.replace(/[{}]/g, '').split('#')[0].trim(),
+      contentId,
+      contentType,
+      email,
+    });
+    const res = await fetch(`${API_URL}?${params}`);
+    const data = (await res.json()) as { success?: boolean; url?: string; data?: { url?: string } };
+    return data.data?.url || data.url || '';
+  };
+
   useEffect(() => {
-    setCurrentSrc(audioUrl || (driveId ? `https://docs.google.com/uc?id=${driveId}&export=download` : ''));
-  }, [audioUrl, driveId]);
+    const httpUrl = audioUrl?.replace(/[{}]/g, '').split('#')[0].trim() || '';
+    if (httpUrl.startsWith('http')) {
+      setCurrentSrc(httpUrl);
+      return;
+    }
+
+    if (!driveId) {
+      setCurrentSrc('');
+      return;
+    }
+
+    let cancelled = false;
+    setIsRefreshing(true);
+    fetchSecuredAudioLink()
+      .then((url) => {
+        if (!cancelled && url) setCurrentSrc(url);
+      })
+      .catch((err) => console.error('Failed to load audio link:', err))
+      .finally(() => {
+        if (!cancelled) setIsRefreshing(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [audioUrl, driveId, contentId, contentType]);
 
   const handleAudioError = async () => {
-    if (currentSrc.includes('api.telegram.org') && driveId && !isRefreshing) {
+    if (driveId && !isRefreshing) {
       const lastPos = audioRef.current?.currentTime || currentTime;
       setIsRefreshing(true);
       try {
-        const { UPLOAD_SERVICE_URL } = await import('@/lib/config');
-        const refreshUrl = `${UPLOAD_SERVICE_URL}?action=getFreshLink&fileId=${encodeURIComponent(driveId)}&refresh=true&contentId=${encodeURIComponent(contentId)}&contentType=${encodeURIComponent(contentType)}`;
-
-        const res = await fetch(refreshUrl);
-        const data = (await res.json()) as { success?: boolean; url?: string };
-        if (data.success && data.url) {
-          setCurrentSrc(data.url);
+        const url = await fetchSecuredAudioLink();
+        if (url) {
+          setCurrentSrc(url);
           setShowStatus('Link refreshed — resuming…');
           setTimeout(() => {
             if (audioRef.current) {
@@ -246,8 +282,8 @@ export default function AudioPlayer(props: AudioPlayerProps) {
   const { canAccessAudio } = useData();
 
   const hasAudio = Boolean(
-    props.audioUrl?.replace(/[{}]/g, '').split('#')[0].trim() ||
-    props.driveId?.replace(/[{}]/g, '').split('#')[0].trim()
+    props.driveId?.replace(/[{}]/g, '').split('#')[0].trim() ||
+    props.audioUrl?.replace(/[{}]/g, '').trim()
   );
 
   if (!hasAudio || !canAccessAudio) return null;

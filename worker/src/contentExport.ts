@@ -20,42 +20,6 @@ export function parseContentDescription(desc?: string) {
   return { intro, cards };
 }
 
-export function parseAudioItems(audioUrl?: string, audioFileId?: string) {
-  const urlStr = (audioUrl || "").trim();
-  const fileIdStr = (audioFileId || "").trim();
-  if (!urlStr && !fileIdStr) return [];
-
-  if (urlStr.includes(",")) {
-    const fileIds = fileIdStr ? fileIdStr.split(",") : [];
-    return urlStr.split(",").filter(Boolean).map((entry, i) => {
-      const parts = entry.split("#");
-      const url = parts[0].replace(/[{}]/g, "").trim();
-      const filename = parts.length >= 2 ? decodeURIComponent(parts[1]) : `Audio ${i + 1}`;
-      const fileId = parts.length >= 3
-        ? decodeURIComponent(parts[2]).replace(/[{}]/g, "").trim()
-        : (fileIds[i] || "").replace(/[{}]/g, "").split("#")[0].trim();
-      return { url, fileId, filename };
-    });
-  }
-
-  if (urlStr.includes("#")) {
-    const parts = urlStr.split("#");
-    return [{
-      url: parts[0].replace(/[{}]/g, "").trim(),
-      filename: parts[1] ? decodeURIComponent(parts[1]) : "Audio",
-      fileId: parts[2]
-        ? decodeURIComponent(parts[2]).replace(/[{}]/g, "").trim()
-        : fileIdStr.replace(/[{}]/g, "").split("#")[0].trim(),
-    }];
-  }
-
-  return [{
-    url: urlStr.replace(/[{}]/g, "").split("#")[0].trim(),
-    filename: "Audio",
-    fileId: fileIdStr.replace(/[{}]/g, "").split("#")[0].trim(),
-  }];
-}
-
 function parseAttachmentEntry(url: string) {
   const parts = url.split("#");
   const decodedUrl = parts[0];
@@ -84,9 +48,9 @@ export function buildContentExport(item: Record<string, string>, workerOrigin?: 
     .filter(Boolean);
 
   const viewUrl = `${APP_BASE_URL}/content#/view?id=${encodeURIComponent(id)}`;
-  const jsonUrl = workerOrigin
-    ? `${workerOrigin}/content/${encodeURIComponent(id)}.json`
-    : `${APP_BASE_URL}/content/${encodeURIComponent(id)}.json`;
+  const base = workerOrigin || APP_BASE_URL;
+  const jsonUrl = `${base}/content/${encodeURIComponent(id)}.json`;
+  const txtUrl = `${base}/content/${encodeURIComponent(id)}.txt`;
 
   return {
     id,
@@ -96,12 +60,48 @@ export function buildContentExport(item: Record<string, string>, workerOrigin?: 
     description: item.description || "",
     intro,
     cards,
-    audio: parseAudioItems(item.audio_url, item.audio_file_id),
     attachments,
     links,
     created_at: item.created_at || "",
     viewUrl,
     jsonUrl,
+    txtUrl,
     exportedAt: new Date().toISOString(),
   };
+}
+
+type ContentExport = ReturnType<typeof buildContentExport>;
+
+export function formatContentAsText(data: ContentExport): string {
+  const lines: string[] = [
+    data.title,
+    `Subject: ${data.subject}`,
+    `Date: ${data.date}`,
+    `ID: ${data.id}`,
+    `View: ${data.viewUrl}`,
+    "",
+  ];
+
+  const body = data.intro || data.description;
+  if (body) {
+    lines.push(body, "");
+  }
+
+  for (const card of data.cards) {
+    lines.push(`--- Card ${card.num} ---`, card.text, "");
+  }
+
+  if (data.links.length > 0) {
+    lines.push("--- Links ---");
+    data.links.forEach((link, i) => lines.push(`${i + 1}. ${link}`));
+    lines.push("");
+  }
+
+  if (data.attachments.length > 0) {
+    lines.push("--- Attachments ---");
+    data.attachments.forEach((a, i) => lines.push(`${i + 1}. ${a.title}: ${a.url}`));
+    lines.push("");
+  }
+
+  return lines.join("\n").trimEnd() + "\n";
 }

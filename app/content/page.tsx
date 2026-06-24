@@ -11,7 +11,7 @@ import ResizableContentPanel from '@/components/ResizableContentPanel';
 import { useDeviceDetection } from '@/hooks/useDeviceDetection';
 
 import { parseAudioItems } from '@/lib/audioItems';
-import { getContentJsonUrl } from '@/lib/contentJsonUrl';
+import { getContentTxtUrl } from '@/lib/contentJsonUrl';
 import { parseContentDescription } from '@/lib/parseContentDescription';
 
 const SUBJECT_COLORS: Record<string, string> = {
@@ -207,7 +207,7 @@ export default function LearningContentPage() {
   const getContentHref = useCallback((id: string) => `#/view?id=${encodeURIComponent(id)}`, []);
 
   const copyAiLink = useCallback(async (id: string) => {
-    const url = getContentJsonUrl(id);
+    const url = getContentTxtUrl(id);
     try {
       await navigator.clipboard.writeText(url);
       setCopiedAiLink(true);
