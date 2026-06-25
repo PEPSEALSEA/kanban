@@ -501,6 +501,14 @@ h4 {
   transform: translate(-2px, -2px);
   box-shadow: 2px 2px 0px 0px #000;
 }
+
+.nav-item-admin:hover {
+  background: #e9d5ff;
+}
+
+.nav-item-admin.active {
+  background: #d8b4fe;
+}
 /* Admin Dashboard Styles */
 .admin-theme {
   --admin-bg: #0f172a;
