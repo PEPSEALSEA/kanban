@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { useData } from '@/components/DataProvider';
 import { API_URL } from '@/lib/config';
+import { authHeaders } from '@/lib/auth';
 import AdminQuickCreate from '@/components/AdminQuickCreate';
 import CreateHomeworkModal from '@/components/CreateHomeworkModal';
 import CreateContentModal from '@/components/CreateContentModal';
@@ -28,7 +29,7 @@ export default function AdminDashboard() {
     try {
       const res = await fetch(API_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({ action: 'fixSheetHeaders' })
       });
       const data = await res.json();

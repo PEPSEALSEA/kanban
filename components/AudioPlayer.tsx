@@ -33,16 +33,14 @@ function AudioPlayerInner({
   const fetchSecuredAudioLink = async () => {
     if (!driveId) return '';
     const { API_URL } = await import('@/lib/config');
-    const savedUser = typeof window !== 'undefined' ? localStorage.getItem('homework_user') : null;
-    const email = savedUser ? JSON.parse(savedUser).email : '';
+    const { authHeaders } = await import('@/lib/auth');
     const params = new URLSearchParams({
       action: 'getFreshLink',
       fileId: driveId.replace(/[{}]/g, '').split('#')[0].trim(),
       contentId,
       contentType,
-      email,
     });
-    const res = await fetch(`${API_URL}?${params}`);
+    const res = await fetch(`${API_URL}?${params}`, { headers: authHeaders() });
     const data = (await res.json()) as { success?: boolean; url?: string; data?: { url?: string } };
     return data.data?.url || data.url || '';
   };

@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 
 import { API_URL } from '@/lib/config';
 import { isAdminEmail } from '@/lib/admin';
+import { authHeaders } from '@/lib/auth';
 
 export const GAS_WEB_APP_URL = API_URL;
 
@@ -133,13 +134,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setIsSyncing(true);
     setError(null);
     try {
-      const email =
-        user?.email ||
-        (typeof window !== 'undefined' && localStorage.getItem('homework_user')
-          ? JSON.parse(localStorage.getItem('homework_user')!).email
-          : '');
-      const emailParam = email ? `&email=${encodeURIComponent(email)}` : '';
-      const res = await fetch(`${GAS_WEB_APP_URL}?action=batchData${emailParam}`);
+      const res = await fetch(`${GAS_WEB_APP_URL}?action=batchData`, { headers: authHeaders() });
       if (!res.ok) throw new Error("Cloud synchronization failed");
       const data = (await res.json()) as any;
       
@@ -169,24 +164,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(false);
       setIsSyncing(false);
     }
-  }, [user?.email]);
+  }, []);
 
   const saveAnalyticsIpNote = useCallback(async (ip: string, name: string, note: string) => {
-    const adminEmail =
-      user?.email ||
-      (typeof window !== 'undefined' && localStorage.getItem('homework_user')
-        ? JSON.parse(localStorage.getItem('homework_user')!).email
-        : '');
-    if (!isAdminEmail(adminEmail)) {
-      throw new Error('Admin access required');
-    }
-
     const res = await fetch(GAS_WEB_APP_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify({
         action: 'saveAnalyticsIpNote',
-        admin_email: adminEmail,
         ip_address: ip,
         name,
         note,
@@ -204,7 +189,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           name: saved.name || '',
           note: saved.note || '',
           updated_at: saved.updated_at || new Date().toISOString(),
-          updated_by: saved.updated_by || adminEmail,
+          updated_by: saved.updated_by || '',
         });
       }
       return next;
@@ -221,7 +206,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             name: saved.name || '',
             note: saved.note || '',
             updated_at: saved.updated_at || new Date().toISOString(),
-            updated_by: saved.updated_by || adminEmail,
+            updated_by: saved.updated_by || '',
           });
         }
         parsed.analyticsIpNotes = rows;
@@ -230,7 +215,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         // ignore cache update errors
       }
     }
-  }, [user]);
+  }, []);
 
   const logEvent = useCallback((eventType: string, extraData?: {
     page_visited?: string;

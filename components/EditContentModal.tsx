@@ -7,6 +7,7 @@ import { useDeviceDetection } from '@/hooks/useDeviceDetection';
 import { useData } from '@/components/DataProvider';
 
 import { API_URL, UPLOAD_SERVICE_URL } from '@/lib/config';
+import { authHeaders } from '@/lib/auth';
 import { audioItemsFromContent, makeAudioEntry } from '@/lib/audioItems';
 import { saveLearningContent } from '@/lib/contentSave';
 
@@ -187,10 +188,8 @@ export default function EditContentModal({
       try {
         await fetch(GAS_WEB_APP_URL, {
           method: 'POST',
-          body: new URLSearchParams({
-            action: 'deleteLearningContent',
-            id: content.id
-          })
+          headers: { 'Content-Type': 'application/json', ...authHeaders() },
+          body: JSON.stringify({ action: 'deleteLearningContent', id: content.id })
         });
         setStatus('success');
         onRefresh();

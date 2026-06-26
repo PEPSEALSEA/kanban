@@ -9,6 +9,7 @@ import { useData } from '@/components/DataProvider';
 import AttachmentList from '@/components/AttachmentList';
 import MarkdownRenderer from '@/components/MarkdownRenderer';
 import { API_URL, UPLOAD_SERVICE_URL } from '@/lib/config';
+import { saveIdToken, clearIdToken, authHeaders } from '@/lib/auth';
 
 // --- CONFIGURATION ---
 const GAS_WEB_APP_URL = API_URL;
@@ -174,6 +175,7 @@ export default function StudyFlow() {
   }, [activeHomework?.id, activeHomework?.link_work, activeHomework?.link_image]);
 
   const handleLoginSuccess = async (credentialResponse: any) => {
+    saveIdToken(credentialResponse.credential);
     const decoded: any = jwtDecode(credentialResponse.credential);
     const newUser = {
       email: decoded.email,
@@ -186,9 +188,9 @@ export default function StudyFlow() {
     try {
       await fetch(GAS_WEB_APP_URL, {
         method: 'POST',
-        body: new URLSearchParams({
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({
           action: 'addUser',
-          email: newUser.email,
           display_name: newUser.name,
           photo_url: newUser.picture
         })
@@ -199,6 +201,7 @@ export default function StudyFlow() {
 
   const handleLogout = () => {
     googleLogout();
+    clearIdToken();
     setUser(null);
     localStorage.removeItem('homework_user');
     refreshData();
@@ -245,9 +248,9 @@ export default function StudyFlow() {
     try {
       await fetch(GAS_WEB_APP_URL, {
         method: 'POST',
-        body: new URLSearchParams({
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({
           action: 'updateProgress',
-          email: user.email,
           homework_id: String(hwId),
           status: newStatus
         })
@@ -308,7 +311,8 @@ export default function StudyFlow() {
 
           await fetch(GAS_WEB_APP_URL, {
             method: 'POST',
-            body: new URLSearchParams({ action: 'deleteHomework', id })
+            headers: { 'Content-Type': 'application/json', ...authHeaders() },
+            body: JSON.stringify({ action: 'deleteHomework', id })
           });
 
           refreshData();
@@ -323,7 +327,7 @@ export default function StudyFlow() {
 
   const fetchComments = useCallback(async (hwId: string) => {
     try {
-      const res = await fetch(`${GAS_WEB_APP_URL}?action=comments&homework_id=${hwId}`);
+      const res = await fetch(`${GAS_WEB_APP_URL}?action=comments&homework_id=${hwId}`, { headers: authHeaders() });
       const data = (await res.json()) as any;
       if (data.success) setComments(data.data);
     } catch (e) { }
@@ -344,12 +348,11 @@ export default function StudyFlow() {
     try {
       await fetch(GAS_WEB_APP_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({
           action: 'addComment',
           homework_id: String(activeHomework.id),
           owner_email: ownerEmail,
-          commenter_email: user.email,
           text: text
         })
       });
@@ -362,10 +365,9 @@ export default function StudyFlow() {
     try {
       await fetch(GAS_WEB_APP_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({
           action: 'updateProgress',
-          email: user.email,
           homework_id: String(activeHomework.id),
           status: 'done',
           image_url: shareText,
@@ -391,10 +393,11 @@ export default function StudyFlow() {
         try {
           await fetch(GAS_WEB_APP_URL, {
             method: 'POST',
-            body: new URLSearchParams({
+            headers: { 'Content-Type': 'application/json', ...authHeaders() },
+            body: JSON.stringify({
               action: 'editHomework',
               id: activeHomework.id,
-              ...editForm as any
+              ...editForm
             })
           });
           setIsEditing(false);

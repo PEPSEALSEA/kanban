@@ -1,4 +1,4 @@
-import { Hono } from 'hono';
+import { Hono, Context } from 'hono';
 import { cors } from 'hono/cors';
 import { JWT } from 'google-auth-library';
 import { buildContentExport, formatContentAsText } from './contentExport';
@@ -16,6 +16,7 @@ type Bindings = {
   GEMINI_API_KEY?: string;
   TELEGRAM_BOT_TOKEN?: string;
   TELEGRAM_CHAT_ID?: string;
+  GOOGLE_CLIENT_ID: string;
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
@@ -31,6 +32,89 @@ const ADMIN_EMAILS = new Set([
 function isAdminEmail(email: string | null | undefined): boolean {
   if (!email) return false;
   return ADMIN_EMAILS.has(email.trim().toLowerCase());
+}
+
+// --- GOOGLE ID TOKEN VERIFICATION ---
+
+const jwksCache: { keys: any[]; exp: number } = { keys: [], exp: 0 };
+
+async function getGooglePublicKeys(): Promise<any[]> {
+  if (Date.now() < jwksCache.exp && jwksCache.keys.length > 0) return jwksCache.keys;
+  const res = await fetch('https://www.googleapis.com/oauth2/v3/certs');
+  const { keys } = await res.json() as { keys: any[] };
+  jwksCache.keys = keys;
+  jwksCache.exp = Date.now() + 5 * 60 * 60 * 1000;
+  return keys;
+}
+
+function b64urlDecode(str: string): Uint8Array {
+  const b64 = str.replace(/-/g, '+').replace(/_/g, '/');
+  const bin = atob(b64);
+  return Uint8Array.from(bin, (c) => c.charCodeAt(0));
+}
+
+async function verifyGoogleIdToken(
+  token: string,
+  clientId: string
+): Promise<{ email: string; name?: string; picture?: string }> {
+  const parts = token.split('.');
+  if (parts.length !== 3) throw new Error('Invalid token format');
+
+  const header = JSON.parse(new TextDecoder().decode(b64urlDecode(parts[0])));
+  const payload = JSON.parse(new TextDecoder().decode(b64urlDecode(parts[1])));
+
+  const now = Math.floor(Date.now() / 1000);
+  if (payload.exp < now) throw new Error('Token expired');
+  if (payload.aud !== clientId) throw new Error('Invalid audience');
+  if (!['https://accounts.google.com', 'accounts.google.com'].includes(payload.iss)) {
+    throw new Error('Invalid issuer');
+  }
+
+  const keys = await getGooglePublicKeys();
+  const jwk = keys.find((k: any) => k.kid === header.kid);
+  if (!jwk) throw new Error('Signing key not found');
+
+  const cryptoKey = await crypto.subtle.importKey(
+    'jwk',
+    jwk,
+    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+    false,
+    ['verify']
+  );
+
+  const data = new TextEncoder().encode(`${parts[0]}.${parts[1]}`);
+  const sig = b64urlDecode(parts[2]);
+  const valid = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', cryptoKey, sig, data);
+  if (!valid) throw new Error('Invalid token signature');
+  if (!payload.email) throw new Error('Token missing email claim');
+
+  return { email: payload.email as string, name: payload.name, picture: payload.picture };
+}
+
+type AppContext = Context<{ Bindings: Bindings }>;
+
+async function requireAuth(c: AppContext): Promise<{ email: string }> {
+  const authHeader = c.req.header('Authorization') ?? '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+  if (!token) throw new Error('Authentication required');
+  const clientId = c.env.GOOGLE_CLIENT_ID;
+  if (!clientId) throw new Error('GOOGLE_CLIENT_ID not configured');
+  return verifyGoogleIdToken(token, clientId);
+}
+
+async function requireAdmin(c: AppContext): Promise<{ email: string }> {
+  const user = await requireAuth(c);
+  if (!isAdminEmail(user.email)) throw new Error('Admin access required');
+  return user;
+}
+
+async function optionalAuth(c: AppContext): Promise<string> {
+  try {
+    const user = await requireAuth(c);
+    return user.email;
+  } catch {
+    return '';
+  }
 }
 
 async function resolveAudioAccess(env: Bindings, email?: string) {
@@ -1307,10 +1391,11 @@ app.get('/health', (c) => c.text('ok'));
 
 app.post('/api/gemini-chat', async (c) => {
   try {
+    const authUser = await requireAuth(c);
     const body = await c.req.json();
     const message = String(body?.message || "").trim();
     const history = Array.isArray(body?.history) ? body.history : [];
-    const userEmail = String(body?.user?.email || "").trim().toLowerCase();
+    const userEmail = authUser.email;
     const attachment = body?.attachment;
 
     if (!message && !attachment?.dataBase64) {
@@ -1442,43 +1527,47 @@ app.get('/content/:id', async (c) => {
 
 app.get('/', async (c) => {
   const action = c.req.query('action');
-  const email = c.req.query('email') || "";
   try {
     if (!action) return c.json({ success: true, message: "StudyFlow Cloudflare Worker is online 🚀" });
     let result: any;
     switch (action) {
+      // --- Public ---
       case "list": result = await getHomeworkList(c.env); break;
-      case "listWithProgress": result = await getHomeworkWithProgress(c.env, email); break;
-      case "progress": result = await getProgressByEmail(c.env, email); break;
-      case "allProgress": result = await getAllProgress(c.env); break;
-      case "users": result = await getUserList(c.env); break;
-      case "comments": result = await getComments(c.env, c.req.query('homework_id'), c.req.query('owner_email')); break;
+      case "subjects": result = await getSubjects(c.env); break;
+
+      // --- Requires valid login ---
+      case "listWithProgress": {
+        const email = await requireAuth(c).then(u => u.email);
+        result = await getHomeworkWithProgress(c.env, email);
+        break;
+      }
+      case "progress": {
+        const email = await requireAuth(c).then(u => u.email);
+        result = await getProgressByEmail(c.env, email);
+        break;
+      }
+      case "comments": {
+        await requireAuth(c);
+        result = await getComments(c.env, c.req.query('homework_id'), c.req.query('owner_email'));
+        break;
+      }
       case "learningContent": {
+        const email = await optionalAuth(c);
         const raw = await getLearningContent(c.env, c.req.query('date'), c.req.query('id'));
-        const level = await resolveAudioAccess(c.env, c.req.query('email') || '');
+        const level = await resolveAudioAccess(c.env, email);
         result = sanitizeLearningContentList(raw, level);
         break;
       }
-      case "subjects": result = await getSubjects(c.env); break;
-      case "dailySummary": 
-        const summary = await generateDailySummary(c.env, c.req.query('date'));
-        if (c.req.query('send') === 'true') {
-          const summaryWebhookUrl = String(c.env.SUMMARY_WEBHOOK_URL || "").trim();
-          if (!summaryWebhookUrl) throw new Error("SUMMARY_WEBHOOK_URL is missing");
-          await postDiscordContent(summaryWebhookUrl, summary);
-        }
-        result = { summary };
-        break;
       case "getFreshLink": {
+        const user = await requireAuth(c);
         const fileId = c.req.query('fileId');
         if (!fileId) throw new Error("fileId is required");
-        const email = c.req.query('email') || '';
-        await assertAudioAccess(c.env, email);
+        await assertAudioAccess(c.env, user.email);
         result = await getFreshTelegramLink(c.env, fileId, c.req.query('contentId'), c.req.query('contentType'));
         break;
       }
       case "batchData": {
-        const email = c.req.query('email') || '';
+        const email = await optionalAuth(c);
         const audioLevel = await resolveAudioAccess(c.env, email);
         const permitted = await getAudioPermissions(c.env);
         const learningContent = sanitizeLearningContentList(
@@ -1498,11 +1587,30 @@ app.get('/', async (c) => {
         };
         break;
       }
+
+      // --- Requires admin ---
+      case "allProgress": await requireAdmin(c); result = await getAllProgress(c.env); break;
+      case "users": await requireAdmin(c); result = await getUserList(c.env); break;
+      case "dailySummary": {
+        await requireAdmin(c);
+        const summary = await generateDailySummary(c.env, c.req.query('date'));
+        if (c.req.query('send') === 'true') {
+          const summaryWebhookUrl = String(c.env.SUMMARY_WEBHOOK_URL || "").trim();
+          if (!summaryWebhookUrl) throw new Error("SUMMARY_WEBHOOK_URL is missing");
+          await postDiscordContent(summaryWebhookUrl, summary);
+        }
+        result = { summary };
+        break;
+      }
+
       default: return c.json({ success: false, error: "unknown action: " + action }, 400);
     }
     return c.json({ success: true, ...result, data: result });
   } catch (err: any) {
-    return c.json({ success: false, error: err.message }, 500);
+    const status = err.message === 'Authentication required' ? 401
+      : err.message === 'Admin access required' ? 403
+      : 500;
+    return c.json({ success: false, error: err.message }, status);
   }
 });
 
@@ -1514,44 +1622,47 @@ app.post('/', async (c) => {
     else body = await c.req.parseBody();
 
     const action = body.action || c.req.query('action');
-    const getVal = (key: string) => body[key] || c.req.query(key);
+    const getVal = (key: string) => body[key] ?? c.req.query(key) ?? '';
     if (!action) return c.json({ success: false, error: "Missing action" }, 400);
 
     let result: any;
     switch (action) {
+      // --- Public (fire-and-forget analytics) ---
       case "logAnalytics": result = await logAnalytics(c.env, body, c.req); break;
-      case "saveAnalyticsIpNote": result = await saveAnalyticsIpNote(c.env, body); break;
-      case "addHomework": result = await addHomework(c.env, body); break;
-      case "editHomework": result = await editHomework(c.env, body); break;
-      case "deleteHomework": result = await deleteRowById(c.env, SHEETS.HOMEWORK, getVal('id')); break;
-      case "addLearningContent": result = await addLearningContent(c.env, body); break;
-      case "editLearningContent": result = await editLearningContent(c.env, body); break;
-      case "deleteLearningContent": result = await deleteRowById(c.env, SHEETS.LEARNING_CONTENT, getVal('id')); break;
-      case "updateProgress": await updateProgress(c.env, getVal('email'), getVal('homework_id'), getVal('status'), getVal('image_url'), getVal('append') === 'true'); result = "ok"; break;
-      case "addUser": await addUser(c.env, getVal('email'), getVal('display_name'), getVal('photo_url')); result = "ok"; break;
-      case "addSubject": result = await addSubject(c.env, getVal('name'), getVal('color')); break;
-      case "deleteSubject": result = await deleteRowById(c.env, SHEETS.SUBJECTS, getVal('id')); break;
-      case "addComment": result = await addComment(c.env, getVal('homework_id'), getVal('owner_email'), getVal('commenter_email'), getVal('text')); break;
-      case "sendSummary":
-        const summaryText = await generateDailySummary(c.env, getVal('date'));
-        const summaryWebhookUrl = String(c.env.SUMMARY_WEBHOOK_URL || "").trim();
-        if (!summaryWebhookUrl) throw new Error("SUMMARY_WEBHOOK_URL is missing");
-        await postDiscordContent(summaryWebhookUrl, summaryText);
-        result = "Summary sent to Discord successfully! 📢";
+
+      // --- Requires valid login ---
+      case "addUser": {
+        const user = await requireAuth(c);
+        await addUser(c.env, user.email, getVal('display_name'), getVal('photo_url'));
+        result = "ok";
         break;
-      case "registerUpload":
+      }
+      case "updateProgress": {
+        const user = await requireAuth(c);
+        await updateProgress(c.env, user.email, getVal('homework_id'), getVal('status'), getVal('image_url'), getVal('append') === 'true');
+        result = "ok";
+        break;
+      }
+      case "addComment": {
+        const user = await requireAuth(c);
+        result = await addComment(c.env, getVal('homework_id'), getVal('owner_email'), user.email, getVal('text'));
+        break;
+      }
+      case "registerUpload": {
+        await requireAuth(c);
         const uploadRow = [Date.now().toString(), getVal('filename'), getVal('contentType'), getVal('url'), new Date().toISOString(), "", getVal('fileId')];
         await appendSheetRow(c.env, `${SHEETS.URLS}!A:G`, uploadRow);
         result = "ok";
         break;
+      }
       case "upload":
       case "uploadProof":
-      case "uploadAudio":
+      case "uploadAudio": {
+        const uploadUser = await requireAuth(c);
         const file = body.myFile || body.content || body.contents;
         let blob: Blob;
         let filename = getVal('filename') || "uploaded_file";
         let mimeType = getVal('contentType') || "application/octet-stream";
-        
         if (file instanceof File) {
           blob = file;
           filename = file.name;
@@ -1565,23 +1676,48 @@ app.post('/', async (c) => {
         } else {
           throw new Error("No file content provided");
         }
-        
         const uploadRes = await uploadToTelegram(c.env, blob, filename, mimeType);
         const finalUrl = `${uploadRes.url}#${encodeURIComponent(filename)}#${uploadRes.fileId}`;
-        
         if (action === 'uploadProof') {
-          await updateProgress(c.env, getVal('email'), getVal('homework_id'), getVal('status'), finalUrl, true);
+          await updateProgress(c.env, uploadUser.email, getVal('homework_id'), getVal('status'), finalUrl, true);
         }
         result = { ...uploadRes, url: finalUrl };
         break;
-      case "fixSheetHeaders":
-        result = await fixSheetHeaders(c.env);
+      }
+
+      // --- Requires admin ---
+      case "saveAnalyticsIpNote": {
+        const admin = await requireAdmin(c);
+        result = await saveAnalyticsIpNote(c.env, { ...body, admin_email: admin.email });
         break;
+      }
+      case "addHomework": await requireAdmin(c); result = await addHomework(c.env, body); break;
+      case "editHomework": await requireAdmin(c); result = await editHomework(c.env, body); break;
+      case "deleteHomework": await requireAdmin(c); result = await deleteRowById(c.env, SHEETS.HOMEWORK, getVal('id')); break;
+      case "addLearningContent": await requireAdmin(c); result = await addLearningContent(c.env, body); break;
+      case "editLearningContent": await requireAdmin(c); result = await editLearningContent(c.env, body); break;
+      case "deleteLearningContent": await requireAdmin(c); result = await deleteRowById(c.env, SHEETS.LEARNING_CONTENT, getVal('id')); break;
+      case "addSubject": await requireAdmin(c); result = await addSubject(c.env, getVal('name'), getVal('color')); break;
+      case "deleteSubject": await requireAdmin(c); result = await deleteRowById(c.env, SHEETS.SUBJECTS, getVal('id')); break;
+      case "sendSummary": {
+        await requireAdmin(c);
+        const summaryText = await generateDailySummary(c.env, getVal('date'));
+        const summaryWebhookUrl = String(c.env.SUMMARY_WEBHOOK_URL || "").trim();
+        if (!summaryWebhookUrl) throw new Error("SUMMARY_WEBHOOK_URL is missing");
+        await postDiscordContent(summaryWebhookUrl, summaryText);
+        result = "Summary sent to Discord successfully! 📢";
+        break;
+      }
+      case "fixSheetHeaders": await requireAdmin(c); result = await fixSheetHeaders(c.env); break;
+
       default: return c.json({ success: false, error: "unknown action: " + action }, 400);
     }
     return c.json({ success: true, data: result });
   } catch (err: any) {
-    return c.json({ success: false, error: err.message }, 500);
+    const status = err.message === 'Authentication required' ? 401
+      : err.message === 'Admin access required' ? 403
+      : 500;
+    return c.json({ success: false, error: err.message }, status);
   }
 });
 

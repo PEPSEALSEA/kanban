@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { useData, GAS_WEB_APP_URL } from '@/components/DataProvider';
+import { authHeaders } from '@/lib/auth';
 import { useDeviceDetection } from '@/hooks/useDeviceDetection';
 
 export default function SubjectManagement() {
@@ -29,11 +30,8 @@ export default function SubjectManagement() {
       const color = generateAutoColor();
       const res = await fetch(GAS_WEB_APP_URL, {
         method: 'POST',
-        body: new URLSearchParams({
-          action: 'addSubject',
-          name: newSubject.trim(),
-          color: color
-        })
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ action: 'addSubject', name: newSubject.trim(), color })
       });
       if (res.ok) {
         setNewSubject('');
@@ -52,10 +50,8 @@ export default function SubjectManagement() {
     try {
       const res = await fetch(GAS_WEB_APP_URL, {
         method: 'POST',
-        body: new URLSearchParams({
-          action: 'deleteSubject',
-          id: id
-        })
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ action: 'deleteSubject', id })
       });
       if (res.ok) {
         await refreshData();

@@ -1,4 +1,5 @@
 import { API_URL } from "@/lib/config";
+import { authHeaders } from "@/lib/auth";
 
 export type ChatRole = "user" | "assistant";
 
@@ -81,7 +82,7 @@ export async function sendGeminiChat(
 ): Promise<GeminiChatResponse> {
   const res = await fetch(`${API_URL}/api/gemini-chat`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(payload),
   });
 

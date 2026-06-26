@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { useData, GAS_WEB_APP_URL } from '@/components/DataProvider';
+import { authHeaders } from '@/lib/auth';
 import EditHomeworkModal from '@/components/EditHomeworkModal';
 import DiscordSummaryPreview from '@/components/DiscordSummaryPreview';
 import { useDeviceDetection } from '@/hooks/useDeviceDetection';
@@ -57,7 +58,7 @@ export default function KanbanEditor() {
     setSummaryPreviewError(null);
 
     try {
-      const response = await fetch(`${GAS_WEB_APP_URL}?action=dailySummary&date=${summaryDate}`);
+      const response = await fetch(`${GAS_WEB_APP_URL}?action=dailySummary&date=${summaryDate}`, { headers: authHeaders() });
       const data = (await response.json()) as any;
       if (data.success) {
         const text = data.summary ?? data.data?.summary ?? '';
@@ -86,6 +87,7 @@ export default function KanbanEditor() {
     try {
       const response = await fetch(`${GAS_WEB_APP_URL}?action=sendSummary&date=${summaryDate}`, {
         method: 'POST',
+        headers: authHeaders(),
       });
 
       const data = (await response.json()) as any;

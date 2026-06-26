@@ -6,6 +6,7 @@ import { useDeviceDetection } from '@/hooks/useDeviceDetection';
 import { useData } from '@/components/DataProvider';
 
 import { API_URL, UPLOAD_SERVICE_URL } from '@/lib/config';
+import { authHeaders } from '@/lib/auth';
 
 const GAS_WEB_APP_URL = API_URL;
 const UPLOAD_WEB_APP_URL = UPLOAD_SERVICE_URL;
@@ -109,7 +110,8 @@ export default function EditHomeworkModal({
     try {
       await fetch(GAS_WEB_APP_URL, {
         method: 'POST',
-        body: new URLSearchParams({
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({
           action: 'editHomework',
           id: homework.id,
           subject: formData.subject === 'Other' ? customSubject : formData.subject,
@@ -134,10 +136,8 @@ export default function EditHomeworkModal({
       try {
         await fetch(GAS_WEB_APP_URL, {
           method: 'POST',
-          body: new URLSearchParams({
-            action: 'deleteHomework',
-            id: homework.id
-          })
+          headers: { 'Content-Type': 'application/json', ...authHeaders() },
+          body: JSON.stringify({ action: 'deleteHomework', id: homework.id })
         });
         setStatus('success');
         onRefresh();

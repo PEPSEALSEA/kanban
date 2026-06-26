@@ -1,5 +1,6 @@
 import { API_URL } from '@/lib/config';
 import { audioItemsToStorage } from '@/lib/audioItems';
+import { authHeaders } from '@/lib/auth';
 
 type ContentFormData = {
   date: string;
@@ -35,7 +36,8 @@ export async function saveLearningContent(
 
   const res = await fetch(API_URL, {
     method: 'POST',
-    body: new URLSearchParams(params),
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify(params),
   });
 
   const json = (await res.json()) as { success?: boolean; data?: string; error?: string };
