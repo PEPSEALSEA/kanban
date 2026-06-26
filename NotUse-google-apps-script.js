@@ -3,7 +3,7 @@
  * The ID is the long string in the Sheet URL like: 
  * https://docs.google.com/spreadsheets/d/1XyZ.../edit
  */
-const SPREADSHEET_ID = "1KKYw0kjsRyzs-cfxFrzHh5ZYtu35eRad2x6IXhE_fE4";
+const SPREADSHEET_ID = "YOUR_SPREADSHEET_ID_HERE";
 
 const SHEETS = {
     HOMEWORK: "Homework",
@@ -15,8 +15,8 @@ const SHEETS = {
     SUBJECTS: "Subjects",
 };
 
-const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1478774323874500640/3jwe9TnrxPJNCOJkPFln6OP1Ts1zxYhDaMC1FnIt5CzBhJwFDn-ogkMw-XYWtYr5eNVl"; // USER: Please fill your Discord Webhook URL here
-const SUMMARY_WEBHOOK_URL = "https://discord.com/api/webhooks/1478970697471754277/iXaANL47rTjQHUlTd-oa-Tvr4VDV22kWZ73LViN8l6brQKpOOs-zkahf8PsEmoS1O_YS";
+const DISCORD_WEBHOOK_URL = "YOUR_DISCORD_WEBHOOK_URL_HERE"; // USER: Please fill your Discord Webhook URL here
+const SUMMARY_WEBHOOK_URL = "YOUR_SUMMARY_WEBHOOK_URL_HERE";
 
 function doGet(e) {
     const params = e.parameter || {};

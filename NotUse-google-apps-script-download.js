@@ -3,8 +3,8 @@
  * Folder ID: 1xVX82FFBuH1rp4VwnM2jYdmrRhBu01uw
  */
 
-const folderId = "10CuQpxSeJiv_gDRAnL2fOVKIr0jLap6Y";
-const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1478774323874500640/3jwe9TnrxPJNCOJkPFln6OP1Ts1zxYhDaMC1FnIt5CzBhJwFDn-ogkMw-XYWtYr5eNVl";
+const folderId = "YOUR_DRIVE_FOLDER_ID_HERE";
+const DISCORD_WEBHOOK_URL = "YOUR_DISCORD_WEBHOOK_URL_HERE";
 
 // Telegram Configuration (Set these in File > Project Settings > Script Properties)
 // Or run setupTelegram() once with your values.
