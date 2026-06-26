@@ -2,7 +2,6 @@
 
 import React, { useMemo } from 'react';
 import { Homework, UserInfo, ProgressItem } from '@/types';
-import { colorWithAlpha } from '@/lib/colors';
 
 interface Props {
   user: UserInfo | null;
@@ -73,30 +72,25 @@ export function KanbanDesktopView({
         </div>
       </div>
 
-      {/* Calendar/Timeline Navigation Controls */}
-      {(viewMode === 'calendar' || viewMode === 'timeline') && (
+      {/* Timeline Navigation Controls */}
+      {viewMode === 'timeline' && (
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '1.5rem', marginBottom: '2rem' }}>
           <button
             onClick={() => {
               const d = new Date(focusDate);
-              if (viewMode === 'calendar') d.setMonth(d.getMonth() - 1);
-              else d.setDate(d.getDate() - 7);
+              d.setDate(d.getDate() - 7);
               setFocusDate(d);
             }}
             className="glass"
             style={{ width: '40px', height: '40px', borderRadius: '50%', border: 'none', color: '#fff', cursor: 'pointer' }}
           >←</button>
           <h2 style={{ fontSize: '1.25rem', fontWeight: 800, minWidth: '180px', textAlign: 'center' }}>
-            {viewMode === 'calendar'
-              ? focusDate.toLocaleDateString('th-TH', { month: 'long', year: 'numeric' })
-              : `Week of ${new Date(focusDate).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}`
-            }
+            {`Week of ${new Date(focusDate).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}`}
           </h2>
           <button
             onClick={() => {
               const d = new Date(focusDate);
-              if (viewMode === 'calendar') d.setMonth(d.getMonth() + 1);
-              else d.setDate(d.getDate() + 7);
+              d.setDate(d.getDate() + 7);
               setFocusDate(d);
             }}
             className="glass"
@@ -149,69 +143,84 @@ export function KanbanDesktopView({
         )}
 
         {viewMode === 'calendar' && (
-          <div style={{ padding: '0 2.5rem 2.5rem' }}>
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(7, 1fr)',
-              gap: '1px',
-              background: 'var(--card-border)',
-              borderRadius: '1.5rem',
-              overflow: 'hidden',
-              border: '1px solid var(--card-border)'
-            }}>
-              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
-                <div key={d} style={{ padding: '1rem', textAlign: 'center', fontSize: '0.75rem', fontWeight: 900, color: 'var(--text-muted)', background: 'rgba(255,255,255,0.02)' }}>{d}</div>
-              ))}
-              {(() => {
-                const year = focusDate.getFullYear();
-                const month = focusDate.getMonth();
-                const firstDay = new Date(year, month, 1).getDay();
-                const totalDays = new Date(year, month + 1, 0).getDate();
-                const cells = [];
-                const prevMonthDays = new Date(year, month, 0).getDate();
+          <div style={{ padding: '0 2.5rem 2.5rem', maxWidth: '64rem', margin: '0 auto', width: '100%' }}>
+            <div className="glass" style={{ padding: '2rem 2.5rem', borderRadius: '1.5rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>
+                  {focusDate.toLocaleDateString('th-TH', { month: 'long', year: 'numeric' })}
+                </h2>
+                <div style={{ display: 'flex', gap: '0.5rem', padding: '4px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)' }}>
+                  <button
+                    onClick={() => setFocusDate(new Date(focusDate.getFullYear(), focusDate.getMonth() - 1, 1))}
+                    className="glass"
+                    style={{ width: '36px', height: '36px', borderRadius: '8px', border: 'none', color: '#fff', cursor: 'pointer' }}
+                  >←</button>
+                  <button
+                    onClick={() => setFocusDate(new Date())}
+                    className="glass"
+                    style={{ padding: '0 1rem', borderRadius: '8px', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '0.7rem', fontWeight: 800 }}
+                  >Today</button>
+                  <button
+                    onClick={() => setFocusDate(new Date(focusDate.getFullYear(), focusDate.getMonth() + 1, 1))}
+                    className="glass"
+                    style={{ width: '36px', height: '36px', borderRadius: '8px', border: 'none', color: '#fff', cursor: 'pointer' }}
+                  >→</button>
+                </div>
+              </div>
 
-                for (let i = firstDay - 1; i >= 0; i--) cells.push({ day: prevMonthDays - i, month: month - 1, year, current: false });
-                for (let i = 1; i <= totalDays; i++) cells.push({ day: i, month, year, current: true });
-                while (cells.length < 42) cells.push({ day: cells.length - totalDays - firstDay + 1, month: month + 1, year, current: false });
+              <div className="calendar-grid">
+                {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map(d => (
+                  <div key={d} style={{ padding: '0.75rem', textAlign: 'center', fontSize: '0.75rem', fontWeight: 900, background: 'rgba(14, 165, 233, 0.15)' }}>{d}</div>
+                ))}
+                {(() => {
+                  const year = focusDate.getFullYear();
+                  const month = focusDate.getMonth();
+                  const firstDay = new Date(year, month, 1).getDay();
+                  const totalDays = new Date(year, month + 1, 0).getDate();
+                  const cells = [];
+                  const prevMonthDays = new Date(year, month, 0).getDate();
 
-                return cells.map((d, i) => {
-                  const isToday = new Date().toDateString() === new Date(d.year, d.month, d.day).toDateString();
-                  const dayTasks = homeworkWithStatus.filter(hw => {
-                    const hwDate = new Date(hw.deadline);
-                    return hwDate.getDate() === d.day && hwDate.getMonth() === d.month && hwDate.getFullYear() === d.year;
-                  });
+                  for (let i = firstDay - 1; i >= 0; i--) cells.push({ day: prevMonthDays - i, month: month - 1, year, current: false });
+                  for (let i = 1; i <= totalDays; i++) cells.push({ day: i, month, year, current: true });
+                  while (cells.length < 42) cells.push({ day: cells.length - totalDays - firstDay + 1, month: month + 1, year, current: false });
 
-                  return (
-                    <div
-                      key={i}
-                      className={`calendar-day ${!d.current ? 'not-current' : ''} ${isToday ? 'today' : ''}`}
-                      style={{
-                        opacity: d.current ? 1 : 0.4,
-                        display: 'flex', flexDirection: 'column', gap: '4px', overflowY: 'auto'
-                      }}
-                    >
-                      <span style={{ fontSize: '0.85rem', fontWeight: d.current ? 700 : 400 }}>{d.day}</span>
-                      {dayTasks.map(task => (
-                        <div
-                          key={task.id}
-                          onClick={() => setActiveHomework(task)}
-                          style={{
-                            fontSize: '0.65rem',
-                            padding: '2px 6px',
-                            borderRadius: '4px',
-                            background: colorWithAlpha(getSubjectColor(task.subject), '30'),
-                            color: getSubjectColor(task.subject),
-                            borderLeft: `2px solid ${getSubjectColor(task.subject)}`,
-                            whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', cursor: 'pointer',
-                            textDecoration: task.my_status === 'done' ? 'line-through' : 'none'
-                          }}>
-                          {task.title}
+                  return cells.map((d, i) => {
+                    const isToday = new Date().toDateString() === new Date(d.year, d.month, d.day).toDateString();
+                    const dayTasks = homeworkWithStatus.filter(hw => {
+                      const hwDate = new Date(hw.deadline);
+                      return hwDate.getDate() === d.day && hwDate.getMonth() === d.month && hwDate.getFullYear() === d.year;
+                    });
+
+                    return (
+                      <div
+                        key={i}
+                        className={`calendar-day ${!d.current ? 'not-current' : ''} ${isToday ? 'today' : ''}`}
+                        style={{ background: 'rgba(255,255,255,0.03)' }}
+                      >
+                        <span style={{ fontSize: '0.85rem', fontWeight: d.current ? 700 : 400 }}>{d.day}</span>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                          {dayTasks.map(task => (
+                            <span
+                              key={task.id}
+                              onClick={() => setActiveHomework(task)}
+                              style={{
+                                width: '10px',
+                                height: '10px',
+                                borderRadius: '50%',
+                                background: getSubjectColor(task.subject),
+                                opacity: task.my_status === 'done' ? 0.3 : 1,
+                                cursor: 'pointer',
+                                flexShrink: 0,
+                              }}
+                              title={task.title}
+                            />
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                  );
-                });
-              })()}
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
             </div>
           </div>
         )}

@@ -561,29 +561,24 @@ export default function StudyFlow() {
         </div>
       </div>
 
-      {/* Calendar/Timeline Navigation Controls */}
-      {(viewMode === 'calendar' || viewMode === 'timeline') && (
+      {/* Timeline Navigation Controls */}
+      {viewMode === 'timeline' && (
         <div className="flex justify-center items-center gap-6 mb-8 px-4">
           <button 
             onClick={() => {
               const d = new Date(focusDate);
-              if (viewMode === 'calendar') d.setMonth(d.getMonth() - 1);
-              else d.setDate(d.getDate() - 7);
+              d.setDate(d.getDate() - 7);
               setFocusDate(d);
             }}
             className="neo-button w-12 h-12 flex items-center justify-center text-xl"
           >←</button>
           <h2 className="text-lg font-bold min-w-[200px] text-center text-slate-700">
-            {viewMode === 'calendar' 
-              ? focusDate.toLocaleDateString('th-TH', { month: 'long', year: 'numeric' })
-              : `Week of ${new Date(focusDate).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}`
-            }
+            {`Week of ${new Date(focusDate).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}`}
           </h2>
           <button 
             onClick={() => {
               const d = new Date(focusDate);
-              if (viewMode === 'calendar') d.setMonth(d.getMonth() + 1);
-              else d.setDate(d.getDate() + 7);
+              d.setDate(d.getDate() + 7);
               setFocusDate(d);
             }}
             className="neo-button w-12 h-12 flex items-center justify-center text-xl"
@@ -678,65 +673,86 @@ export default function StudyFlow() {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 10 }}
             transition={{ duration: 0.2 }}
-            className="px-4 md:px-6 pb-12 w-full overflow-x-auto"
+            className="px-4 md:px-6 pb-8 w-full max-w-5xl mx-auto"
           >
-            <div className="min-w-[700px] md:min-w-0">
+            <div className="neo-card p-6 md:p-10">
+              <div className="flex justify-between items-center mb-6 md:mb-8">
+                <h2 className="text-xl md:text-2xl font-bold tracking-tight text-slate-700">
+                  {focusDate.toLocaleDateString('th-TH', { month: 'long', year: 'numeric' })}
+                </h2>
+                <div className="flex gap-2 bg-white/50 p-1 rounded-xl border border-slate-200/60 shadow-sm">
+                  <button
+                    onClick={() => setFocusDate(new Date(focusDate.getFullYear(), focusDate.getMonth() - 1, 1))}
+                    className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-slate-800 transition-colors text-lg"
+                  >←</button>
+                  <button
+                    onClick={() => setFocusDate(new Date())}
+                    className="px-4 text-[10px] font-bold uppercase tracking-widest text-sky-600 hover:text-sky-700"
+                  >Today</button>
+                  <button
+                    onClick={() => setFocusDate(new Date(focusDate.getFullYear(), focusDate.getMonth() + 1, 1))}
+                    className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-slate-800 transition-colors text-lg"
+                  >→</button>
+                </div>
+              </div>
+
               <div className="calendar-grid">
-              {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map(d => (
-                <div key={d} className="p-3 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">{d}</div>
-              ))}
-              {(() => {
-                const year = focusDate.getFullYear();
-                const month = focusDate.getMonth();
-                const firstDay = new Date(year, month, 1).getDay();
-                const totalDays = new Date(year, month + 1, 0).getDate();
-                const cells = [];
-                const prevMonthDays = new Date(year, month, 0).getDate();
-                
-                for (let i = firstDay - 1; i >= 0; i--) cells.push({ day: prevMonthDays - i, month: month - 1, year, current: false });
-                for (let i = 1; i <= totalDays; i++) cells.push({ day: i, month, year, current: true });
-                while (cells.length < 42) cells.push({ day: cells.length - totalDays - firstDay + 1, month: month + 1, year, current: false });
-                
-                return cells.map((d, i) => {
-                  const isToday = new Date().toDateString() === new Date(d.year, d.month, d.day).toDateString();
-                  const dayTasks = homeworkWithStatus.filter(hw => {
-                    const hwDate = new Date(hw.deadline);
-                    return hwDate.getDate() === d.day && hwDate.getMonth() === d.month && hwDate.getFullYear() === d.year;
-                  }).sort((a, b) => {
-                    const statusA = a.my_status === 'done' ? 1 : 0;
-                    const statusB = b.my_status === 'done' ? 1 : 0;
-                    if (statusA !== statusB) return statusA - statusB;
-                    return 0;
-                  });
+                {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map(d => (
+                  <div key={d} className="p-3 md:p-4 text-center text-xs font-black bg-sky-100 border-b-2 border-black">{d}</div>
+                ))}
+                {(() => {
+                  const year = focusDate.getFullYear();
+                  const month = focusDate.getMonth();
+                  const firstDay = new Date(year, month, 1).getDay();
+                  const totalDays = new Date(year, month + 1, 0).getDate();
+                  const cells = [];
+                  const prevMonthDays = new Date(year, month, 0).getDate();
                   
-                  return (
-                    <motion.div 
-                      key={i} 
-                      className={`calendar-day cursor-pointer ${!d.current ? 'not-current' : ''} ${isToday ? 'today' : ''}`}
-                      onClick={() => dayTasks.length > 0 && setSelectedDate(new Date(d.year, d.month, d.day).toISOString())}
-                      whileHover={{ backgroundColor: dayTasks.length > 0 ? '#f8fafc' : undefined }}
-                      whileTap={dayTasks.length > 0 ? { scale: 0.96 } : {}}
-                      transition={{ duration: 0.15 }}
-                    >
-                      <div className="text-sm font-bold">{d.day}</div>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {dayTasks.map(task => (
-                          <span 
-                            key={task.id}
-                            className="w-2.5 h-2.5 rounded-full" 
-                            style={{ 
-                              background: getSubjectColor(task.subject, subjects),
-                              opacity: task.my_status === 'done' ? 0.3 : 1
-                            }} 
-                            title={task.title} 
-                          />
-                        ))}
-                      </div>
-                    </motion.div>
-                  );
-                });
-              })()}
-            </div>
+                  for (let i = firstDay - 1; i >= 0; i--) cells.push({ day: prevMonthDays - i, month: month - 1, year, current: false });
+                  for (let i = 1; i <= totalDays; i++) cells.push({ day: i, month, year, current: true });
+                  while (cells.length < 42) cells.push({ day: cells.length - totalDays - firstDay + 1, month: month + 1, year, current: false });
+                  
+                  return cells.map((d, i) => {
+                    const isToday = new Date().toDateString() === new Date(d.year, d.month, d.day).toDateString();
+                    const dayTasks = homeworkWithStatus.filter(hw => {
+                      const hwDate = new Date(hw.deadline);
+                      return hwDate.getDate() === d.day && hwDate.getMonth() === d.month && hwDate.getFullYear() === d.year;
+                    }).sort((a, b) => {
+                      const statusA = a.my_status === 'done' ? 1 : 0;
+                      const statusB = b.my_status === 'done' ? 1 : 0;
+                      if (statusA !== statusB) return statusA - statusB;
+                      return 0;
+                    });
+                    const hasTasks = dayTasks.length > 0;
+                    
+                    return (
+                      <motion.div 
+                        key={i} 
+                        className={`calendar-day ${!d.current ? 'not-current' : ''} ${isToday ? 'today' : ''} ${hasTasks ? 'cursor-pointer' : ''}`}
+                        onClick={() => hasTasks && setSelectedDate(new Date(d.year, d.month, d.day).toISOString())}
+                        whileHover={hasTasks ? { scale: 1.03, backgroundColor: 'var(--bg-yellow-300)' } : undefined}
+                        whileTap={hasTasks ? { scale: 0.97 } : undefined}
+                        transition={{ duration: 0.15 }}
+                      >
+                        <div className="text-sm font-black">{d.day}</div>
+                        <div className="flex flex-wrap gap-1">
+                          {dayTasks.map(task => (
+                            <span 
+                              key={task.id}
+                              className="w-2.5 h-2.5 rounded-full shrink-0" 
+                              style={{ 
+                                background: getSubjectColor(task.subject, subjects),
+                                opacity: task.my_status === 'done' ? 0.3 : 1
+                              }} 
+                              title={task.title} 
+                            />
+                          ))}
+                        </div>
+                      </motion.div>
+                    );
+                  });
+                })()}
+              </div>
             </div>
           </motion.div>
         )}

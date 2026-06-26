@@ -516,7 +516,7 @@ export default function LearningContentPage() {
                     </div>
                   </div>
 
-                  <div className="calendar-grid">
+                  <div className="calendar-grid calendar-grid--archive">
                     {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map(d => (
                       <div key={d} className="p-4 text-center text-xs font-black bg-sky-100 border-b-2 border-black">{d}</div>
                     ))}

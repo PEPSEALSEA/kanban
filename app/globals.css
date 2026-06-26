@@ -322,16 +322,18 @@ h4 {
 .calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
+  grid-template-rows: auto repeat(6, 1fr);
   gap: 1px;
   background: var(--border-subtle);
   border: 1px solid var(--border-subtle);
   border-radius: 12px;
   overflow: hidden;
+  height: min(calc(100svh - 18rem), 32rem);
 }
 
 .calendar-day {
-  aspect-ratio: 1;
-  padding: 0.75rem;
+  min-height: 0;
+  padding: 0.5rem 0.75rem;
   background: #fff;
   transition: all 0.2s ease;
   cursor: pointer;
@@ -366,9 +368,8 @@ h4 {
   border-radius: 4px;
 }
 
-.calendar-day.not-current {
-  opacity: 0.5;
-  background: #f3f4f6;
+.calendar-grid--archive {
+  height: min(calc(100svh - 24rem), 28rem);
 }
 
 .split-card {
