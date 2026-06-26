@@ -1082,6 +1082,18 @@ h4 {
   font-weight: 700;
 }
 
+.timeline-v-date-weekday {
+  font-size: 0.65rem;
+  font-weight: 700;
+  margin-top: 0.25rem;
+  line-height: 1.2;
+  color: #64748b;
+}
+
+.timeline-v-date-weekday.today {
+  color: #0284c7;
+}
+
 .timeline-v-path {
   position: relative;
   flex: 1;

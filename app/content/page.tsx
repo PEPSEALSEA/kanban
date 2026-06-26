@@ -13,6 +13,7 @@ import { useDeviceDetection } from '@/hooks/useDeviceDetection';
 import { parseAudioItems } from '@/lib/audioItems';
 import { getContentTxtUrl } from '@/lib/contentJsonUrl';
 import { parseContentDescription } from '@/lib/parseContentDescription';
+import { hexWithAlpha } from '@/lib/colors';
 
 const SUBJECT_COLORS: Record<string, string> = {
   'Math': '#6366f1',
@@ -293,7 +294,7 @@ export default function LearningContentPage() {
               <div className="flex flex-wrap items-center gap-4 mb-8">
                 <span
                   className="text-[10px] font-bold uppercase px-3 py-1 rounded-full"
-                  style={{ backgroundColor: `${dynamicSubjectColors[activeContent.subject] || dynamicSubjectColors['Other']}15`, color: dynamicSubjectColors[activeContent.subject] || dynamicSubjectColors['Other'] }}
+                  style={{ backgroundColor: hexWithAlpha(dynamicSubjectColors[activeContent.subject] || dynamicSubjectColors['Other'], '15'), color: dynamicSubjectColors[activeContent.subject] || dynamicSubjectColors['Other'] }}
                 >
                   {activeContent.subject}
                 </span>
@@ -466,7 +467,7 @@ export default function LearningContentPage() {
                         >
                           <div
                             className="w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg"
-                            style={{ backgroundColor: `${dynamicSubjectColors[c.subject] || dynamicSubjectColors['Other']}15`, color: dynamicSubjectColors[c.subject] || dynamicSubjectColors['Other'] }}
+                            style={{ backgroundColor: hexWithAlpha(dynamicSubjectColors[c.subject] || dynamicSubjectColors['Other'], '15'), color: dynamicSubjectColors[c.subject] || dynamicSubjectColors['Other'] }}
                           >
                             {c.subject.charAt(0)}
                           </div>
@@ -606,7 +607,7 @@ export default function LearningContentPage() {
                     whileHover={{ x: 4, backgroundColor: '#f1f5f9' }}
                     whileTap={{ scale: 0.98 }}
                   >
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-xs shrink-0" style={{ backgroundColor: `${dynamicSubjectColors[c.subject] || dynamicSubjectColors['Other']}20`, color: dynamicSubjectColors[c.subject] || dynamicSubjectColors['Other'] }}>
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-xs shrink-0" style={{ backgroundColor: hexWithAlpha(dynamicSubjectColors[c.subject] || dynamicSubjectColors['Other'], '20'), color: dynamicSubjectColors[c.subject] || dynamicSubjectColors['Other'] }}>
                       {c.subject.charAt(0)}
                     </div>
                     <div className="flex-1 min-w-0">

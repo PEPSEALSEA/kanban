@@ -2,6 +2,7 @@
 
 import React, { useMemo } from 'react';
 import { Homework, UserInfo, ProgressItem } from '@/types';
+import { hexWithAlpha } from '@/lib/colors';
 
 interface Props {
   user: UserInfo | null;
@@ -198,7 +199,7 @@ export function KanbanDesktopView({
                             fontSize: '0.65rem',
                             padding: '2px 6px',
                             borderRadius: '4px',
-                            background: `${getSubjectColor(task.subject)}30`,
+                            background: hexWithAlpha(getSubjectColor(task.subject), '30'),
                             color: getSubjectColor(task.subject),
                             borderLeft: `2px solid ${getSubjectColor(task.subject)}`,
                             whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', cursor: 'pointer',
