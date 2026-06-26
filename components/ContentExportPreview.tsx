@@ -3,7 +3,7 @@
 import React, { forwardRef } from 'react';
 import MarkdownRenderer from '@/components/MarkdownRenderer';
 import type { ParsedContentDescription } from '@/lib/parseContentDescription';
-import { hexWithAlpha } from '@/lib/colors';
+import { subjectBadgeStyle } from '@/lib/colors';
 
 type ContentForExport = {
   date: string;
@@ -32,7 +32,7 @@ const ContentExportPreview = forwardRef<HTMLDivElement, ContentExportPreviewProp
         <div className="flex flex-wrap items-center gap-4 mb-8">
           <span
             className="text-[10px] font-bold uppercase px-3 py-1 rounded-full"
-            style={{ backgroundColor: hexWithAlpha(subjectColor, '15'), color: subjectColor }}
+            style={subjectBadgeStyle(subjectColor, '15')}
           >
             {content.subject}
           </span>

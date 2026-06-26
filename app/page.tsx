@@ -15,7 +15,7 @@ const GAS_WEB_APP_URL = API_URL;
 const UPLOAD_WEB_APP_URL = UPLOAD_SERVICE_URL;
 import { isAdminEmail } from '@/lib/admin';
 import { formatThaiRelativeDayLabel } from '@/lib/thaiDate';
-import { hexWithAlpha } from '@/lib/colors';
+import { subjectBadgeStyle } from '@/lib/colors';
 
 function getSubjectColor(subjectName: string, subjects: any[]): string {
   if (!subjectName) return '#94a3b8';
@@ -638,7 +638,7 @@ export default function StudyFlow() {
                             <div className="flex items-center gap-2 mb-2">
                               <span 
                                 className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-md" 
-                                style={{ backgroundColor: hexWithAlpha(subColor, '20'), color: subColor }}
+                                style={subjectBadgeStyle(subColor)}
                               >
                                 {hw.subject}
                               </span>
@@ -882,7 +882,7 @@ export default function StudyFlow() {
                       onClick={() => { openHomework(task); setSelectedDate(null); }}
                       className={`w-full p-4 bg-slate-50 hover:bg-slate-100 transition-all rounded-2xl flex items-center gap-4 text-left group ${isDone ? 'opacity-50' : ''}`}
                     >
-                      <div className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-xs shrink-0" style={{ backgroundColor: hexWithAlpha(getSubjectColor(task.subject, subjects), '20'), color: getSubjectColor(task.subject, subjects) }}>
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-xs shrink-0" style={subjectBadgeStyle(getSubjectColor(task.subject, subjects))}>
                         {task.subject.charAt(0)}
                       </div>
                       <div className="flex-1">
@@ -926,7 +926,7 @@ export default function StudyFlow() {
             <div className="mb-12">
               <span 
                 className="text-[10px] font-bold uppercase px-3 py-1 rounded-full mb-6 inline-block" 
-                style={{ backgroundColor: hexWithAlpha(getSubjectColor(activeHomework.subject, subjects), '15'), color: getSubjectColor(activeHomework.subject, subjects) }}
+                style={subjectBadgeStyle(getSubjectColor(activeHomework.subject, subjects), '15')}
               >
                 {activeHomework.subject}
               </span>
