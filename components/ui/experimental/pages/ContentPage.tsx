@@ -173,6 +173,7 @@ export default function ExperimentalContentPage() {
 
   return (
     <AppShell breadcrumb={['StudyFlow', view === 'detail' ? 'Content' : 'Archive']}>
+      <div className="exp-content-page">
       <AnimatePresence mode="wait">
         {view === 'detail' && activeContent ? (
           <motion.div key="detail" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
@@ -190,7 +191,7 @@ export default function ExperimentalContentPage() {
               </div>
             </div>
 
-            <div className="exp-card" style={{ padding: 28 }}>
+            <div className="exp-card exp-content-detail">
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
                 <Badge color={getSubjectColor(activeContent.subject, subjects)}>{activeContent.subject}</Badge>
                 <span style={{ fontSize: 12, color: 'var(--exp-ink-subtle)', fontFamily: 'var(--exp-mono)' }}>
@@ -399,6 +400,7 @@ export default function ExperimentalContentPage() {
           </motion.div>
         )}
       </AnimatePresence>
+      </div>
     </AppShell>
   );
 }

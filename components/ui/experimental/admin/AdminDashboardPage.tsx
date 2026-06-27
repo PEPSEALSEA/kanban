@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
+import { motion } from 'framer-motion';
 import { useData } from '@/components/DataProvider';
 import { API_URL } from '@/lib/config';
 import { authHeaders } from '@/lib/auth';
@@ -8,8 +9,8 @@ import { isAdminEmail } from '@/lib/admin';
 import AdminQuickCreate from '@/components/AdminQuickCreate';
 import CreateHomeworkModal from '@/components/CreateHomeworkModal';
 import CreateContentModal from '@/components/CreateContentModal';
-import AdminAnalyticsPanel from '@/components/AdminAnalyticsPanel';
-import { Badge, Button, Card, Skeleton, Tabs } from '@/components/ui/experimental/primitives';
+import ExperimentalAdminAnalyticsPanel, { AnimatedAdminTabContent } from '@/components/ui/experimental/admin/ExperimentalAdminAnalyticsPanel';
+import { Badge, Button, Card, Tabs } from '@/components/ui/experimental/primitives';
 
 export default function ExperimentalAdminDashboardPage() {
   const { allHomework, allUsers, learningContent, allProgress, analytics, refreshData } = useData();
@@ -84,14 +85,19 @@ export default function ExperimentalAdminDashboardPage() {
         />
       </div>
 
+      <AnimatedAdminTabContent tabKey={activeTab}>
       {activeTab === 'dashboard' ? (
         <>
           <div className="exp-admin-grid" style={{ marginBottom: 24 }}>
             {statCards.map((stat) => (
-              <div key={stat.label} className="exp-stat-card">
+              <motion.div
+                key={stat.label}
+                className="exp-stat-card exp-stat-card--animated"
+                whileHover={{ y: -2, transition: { duration: 0.15 } }}
+              >
                 <div className="exp-stat-card__label">{stat.label}</div>
                 <div className="exp-stat-card__value">{stat.value}</div>
-              </div>
+              </motion.div>
             ))}
           </div>
 
@@ -144,10 +150,9 @@ export default function ExperimentalAdminDashboardPage() {
           </Card>
         </>
       ) : (
-        <div className="exp-card" style={{ padding: 0, overflow: 'hidden' }}>
-          <AdminAnalyticsPanel analytics={studentAnalytics} />
-        </div>
+        <ExperimentalAdminAnalyticsPanel analytics={studentAnalytics} />
       )}
+      </AnimatedAdminTabContent>
 
       {activeModal === 'homework' && <CreateHomeworkModal onClose={() => setActiveModal(null)} onRefresh={refreshData} />}
       {activeModal === 'content' && <CreateContentModal onClose={() => setActiveModal(null)} onRefresh={refreshData} />}

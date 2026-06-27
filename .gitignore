@@ -40,6 +40,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# design reference (local only)
+Linear-design-analysis.md
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

@@ -26,6 +26,16 @@
   --exp-sidebar-width: 240px;
   --exp-sidebar-collapsed: 64px;
   --exp-header-height: 56px;
+  /* Map shared admin modals/components to experimental tokens */
+  --admin-bg: var(--exp-canvas);
+  --admin-bg-soft: var(--exp-surface-2);
+  --admin-sidebar-bg: var(--exp-surface-1);
+  --admin-card-bg: var(--exp-surface-1);
+  --admin-text-main: var(--exp-ink);
+  --admin-text-muted: var(--exp-ink-muted);
+  --admin-accent: var(--exp-primary);
+  --admin-primary: var(--exp-primary);
+  --admin-border: var(--exp-hairline-strong);
   color: var(--exp-ink);
   background: var(--exp-canvas);
   font-family: var(--exp-font);
@@ -886,3 +896,194 @@
     right: 8px;
   }
 }
+
+/* Solid modals — fix transparent admin forms in experimental UI */
+.exp-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.88);
+  backdrop-filter: blur(10px);
+  animation: exp-fade-in 0.2s ease;
+}
+
+.exp-modal-panel {
+  background: var(--exp-surface-1) !important;
+  border: 1px solid var(--exp-hairline-strong) !important;
+  box-shadow:
+    0 32px 64px rgba(0, 0, 0, 0.7),
+    0 0 0 1px rgba(255, 255, 255, 0.05) !important;
+  animation: exp-scale-in 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.exp-modal-panel:hover {
+  transform: none !important;
+}
+
+.experimental-theme .exp-modal-panel input,
+.experimental-theme .exp-modal-panel select,
+.experimental-theme .exp-modal-panel textarea {
+  background: var(--exp-surface-2) !important;
+  color: var(--exp-ink) !important;
+  border: 1px solid var(--exp-hairline-strong) !important;
+}
+
+.experimental-theme .exp-modal-panel input:focus,
+.experimental-theme .exp-modal-panel select:focus,
+.experimental-theme .exp-modal-panel textarea:focus {
+  border-color: var(--exp-primary) !important;
+  box-shadow: 0 0 0 2px rgba(94, 106, 210, 0.25) !important;
+  background: var(--exp-surface-3) !important;
+}
+
+.experimental-theme .exp-modal-panel label,
+.experimental-theme .exp-modal-panel h2,
+.experimental-theme .exp-modal-panel p {
+  color: var(--exp-ink-muted);
+}
+
+.experimental-theme .exp-modal-panel h2 {
+  color: var(--exp-ink) !important;
+}
+
+.experimental-theme .admin-card {
+  background: var(--exp-surface-1);
+  border-color: var(--exp-hairline-strong);
+}
+
+.experimental-theme .admin-card input,
+.experimental-theme .admin-card select,
+.experimental-theme .admin-card textarea {
+  background: var(--exp-surface-2) !important;
+  color: var(--exp-ink) !important;
+  border: 1px solid var(--exp-hairline-strong) !important;
+}
+
+.experimental-theme .admin-card input:focus,
+.experimental-theme .admin-card select:focus,
+.experimental-theme .admin-card textarea:focus {
+  border-color: var(--exp-primary) !important;
+  background: var(--exp-surface-3) !important;
+}
+
+/* Analytics panel animations */
+.exp-analytics-panel {
+  position: relative;
+  padding: 20px;
+  overflow: hidden;
+}
+
+.exp-analytics-panel__glow {
+  position: absolute;
+  top: -120px;
+  right: -80px;
+  width: 320px;
+  height: 320px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(94, 106, 210, 0.18) 0%, transparent 70%);
+  pointer-events: none;
+  animation: exp-analytics-pulse 4s ease-in-out infinite;
+}
+
+.exp-analytics-panel__inner {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes exp-analytics-pulse {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.08); }
+}
+
+.experimental-theme .exp-analytics-panel .admin-card {
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.experimental-theme .exp-analytics-panel .admin-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(94, 106, 210, 0.35);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.exp-stat-card--animated {
+  animation: exp-stat-enter 0.45s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+.exp-stat-card--animated:nth-child(1) { animation-delay: 0.04s; }
+.exp-stat-card--animated:nth-child(2) { animation-delay: 0.08s; }
+.exp-stat-card--animated:nth-child(3) { animation-delay: 0.12s; }
+.exp-stat-card--animated:nth-child(4) { animation-delay: 0.16s; }
+
+@keyframes exp-stat-enter {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Content archive — solid surfaces, readable contrast */
+.exp-content-page .exp-card,
+.exp-content-page .exp-content-detail {
+  background: var(--exp-surface-1);
+  border: 1px solid var(--exp-hairline-strong);
+}
+
+.exp-content-page .exp-content-detail {
+  padding: 28px;
+  border-radius: var(--exp-radius-xl);
+}
+
+.exp-content-page .bg-white {
+  background: var(--exp-surface-2) !important;
+  border-color: var(--exp-hairline-strong) !important;
+}
+
+.exp-content-page .bg-sky-50 {
+  background: rgba(94, 106, 210, 0.12) !important;
+}
+
+.exp-content-page .text-slate-700,
+.exp-content-page .text-slate-800 {
+  color: var(--exp-ink) !important;
+}
+
+.exp-content-page .text-slate-400,
+.exp-content-page .text-slate-500,
+.exp-content-page .text-gray-500 {
+  color: var(--exp-ink-subtle) !important;
+}
+
+.exp-content-page .border-slate-100,
+.exp-content-page .border-slate-200 {
+  border-color: var(--exp-hairline-strong) !important;
+}
+
+.exp-content-page .bg-slate-50,
+.exp-content-page .bg-slate-900 {
+  background: var(--exp-surface-3) !important;
+}
+
+.exp-content-page .markdown-content,
+.exp-content-page .markdown-content p,
+.exp-content-page .markdown-content li {
+  color: var(--exp-ink-muted) !important;
+}
+
+.exp-content-page .markdown-content h1,
+.exp-content-page .markdown-content h2,
+.exp-content-page .markdown-content h3 {
+  color: var(--exp-ink) !important;
+}
+
+.exp-content-page .markdown-content code {
+  background: var(--exp-surface-3);
+  color: var(--exp-ink);
+}
+
+.exp-content-page .markdown-content pre {
+  background: var(--exp-surface-3) !important;
+  border: 1px solid var(--exp-hairline-strong) !important;
+}
+

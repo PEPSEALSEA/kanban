@@ -4,6 +4,7 @@ import React, { useState, useRef } from 'react';
 import { uploadToTelegramDirect } from '@/lib/telegram';
 import { compressAudioIfNeeded } from '@/lib/audio-compressor';
 import { useDeviceDetection } from '@/hooks/useDeviceDetection';
+import { useModalShell } from '@/hooks/useModalShell';
 import { useData } from '@/components/DataProvider';
 
 import { UPLOAD_SERVICE_URL } from '@/lib/config';
@@ -34,6 +35,7 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
   const [uploadProgress, setUploadProgress] = useState<string>('');
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
   const { isMobile } = useDeviceDetection();
+  const { overlayClassName, overlayStyle, panelClassName } = useModalShell();
 
   const tryAutoSave = async (nextFormData: typeof formData) => {
     if (!nextFormData.title.trim()) return;
@@ -165,8 +167,8 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
   };
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
-      <div className="admin-card" style={{ width: '100%', maxWidth: '700px', maxHeight: '90vh', overflowY: 'auto' }}>
+    <div className={overlayClassName} style={overlayStyle}>
+      <div className={panelClassName} style={{ width: '100%', maxWidth: '700px', maxHeight: '90vh', overflowY: 'auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid var(--admin-border)', paddingBottom: '1rem' }}>
           <div>
             <h2 style={{ fontSize: '1.25rem', color: 'var(--admin-text-main)' }}>Create Learning Content</h2>
