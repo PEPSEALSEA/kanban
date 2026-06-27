@@ -2,6 +2,7 @@
 
 import React, { useRef, useState, useEffect } from 'react';
 import { useData } from '@/components/DataProvider';
+import { useUiVersion } from '@/components/UiVersionProvider';
 
 interface AudioPlayerProps {
   contentId: string;
@@ -18,6 +19,7 @@ function AudioPlayerInner({
   driveId,
   title,
 }: AudioPlayerProps) {
+  const { isExperimental } = useUiVersion();
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
@@ -182,6 +184,86 @@ function AudioPlayerInner({
   if (!currentSrc) return null;
 
   const progressPct = duration ? (currentTime / duration) * 100 : 0;
+
+  if (isExperimental) {
+    return (
+      <div className="exp-audio-player">
+        {isRefreshing && (
+          <div className="exp-audio-player__overlay">
+            <div className="exp-audio-player__spinner" />
+            <span>Refreshing link…</span>
+          </div>
+        )}
+
+        <audio
+          ref={audioRef}
+          src={currentSrc}
+          onTimeUpdate={onTimeUpdate}
+          onLoadedMetadata={onLoadedMetadata}
+          onPlay={() => setIsPlaying(true)}
+          onPause={() => setIsPlaying(false)}
+          onError={handleAudioError}
+          preload="metadata"
+        />
+
+        <div className="exp-audio-player__header">
+          <div className="exp-audio-player__meta">
+            {title && <p className="exp-audio-player__title">{title}</p>}
+            <span className="exp-audio-player__source">
+              {audioUrl?.includes('telegram') ? 'Telegram' : 'Drive'}
+            </span>
+            {showStatus && <p className="exp-audio-player__status">{showStatus}</p>}
+          </div>
+          <a href={currentSrc} target="_blank" rel="noreferrer" className="exp-audio-player__download">
+            Download
+          </a>
+        </div>
+
+        <div className="exp-audio-player__progress" onClick={handleProgressClick}>
+          <div className="exp-audio-player__progress-fill" style={{ width: `${progressPct}%` }} />
+        </div>
+
+        <div className="exp-audio-player__controls">
+          <span className="exp-audio-player__time">{formatTime(currentTime)}</span>
+
+          <div className="exp-audio-player__buttons">
+            <button type="button" onClick={() => skip(-10)} className="exp-audio-player__skip">
+              −10s
+            </button>
+            <button
+              type="button"
+              onClick={togglePlay}
+              className="exp-audio-player__play"
+              aria-label={isPlaying ? 'Pause' : 'Play'}
+            >
+              {isPlaying ? '‖' : '▶'}
+            </button>
+            <button type="button" onClick={() => skip(10)} className="exp-audio-player__skip">
+              +10s
+            </button>
+          </div>
+
+          <span className="exp-audio-player__time exp-audio-player__time--end">{formatTime(duration)}</span>
+        </div>
+
+        <form onSubmit={handleJump} className="exp-audio-player__jump">
+          <label className="exp-audio-player__jump-label">Jump to time</label>
+          <div className="exp-audio-player__jump-row">
+            <input
+              type="text"
+              placeholder="1:30 or 90"
+              value={jumpInput}
+              onChange={(e) => setJumpInput(e.target.value)}
+              className="exp-input exp-audio-player__jump-input"
+            />
+            <button type="submit" className="exp-btn exp-btn--secondary exp-btn--sm">
+              Go
+            </button>
+          </div>
+        </form>
+      </div>
+    );
+  }
 
   return (
     <div className="neo-card rounded-2xl p-5 md:p-6 relative overflow-hidden border border-slate-200/80 shadow-sm">
