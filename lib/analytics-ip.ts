@@ -1,4 +1,11 @@
 import { parseMetadata, EVENT_LABELS, formatEventDetail, type AnalyticsMetadata } from './analytics';
+import {
+  formatResourceLabel,
+  resolveResourceRef,
+  type AnalyticsResourceLookups,
+} from './analytics-links';
+
+export type { AnalyticsResourceLookups } from './analytics-links';
 
 export type AnalyticsEvent = {
   id: string;
@@ -22,6 +29,10 @@ export type TimelineEntry = {
   pageLabel: string;
   durationSec?: number;
   contentId?: string;
+  resourceType?: 'content' | 'homework';
+  resourceTitle?: string;
+  resourceSubject?: string;
+  resourceHref?: string;
 };
 
 export type TimelineSession = {
@@ -36,6 +47,8 @@ export type PageSummary = {
   pageLabel: string;
   totalSec: number;
   visits: number;
+  resourceHref?: string;
+  contentId?: string;
 };
 
 export type IpNote = {
@@ -85,7 +98,10 @@ export function formatDuration(sec: number): string {
   return `${m} นาที`;
 }
 
-export function buildIpTimeline(events: AnalyticsEvent[]): TimelineSession[] {
+export function buildIpTimeline(
+  events: AnalyticsEvent[],
+  lookups?: AnalyticsResourceLookups
+): TimelineSession[] {
   const filtered = events
     .filter((e) => !SKIP_EVENTS.has(e.event_type))
     .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
@@ -116,16 +132,21 @@ export function buildIpTimeline(events: AnalyticsEvent[]): TimelineSession[] {
           entries[lastVisitEntryIdx].durationSec = Math.max(1, Math.round((t - lastVisitTime) / 1000));
         }
         lastVisitTime = t;
-        lastVisitPage = pageLabel;
-        entries.push({
-          id: e.id,
-          at: e.created_at,
-          eventType: 'visit',
-          label: EVENT_LABELS.visit,
-          detail: '',
-          pageLabel,
-          contentId: e.content_id || undefined,
-        });
+        const visitEntry = applyResourceToEntry(
+          {
+            id: e.id,
+            at: e.created_at,
+            eventType: 'visit',
+            label: EVENT_LABELS.visit,
+            detail: '',
+            pageLabel,
+            contentId: e.content_id || undefined,
+          },
+          e,
+          lookups
+        );
+        lastVisitPage = visitEntry.pageLabel;
+        entries.push(visitEntry);
         lastVisitEntryIdx = entries.length - 1;
         continue;
       }
@@ -150,15 +171,21 @@ export function buildIpTimeline(events: AnalyticsEvent[]): TimelineSession[] {
 
       if (e.event_type === 'session_start') continue;
 
-      entries.push({
-        id: e.id,
-        at: e.created_at,
-        eventType: e.event_type,
-        label: EVENT_LABELS[e.event_type] || e.event_type,
-        detail: formatEventDetail(e.event_type, meta),
-        pageLabel,
-        contentId: e.content_id || undefined,
-      });
+      entries.push(
+        applyResourceToEntry(
+          {
+            id: e.id,
+            at: e.created_at,
+            eventType: e.event_type,
+            label: EVENT_LABELS[e.event_type] || e.event_type,
+            detail: formatEventDetail(e.event_type, meta),
+            pageLabel,
+            contentId: e.content_id || undefined,
+          },
+          e,
+          lookups
+        )
+      );
     }
 
     const startedAt = sessionEvents[0].created_at;
@@ -177,6 +204,24 @@ export function buildIpTimeline(events: AnalyticsEvent[]): TimelineSession[] {
   return sessions.sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
 }
 
+function applyResourceToEntry(
+  entry: TimelineEntry,
+  event: AnalyticsEvent,
+  lookups?: AnalyticsResourceLookups
+): TimelineEntry {
+  const ref = resolveResourceRef(entry.contentId || event.content_id, event.event_type, lookups);
+  if (!ref) return entry;
+  return {
+    ...entry,
+    contentId: ref.id,
+    resourceType: ref.type,
+    resourceTitle: ref.title,
+    resourceSubject: ref.subject,
+    resourceHref: ref.href,
+    pageLabel: formatResourceLabel(ref),
+  };
+}
+
 export function buildPageSummary(sessions: TimelineSession[]): PageSummary[] {
   const map = new Map<string, PageSummary>();
 
@@ -187,6 +232,10 @@ export function buildPageSummary(sessions: TimelineSession[]): PageSummary[] {
       const existing = map.get(key) || { pageLabel: key, totalSec: 0, visits: 0 };
       existing.visits += 1;
       existing.totalSec += entry.durationSec || 0;
+      if (entry.resourceHref && !existing.resourceHref) {
+        existing.resourceHref = entry.resourceHref;
+        existing.contentId = entry.contentId;
+      }
       map.set(key, existing);
     }
   }

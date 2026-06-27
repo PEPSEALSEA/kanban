@@ -10,7 +10,9 @@ import {
   ipNotesToMap,
   EVENT_COLORS,
   type IpNote,
+  type TimelineEntry,
 } from '@/lib/analytics-ip';
+import { buildAnalyticsResourceLookups, type AnalyticsResourceLookups } from '@/lib/analytics-links';
 import {
   filterAnalytics,
   getLastPageLabel,
@@ -165,16 +167,57 @@ function daysSince(iso: string): string {
   return `ใช้มา ${days} วัน`;
 }
 
+const timelineLinkStyle: React.CSSProperties = {
+  color: 'var(--admin-text-main)',
+  textDecoration: 'none',
+  borderBottom: '1px solid rgba(99,102,241,0.45)',
+  transition: 'color 0.15s, border-color 0.15s',
+};
+
+function TimelinePageLabel({ entry }: { entry: TimelineEntry }) {
+  if (entry.resourceHref) {
+    return (
+      <div>
+        <a
+          href={entry.resourceHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={timelineLinkStyle}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.color = '#a5b4fc';
+            e.currentTarget.style.borderBottomColor = '#a5b4fc';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.color = 'var(--admin-text-main)';
+            e.currentTarget.style.borderBottomColor = 'rgba(99,102,241,0.45)';
+          }}
+        >
+          {entry.pageLabel}
+        </a>
+        {entry.contentId && entry.resourceTitle && entry.resourceTitle !== entry.contentId && (
+          <div style={{ fontSize: '0.68rem', color: 'var(--admin-text-muted)', marginTop: '0.2rem', fontFamily: 'monospace' }}>
+            {entry.contentId}
+            {entry.resourceType === 'content' ? ' · เนื้อหา' : entry.resourceType === 'homework' ? ' · การบ้าน' : ''}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return <>{entry.pageLabel}</>;
+}
+
 // ---- Detail Modal ----
 
 type IpDetailModalProps = {
   group: VisitorGroup;
   ipNotes: Record<string, IpNote>;
+  resourceLookups: AnalyticsResourceLookups;
   onClose: () => void;
   onSaveNote: (ip: string, name: string, note: string) => Promise<void>;
 };
 
-function IpDetailModal({ group, ipNotes, onClose, onSaveNote }: IpDetailModalProps) {
+function IpDetailModal({ group, ipNotes, resourceLookups, onClose, onSaveNote }: IpDetailModalProps) {
   const existing = ipNotes[group.visitorId];
   const [name, setName] = useState(existing?.name || '');
   const [note, setNote] = useState(existing?.note || '');
@@ -183,7 +226,10 @@ function IpDetailModal({ group, ipNotes, onClose, onSaveNote }: IpDetailModalPro
   const [saveError, setSaveError] = useState('');
   const color = visitorColor(group.visitorId);
 
-  const sessions = useMemo(() => buildIpTimeline(group.events), [group.events]);
+  const sessions = useMemo(
+    () => buildIpTimeline(group.events, resourceLookups),
+    [group.events, resourceLookups]
+  );
   const pageSummary = useMemo(() => buildPageSummary(sessions), [sessions]);
 
   const handleSave = async () => {
@@ -339,7 +385,19 @@ function IpDetailModal({ group, ipNotes, onClose, onSaveNote }: IpDetailModalPro
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
               {pageSummary.map((p) => (
                 <span key={p.pageLabel} style={chip('#2563eb')}>
-                  {p.pageLabel}: {formatDuration(p.totalSec)} ({p.visits}×)
+                  {p.resourceHref ? (
+                    <a
+                      href={p.resourceHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: 'inherit', textDecoration: 'underline', textUnderlineOffset: '2px' }}
+                    >
+                      {p.pageLabel}
+                    </a>
+                  ) : (
+                    p.pageLabel
+                  )}
+                  : {formatDuration(p.totalSec)} ({p.visits}×)
                 </span>
               ))}
             </div>
@@ -401,7 +459,7 @@ function IpDetailModal({ group, ipNotes, onClose, onSaveNote }: IpDetailModalPro
                               </span>
                             </div>
                             <div style={{ fontSize: '0.83rem', fontWeight: 600, color: 'var(--admin-text-main)', marginTop: '0.2rem' }}>
-                              {entry.pageLabel}
+                              <TimelinePageLabel entry={entry} />
                             </div>
                             {entry.detail && (
                               <div style={{ fontSize: '0.75rem', color: 'var(--admin-text-muted)', marginTop: '0.15rem' }}>{entry.detail}</div>
@@ -602,6 +660,11 @@ export default function AdminAnalyticsPanel({ analytics }: { analytics: Analytic
   const ipNotes = useMemo(() => ipNotesToMap(analyticsIpNotes), [analyticsIpNotes]);
   const filtered = useMemo(() => filterAnalytics(analytics as DashboardRow[], range), [analytics, range]);
 
+  const resourceLookups = useMemo(
+    () => buildAnalyticsResourceLookups(learningContent, allHomework),
+    [learningContent, allHomework]
+  );
+
   const contentTitles = useMemo(() => {
     const map: Record<string, string> = {};
     for (const c of learningContent) map[c.id] = c.title;
@@ -768,6 +831,7 @@ export default function AdminAnalyticsPanel({ analytics }: { analytics: Analytic
         <IpDetailModal
           group={selected}
           ipNotes={ipNotes}
+          resourceLookups={resourceLookups}
           onClose={() => setSelectedVisitorId(null)}
           onSaveNote={saveAnalyticsIpNote}
         />
