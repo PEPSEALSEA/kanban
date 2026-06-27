@@ -191,16 +191,18 @@ export default function ExperimentalContentPage() {
               </div>
             </div>
 
-            <div className="exp-card exp-content-detail">
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
-                <Badge color={getSubjectColor(activeContent.subject, subjects)}>{activeContent.subject}</Badge>
-                <span style={{ fontSize: 12, color: 'var(--exp-ink-subtle)', fontFamily: 'var(--exp-mono)' }}>
-                  {new Date(activeContent.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}
-                </span>
+            <div className="exp-content-detail">
+              <div className="exp-page-header" style={{ marginBottom: 20 }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
+                  <Badge color={getSubjectColor(activeContent.subject, subjects)}>{activeContent.subject}</Badge>
+                  <span style={{ fontSize: 12, color: 'var(--exp-ink-subtle)', fontFamily: 'var(--exp-mono)' }}>
+                    {new Date(activeContent.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}
+                  </span>
+                </div>
+                <h1 style={{ fontSize: 26, fontWeight: 600, letterSpacing: '-0.03em' }}>
+                  {activeContent.title}
+                </h1>
               </div>
-              <h1 style={{ fontSize: 26, fontWeight: 600, letterSpacing: '-0.03em', marginBottom: 20 }}>
-                {activeContent.title}
-              </h1>
 
               {memoizedAudioList.length > 0 && (
                 <div style={{ marginBottom: 20 }}>
@@ -262,7 +264,7 @@ export default function ExperimentalContentPage() {
           </motion.div>
         ) : (
           <motion.div key="calendar" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <div style={{ marginBottom: 24 }}>
+            <div className="exp-page-header" style={{ marginBottom: 24 }}>
               <h1 style={{ fontSize: 22, fontWeight: 600, letterSpacing: '-0.03em', marginBottom: 4 }}>
                 Learning Archive
               </h1>

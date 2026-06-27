@@ -55,6 +55,115 @@
   --exp-ink-tertiary: #8a8f98;
 }
 
+/* Override global light-theme heading colors inside experimental UI */
+.experimental-theme h1,
+.experimental-theme h2,
+.experimental-theme h3,
+.experimental-theme h4,
+.experimental-theme h5,
+.experimental-theme h6 {
+  color: var(--exp-ink);
+}
+
+.experimental-theme p {
+  color: var(--exp-ink-muted);
+}
+
+.experimental-theme .exp-page-header h1 {
+  color: var(--exp-ink);
+  font-weight: 600;
+}
+
+.experimental-theme .exp-page-header p {
+  color: var(--exp-ink-subtle);
+}
+
+/* Tailwind slate utilities used by shared components (MarkdownRenderer, AttachmentList, etc.) */
+.experimental-theme .text-slate-800,
+.experimental-theme .text-slate-700 {
+  color: var(--exp-ink) !important;
+}
+
+.experimental-theme .text-slate-600,
+.experimental-theme .text-slate-500 {
+  color: var(--exp-ink-muted) !important;
+}
+
+.experimental-theme .text-slate-400 {
+  color: var(--exp-ink-subtle) !important;
+}
+
+.experimental-theme .text-gray-500 {
+  color: var(--exp-ink-subtle) !important;
+}
+
+.experimental-theme .bg-slate-50,
+.experimental-theme .bg-slate-100 {
+  background: var(--exp-surface-2) !important;
+}
+
+.experimental-theme .bg-sky-50,
+.experimental-theme .bg-sky-50\/30 {
+  background: rgba(94, 106, 210, 0.1) !important;
+}
+
+.experimental-theme .border-slate-50,
+.experimental-theme .border-slate-100,
+.experimental-theme .border-slate-200,
+.experimental-theme .border-sky-100 {
+  border-color: var(--exp-hairline-strong) !important;
+}
+
+.experimental-theme .markdown-content h1 {
+  color: var(--exp-ink-subtle) !important;
+}
+
+.experimental-theme .markdown-content h1 .bg-slate-200,
+.experimental-theme .markdown-content h1 span.bg-slate-200 {
+  background: var(--exp-hairline-strong) !important;
+}
+
+.experimental-theme .markdown-content h2,
+.experimental-theme .markdown-content h3 {
+  color: var(--exp-ink) !important;
+}
+
+.experimental-theme .markdown-content p,
+.experimental-theme .markdown-content li,
+.experimental-theme .markdown-content td {
+  color: var(--exp-ink-muted) !important;
+}
+
+.experimental-theme .markdown-content th {
+  background: var(--exp-surface-2) !important;
+  color: var(--exp-ink) !important;
+  border-color: var(--exp-hairline-strong) !important;
+}
+
+.experimental-theme .markdown-content .markdown-table-wrap {
+  border-color: var(--exp-hairline-strong) !important;
+}
+
+.experimental-theme .markdown-content .markdown-inline-code {
+  background: var(--exp-surface-3) !important;
+  color: var(--exp-ink) !important;
+}
+
+.experimental-theme .markdown-content blockquote {
+  background: rgba(94, 106, 210, 0.08) !important;
+  color: var(--exp-ink-muted) !important;
+  border-left-color: var(--exp-primary) !important;
+}
+
+.experimental-theme .markdown-content a.text-sky-600 {
+  color: var(--exp-primary-hover) !important;
+}
+
+.experimental-theme .markdown-content pre {
+  background: var(--exp-surface-3) !important;
+  border: 1px solid var(--exp-hairline-strong) !important;
+}
+
 /* UI version switcher — visible on both themes */
 .ui-version-switcher {
   position: fixed;
@@ -316,10 +425,12 @@
   align-items: center;
   gap: 10px;
   padding: 0 16px;
-  border-bottom: 1px solid var(--exp-hairline);
+  border-bottom: 1px solid var(--exp-hairline-strong);
   font-weight: 600;
   font-size: 14px;
   letter-spacing: -0.02em;
+  color: var(--exp-ink);
+  background: var(--exp-surface-1);
 }
 
 .exp-sidebar__brand-mark {
@@ -399,19 +510,22 @@
   gap: 12px;
   padding: 0 24px;
   padding-right: 120px;
-  background: rgba(1, 1, 2, 0.8);
+  background: var(--exp-surface-1);
   backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--exp-hairline);
+  border-bottom: 1px solid var(--exp-hairline-strong);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04), 0 8px 24px rgba(0, 0, 0, 0.35);
 }
 
 .experimental-theme.light .exp-topbar {
-  background: rgba(250, 250, 250, 0.85);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.06);
 }
 
 .exp-topbar__title {
   font-size: 14px;
   font-weight: 600;
   letter-spacing: -0.02em;
+  color: var(--exp-ink);
 }
 
 .exp-topbar__breadcrumb {
@@ -487,12 +601,14 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  background: linear-gradient(to bottom, var(--exp-canvas) 70%, transparent);
 }
 
 .exp-kanban-col__title {
   font-size: 13px;
   font-weight: 600;
   letter-spacing: -0.01em;
+  color: var(--exp-ink);
 }
 
 .exp-kanban-col__subtitle {
