@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import AppShell from '@/components/ui/experimental/layout/AppShell';
 import AttachmentList from '@/components/AttachmentList';
 import AudioPlayer from '@/components/AudioPlayer';
+import AudioAccessNotice from '@/components/AudioAccessNotice';
 import ContentExportImageModal from '@/components/ContentExportImageModal';
 import MarkdownRenderer from '@/components/MarkdownRenderer';
 import { useData } from '@/components/DataProvider';
@@ -22,12 +23,13 @@ type LearningContent = {
   description: string;
   audio_file_id: string;
   audio_url: string;
+  has_audio?: string;
   attachments: string;
   links: string;
 };
 
 export default function ExperimentalContentPage() {
-  const { learningContent, subjects, isLoading, logEvent } = useData();
+  const { learningContent, subjects, isLoading, logEvent, canAccessAudio, user } = useData();
   const [view, setView] = useState<'calendar' | 'detail'>('calendar');
   const [activeContent, setActiveContent] = useState<LearningContent | null>(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -204,6 +206,13 @@ export default function ExperimentalContentPage() {
                 </h1>
               </div>
 
+              <AudioAccessNotice
+                hasAudio={Boolean(activeContent.has_audio) || memoizedAudioList.length > 0}
+                canAccessAudio={canAccessAudio}
+                isLoggedIn={Boolean(user)}
+                variant="experimental"
+              />
+
               {memoizedAudioList.length > 0 && (
                 <div style={{ marginBottom: 20 }}>
                   {memoizedAudioList.map((audio, idx) => (
@@ -216,6 +225,24 @@ export default function ExperimentalContentPage() {
                       title={memoizedAudioList.length > 1 ? audio.filename : activeContent.title}
                     />
                   ))}
+                </div>
+              )}
+
+              {activeContent.has_audio && !canAccessAudio && (
+                <div
+                  style={{
+                    marginBottom: 20,
+                    padding: '12px 16px',
+                    borderRadius: 12,
+                    border: '1px solid var(--exp-warning-border, #fcd34d)',
+                    background: 'var(--exp-warning-bg, #fffbeb)',
+                    fontSize: 13,
+                    color: 'var(--exp-warning-text, #92400e)',
+                  }}
+                >
+                  {!user
+                    ? 'This lesson includes audio. Sign in with Google in the sidebar to listen.'
+                    : 'This lesson includes audio, but your account does not have audio access yet. Ask an admin to add your email to the AudioPermissions sheet.'}
                 </div>
               )}
 

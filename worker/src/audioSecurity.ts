@@ -53,12 +53,14 @@ export function sanitizeLearningContentItem(
   item: Record<string, string>,
   level: AudioAccessLevel
 ): Record<string, string> {
-  if (level === 'full') return { ...item };
+  const hasAudio = Boolean((item.audio_url || '').trim() || (item.audio_file_id || '').trim());
+  const withFlag = { ...item, has_audio: hasAudio ? '1' : '' };
+
+  if (level === 'full') return withFlag;
   if (level === 'none') {
-    return { ...item, audio_url: '', audio_file_id: '' };
   }
   return {
-    ...item,
+    ...withFlag,
     audio_url: sanitizeAudioUrlField(item.audio_url, item.audio_file_id),
     audio_file_id: item.audio_file_id || '',
   };

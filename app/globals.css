@@ -463,7 +463,10 @@ h4 {
   width: 100%;
   z-index: 1000;
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
+  align-items: center;
+  gap: 0.75rem;
   margin-bottom: 2rem;
   pointer-events: none;
 }
@@ -510,6 +513,46 @@ h4 {
 .nav-item-admin.active {
   background: #d8b4fe;
 }
+
+.header-nav-auth {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  padding: 0.35rem 0.5rem;
+  background: #fff;
+  border: 4px solid #000;
+  box-shadow: 6px 6px 0 0 #000;
+}
+
+.header-nav-user {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.header-nav-avatar {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 9999px;
+  border: 2px solid #000;
+}
+
+.header-nav-logout {
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem 0.35rem;
+}
+
+.header-nav-logout:hover {
+  color: #0f172a;
+}
+
 /* Admin Dashboard Styles */
 .admin-theme {
   --admin-bg: #0f172a;

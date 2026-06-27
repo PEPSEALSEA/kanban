@@ -4,7 +4,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 
 import { API_URL } from '@/lib/config';
 import { isAdminEmail } from '@/lib/admin';
-import { authHeaders } from '@/lib/auth';
+import { authHeaders, getIdToken } from '@/lib/auth';
 
 export const GAS_WEB_APP_URL = API_URL;
 
@@ -42,9 +42,14 @@ type LearningContent = {
   description: string;
   audio_file_id: string;
   audio_url: string;
+  has_audio?: string;
   attachments: string;
   links: string;
 };
+
+function stripCachedAudioFields(content: LearningContent[]): LearningContent[] {
+  return content.map((item) => ({ ...item, audio_url: '', audio_file_id: '' }));
+}
  
 type Subject = {
   id: string;
@@ -102,28 +107,35 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [isSyncing, setIsSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Initialize user from localStorage
+  // Restore user only when a valid Google ID token exists (sessionStorage).
+  // homework_user alone is not enough — token expires or is cleared on new tabs.
   useEffect(() => {
+    const token = getIdToken();
     const savedUser = localStorage.getItem('homework_user');
-    if (savedUser) {
+
+    if (savedUser && token) {
       setUser(JSON.parse(savedUser));
+    } else if (savedUser && !token) {
+      localStorage.removeItem('homework_user');
     }
-    
-    // Load cached data for instant UI
+
     const cachedData = localStorage.getItem('studyflow_cache');
     if (cachedData) {
       try {
         const parsed = JSON.parse(cachedData);
+        const hasAuth = Boolean(token);
         setAllHomework(parsed.homework || []);
         setAllUsers(parsed.users || []);
         setAllProgress(parsed.progress || []);
-        setLearningContent(parsed.learningContent || []);
+        setLearningContent(
+          hasAuth ? (parsed.learningContent || []) : stripCachedAudioFields(parsed.learningContent || [])
+        );
         setSubjects(parsed.subjects || []);
         setAnalytics((parsed.analytics || []).filter((a: { email?: string }) => !isAdminEmail(a.email)));
         setAnalyticsIpNotes(parsed.analyticsIpNotes || []);
-        setAudioPermissions(parsed.audioPermissions || []);
-        setAudioAccessGranted(Boolean(parsed.audioAccessGranted));
-        setIsLoading(false); // We have cached data, so we can hide initial loader early
+        setAudioPermissions(hasAuth ? (parsed.audioPermissions || []) : []);
+        setAudioAccessGranted(hasAuth && Boolean(parsed.audioAccessGranted));
+        setIsLoading(false);
       } catch (e) {
         console.error("Cache parsing failed", e);
       }
