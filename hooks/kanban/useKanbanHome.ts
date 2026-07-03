@@ -1,11 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { jwtDecode } from 'jwt-decode';
 import { googleLogout } from '@react-oauth/google';
 import { useData } from '@/components/DataProvider';
 import { API_URL, UPLOAD_SERVICE_URL } from '@/lib/config';
-import { saveIdToken, clearIdToken, authHeaders } from '@/lib/auth';
+import { clearIdToken, authHeaders } from '@/lib/auth';
+import { completeGoogleLogin } from '@/lib/googleLogin';
 import { isAdminEmail } from '@/lib/admin';
 
 export type HomeworkItem = {
@@ -174,21 +174,7 @@ export function useKanbanHome() {
 
   const handleLoginSuccess = async (credentialResponse: { credential?: string }) => {
     if (!credentialResponse.credential) return;
-    saveIdToken(credentialResponse.credential);
-    const decoded = jwtDecode<{ email: string; name: string; picture: string }>(credentialResponse.credential);
-    const newUser = { email: decoded.email, name: decoded.name, picture: decoded.picture };
-    setUser(newUser);
-    localStorage.setItem('homework_user', JSON.stringify(newUser));
-    try {
-      await fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({ action: 'addUser', display_name: newUser.name, photo_url: newUser.picture }),
-      });
-      refreshData();
-    } catch {
-      /* ignore */
-    }
+    await completeGoogleLogin(credentialResponse.credential, setUser, refreshData);
   };
 
   const handleLogout = () => {

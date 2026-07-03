@@ -3,13 +3,13 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { GoogleLogin, googleLogout } from '@react-oauth/google';
-import { jwtDecode } from 'jwt-decode';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useData } from '@/components/DataProvider';
 import AttachmentList from '@/components/AttachmentList';
 import MarkdownRenderer from '@/components/MarkdownRenderer';
 import { API_URL, UPLOAD_SERVICE_URL } from '@/lib/config';
-import { saveIdToken, clearIdToken, authHeaders } from '@/lib/auth';
+import { clearIdToken, authHeaders } from '@/lib/auth';
+import { completeGoogleLogin } from '@/lib/googleLogin';
 
 // --- CONFIGURATION ---
 const GAS_WEB_APP_URL = API_URL;
@@ -174,29 +174,9 @@ export default function StudyFlow() {
     ];
   }, [activeHomework?.id, activeHomework?.link_work, activeHomework?.link_image]);
 
-  const handleLoginSuccess = async (credentialResponse: any) => {
-    saveIdToken(credentialResponse.credential);
-    const decoded: any = jwtDecode(credentialResponse.credential);
-    const newUser = {
-      email: decoded.email,
-      name: decoded.name,
-      picture: decoded.picture
-    };
-    setUser(newUser);
-    localStorage.setItem('homework_user', JSON.stringify(newUser));
-
-    try {
-      await fetch(GAS_WEB_APP_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({
-          action: 'addUser',
-          display_name: newUser.name,
-          photo_url: newUser.picture
-        })
-      });
-      refreshData();
-    } catch (e) { console.error(e); }
+  const handleLoginSuccess = async (credentialResponse: { credential?: string }) => {
+    if (!credentialResponse.credential) return;
+    await completeGoogleLogin(credentialResponse.credential, setUser, refreshData);
   };
 
   const handleLogout = () => {
@@ -525,7 +505,7 @@ export default function StudyFlow() {
         </div>
         {!user ? (
           <div className="rounded-lg overflow-hidden border border-slate-200">
-            <GoogleLogin onSuccess={handleLoginSuccess} onError={() => {}} />
+            <GoogleLogin onSuccess={handleLoginSuccess} onError={() => {}} auto_select />
           </div>
         ) : (
           <div className="flex items-center gap-4">

@@ -4,11 +4,10 @@ import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { GoogleLogin, googleLogout } from '@react-oauth/google';
-import { jwtDecode } from 'jwt-decode';
 import { useData } from '@/components/DataProvider';
 import { isAdminEmail } from '@/lib/admin';
-import { saveIdToken, clearIdToken, authHeaders } from '@/lib/auth';
-import { API_URL } from '@/lib/config';
+import { clearIdToken } from '@/lib/auth';
+import { completeGoogleLogin } from '@/lib/googleLogin';
 import { Button } from '@/components/ui/experimental/primitives';
 import '@/components/ui/experimental/experimental.css';
 
@@ -48,25 +47,7 @@ export default function AppShell({ children, title, breadcrumb, actions }: AppSh
 
   const handleLoginSuccess = async (credentialResponse: { credential?: string }) => {
     if (!credentialResponse.credential) return;
-    saveIdToken(credentialResponse.credential);
-    const decoded = jwtDecode<{ email: string; name: string; picture: string }>(credentialResponse.credential);
-    const newUser = { email: decoded.email, name: decoded.name, picture: decoded.picture };
-    setUser(newUser);
-    localStorage.setItem('homework_user', JSON.stringify(newUser));
-    try {
-      await fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({
-          action: 'addUser',
-          display_name: newUser.name,
-          photo_url: newUser.picture,
-        }),
-      });
-      refreshData();
-    } catch {
-      /* ignore */
-    }
+    await completeGoogleLogin(credentialResponse.credential, setUser, refreshData);
   };
 
   const handleLogout = () => {
@@ -192,7 +173,7 @@ export default function AppShell({ children, title, breadcrumb, actions }: AppSh
             {actions}
             {!user ? (
               <div style={{ borderRadius: 8, overflow: 'hidden' }}>
-                <GoogleLogin onSuccess={handleLoginSuccess} onError={() => {}} size="medium" theme="filled_black" />
+                <GoogleLogin onSuccess={handleLoginSuccess} onError={() => {}} size="medium" theme="filled_black" auto_select />
               </div>
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

@@ -107,8 +107,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [isSyncing, setIsSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Restore user only when a valid Google ID token exists (sessionStorage).
-  // homework_user alone is not enough — token expires or is cleared on new tabs.
+  // Restore user only when a valid Google ID token exists (localStorage).
+  // homework_user alone is not enough — token expires after ~55 minutes.
   useEffect(() => {
     const token = getIdToken();
     const savedUser = localStorage.getItem('homework_user');

@@ -7,6 +7,7 @@ import ConditionalHeaderNav from "@/components/ConditionalHeaderNav";
 import UiVersionSwitcher from "@/components/UiVersionSwitcher";
 import SyncToast from "@/components/SyncToast";
 import AnalyticsTracker from "@/components/AnalyticsTracker";
+import GoogleAutoLogin from "@/components/GoogleAutoLogin";
 import ChatWidget from "@/components/ChatWidget";
 import "./globals.css";
 import "katex/dist/katex.min.css";
@@ -58,6 +59,7 @@ export default function RootLayout({
       <body className={`${mali.variable} ${inter.variable} ${robotoMono.variable}`}>
         <GoogleOAuthProvider clientId="787988651964-gf258mnif89bu6g0jao2mpdsm72j96da.apps.googleusercontent.com">
           <DataProvider>
+            <GoogleAutoLogin />
             <UiVersionProvider>
               <AnalyticsTracker />
               <SyncToast />

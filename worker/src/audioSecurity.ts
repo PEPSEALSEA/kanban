@@ -58,6 +58,7 @@ export function sanitizeLearningContentItem(
 
   if (level === 'full') return withFlag;
   if (level === 'none') {
+    return { ...withFlag, audio_url: '', audio_file_id: '' };
   }
   return {
     ...withFlag,

@@ -4,18 +4,18 @@ const TOKEN_TTL_MS = 55 * 60 * 1000; // 55 min (Google ID tokens last 1 hour)
 
 export function saveIdToken(token: string): void {
   try {
-    sessionStorage.setItem(TOKEN_KEY, token);
-    sessionStorage.setItem(TOKEN_EXPIRY_KEY, String(Date.now() + TOKEN_TTL_MS));
+    localStorage.setItem(TOKEN_KEY, token);
+    localStorage.setItem(TOKEN_EXPIRY_KEY, String(Date.now() + TOKEN_TTL_MS));
   } catch {}
 }
 
 export function getIdToken(): string | null {
   try {
-    const token = sessionStorage.getItem(TOKEN_KEY);
-    const exp = Number(sessionStorage.getItem(TOKEN_EXPIRY_KEY) || 0);
+    const token = localStorage.getItem(TOKEN_KEY);
+    const exp = Number(localStorage.getItem(TOKEN_EXPIRY_KEY) || 0);
     if (!token || Date.now() > exp) {
-      sessionStorage.removeItem(TOKEN_KEY);
-      sessionStorage.removeItem(TOKEN_EXPIRY_KEY);
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(TOKEN_EXPIRY_KEY);
       return null;
     }
     return token;
@@ -26,8 +26,8 @@ export function getIdToken(): string | null {
 
 export function clearIdToken(): void {
   try {
-    sessionStorage.removeItem(TOKEN_KEY);
-    sessionStorage.removeItem(TOKEN_EXPIRY_KEY);
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(TOKEN_EXPIRY_KEY);
   } catch {}
 }
 
