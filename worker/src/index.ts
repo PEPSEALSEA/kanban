@@ -35,6 +35,15 @@ function isAdminEmail(email: string | null | undefined): boolean {
   return ADMIN_EMAILS.has(email.trim().toLowerCase());
 }
 
+function isSheetTruthy(v?: string) {
+  return v === '1' || String(v || '').toLowerCase() === 'true';
+}
+
+function filterPrivateLearningContent(items: any[], email: string | null | undefined) {
+  if (isAdminEmail(email)) return items;
+  return items.filter((item) => !isSheetTruthy(item.is_private));
+}
+
 // --- GOOGLE ID TOKEN VERIFICATION ---
 
 const jwksCache: { keys: any[]; exp: number } = { keys: [], exp: 0 };
@@ -149,7 +158,7 @@ const EXPECTED_HEADERS = {
   [SHEETS.HOMEWORK]: ["id", "subject", "title", "description", "deadline", "link_work", "link_image", "note", "created_at"],
   [SHEETS.USERS]: ["email", "name", "picture", "created_at"],
   [SHEETS.PROGRESS]: ["email", "homework_id", "status", "image_url", "updated_at"],
-  [SHEETS.LEARNING_CONTENT]: ["id", "date", "subject", "title", "description", "audio_file_id", "audio_url", "attachments", "links", "created_at"],
+  [SHEETS.LEARNING_CONTENT]: ["id", "date", "subject", "title", "description", "audio_file_id", "audio_url", "attachments", "links", "is_private", "created_at"],
   [SHEETS.SUBJECTS]: ["id", "name", "color", "created_at"],
   [SHEETS.COMMENTS]: ["homework_id", "owner_email", "commenter_email", "text", "created_at"],
   [SHEETS.URLS]: ["id", "filename", "contentType", "url", "created_at", "uploader", "fileId"],
@@ -967,8 +976,8 @@ async function getHomeworkWithProgress(env: Bindings, email: string) {
 }
 
 async function getLearningContent(env: Bindings, date?: string, id?: string) {
-  const rows = await getSheetValues(env, `${SHEETS.LEARNING_CONTENT}!A2:J`);
-  const data = toObjects(rows, ["id", "date", "subject", "title", "description", "audio_file_id", "audio_url", "attachments", "links", "created_at"]);
+  const rows = await getSheetValues(env, `${SHEETS.LEARNING_CONTENT}!A2:K`);
+  const data = toObjects(rows, ["id", "date", "subject", "title", "description", "audio_file_id", "audio_url", "attachments", "links", "is_private", "created_at"]);
 
   if (id) return data.filter((item: any) => String(item.id) === String(id));
   if (date) {
@@ -1343,8 +1352,8 @@ async function editHomework(env: Bindings, data: any) {
 
 async function addLearningContent(env: Bindings, data: any) {
   const id = "LC-" + Date.now().toString();
-  const row = [id, data.date || new Date().toISOString().split('T')[0], data.subject || "", data.title || "", data.description || "", data.audio_file_id || "", data.audio_url || "", data.attachments || "", data.links || "", new Date().toISOString()];
-  await appendSheetRow(env, `${SHEETS.LEARNING_CONTENT}!A:J`, row);
+  const row = [id, data.date || new Date().toISOString().split('T')[0], data.subject || "", data.title || "", data.description || "", data.audio_file_id || "", data.audio_url || "", data.attachments || "", data.links || "", isSheetTruthy(data.is_private) ? '1' : '', new Date().toISOString()];
+  await appendSheetRow(env, `${SHEETS.LEARNING_CONTENT}!A:K`, row);
   return id;
 }
 
@@ -1352,8 +1361,8 @@ async function editLearningContent(env: Bindings, data: any) {
   const rowIndex = await findRowIndexById(env, SHEETS.LEARNING_CONTENT, data.id);
   if (rowIndex === -1) throw new Error("Content not found");
   const rowNum = rowIndex + 1;
-  const row = [data.id, data.date, data.subject, data.title, data.description, data.audio_file_id, data.audio_url, data.attachments, data.links];
-  await updateSheetRow(env, `${SHEETS.LEARNING_CONTENT}!A${rowNum}:I${rowNum}`, row);
+  const row = [data.id, data.date, data.subject, data.title, data.description, data.audio_file_id, data.audio_url, data.attachments, data.links, isSheetTruthy(data.is_private) ? '1' : ''];
+  await updateSheetRow(env, `${SHEETS.LEARNING_CONTENT}!A${rowNum}:J${rowNum}`, row);
   return "ok";
 }
 
@@ -1603,7 +1612,7 @@ app.post('/api/gemini-chat', async (c) => {
       getHomeworkList(c.env),
       getLearningContent(c.env),
     ]);
-    contextRows = buildClassContextRows(homeworkList, learningContentList);
+    contextRows = buildClassContextRows(homeworkList, filterPrivateLearningContent(learningContentList, userEmail));
     const fullSheetDataChunk = buildFullSheetDataChunk(contextRows);
     const systemInstruction = buildRagSystemInstruction(fullSheetDataChunk);
     const useGrounding = shouldUseGrounding(message || "วิเคราะห์ไฟล์ที่แนบ");
@@ -1684,6 +1693,11 @@ app.get('/content/:id', async (c) => {
       return c.json({ error: 'Content not found', id }, 404);
     }
 
+    const email = await optionalAuth(c);
+    if (isSheetTruthy(items[0].is_private) && !isAdminEmail(email)) {
+      return c.json({ error: 'Content not found', id }, 404);
+    }
+
     const origin = new URL(c.req.url).origin;
     const body = buildContentExport(items[0], origin);
 
@@ -1739,7 +1753,10 @@ app.get('/', async (c) => {
       }
       case "learningContent": {
         const email = await optionalAuth(c);
-        const raw = await getLearningContent(c.env, c.req.query('date'), c.req.query('id'));
+        const raw = filterPrivateLearningContent(
+          await getLearningContent(c.env, c.req.query('date'), c.req.query('id')),
+          email
+        );
         const level = await resolveAudioAccess(c.env, email);
         result = sanitizeLearningContentList(raw, level);
         break;
@@ -1757,7 +1774,7 @@ app.get('/', async (c) => {
         const audioLevel = await resolveAudioAccess(c.env, email);
         const permitted = await getAudioPermissions(c.env);
         const learningContent = sanitizeLearningContentList(
-          await getLearningContent(c.env),
+          filterPrivateLearningContent(await getLearningContent(c.env), email),
           audioLevel
         );
         result = {

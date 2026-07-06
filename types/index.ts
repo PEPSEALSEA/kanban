@@ -35,4 +35,5 @@ export type LearningContent = {
   audio_url: string;
   attachments: string;
   links: string;
+  is_private?: string;
 };

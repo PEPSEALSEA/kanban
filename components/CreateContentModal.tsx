@@ -22,7 +22,8 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
     description: '',
     audios: [] as string[],
     attachments: [] as string[],
-    links: [] as string[]
+    links: [] as string[],
+    is_private: false,
   });
 
   const [savedContentId, setSavedContentId] = useState<string | null>(null);
@@ -286,6 +287,15 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
               </div>
             </div>
           </div>
+
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '1.25rem', fontSize: '0.85rem', color: 'var(--admin-text-main)', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={formData.is_private}
+              onChange={(e) => setFormData({ ...formData, is_private: e.target.checked })}
+            />
+            Private content (admin only)
+          </label>
 
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', marginTop: '1.5rem', borderTop: '1px solid var(--admin-border)', paddingTop: '1.5rem' }}>
             <button

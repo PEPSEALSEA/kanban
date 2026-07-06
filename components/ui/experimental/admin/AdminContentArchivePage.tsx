@@ -63,7 +63,12 @@ export default function ExperimentalAdminContentArchivePage() {
                   {new Date(item.date).toLocaleDateString('th-TH')}
                 </td>
                 <td>
-                  <div style={{ fontWeight: 500, color: 'var(--exp-ink)', marginBottom: 2 }}>{item.title}</div>
+                  <div style={{ fontWeight: 500, color: 'var(--exp-ink)', marginBottom: 2, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    {item.title}
+                    {(item.is_private === '1' || String(item.is_private || '').toLowerCase() === 'true') && (
+                      <Badge color="#ef4444">Private</Badge>
+                    )}
+                  </div>
                   <div style={{ fontSize: 11, color: 'var(--exp-ink-tertiary)', fontFamily: 'var(--exp-mono)' }}>{item.id}</div>
                 </td>
                 <td><Badge color={getSubjectColor(item.subject, subjects)}>{item.subject}</Badge></td>

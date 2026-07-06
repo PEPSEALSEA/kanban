@@ -32,6 +32,8 @@ export default function EditContentModal({
 
   const isPredefinedSubject = subjects.some(s => s.name.trim().toLowerCase() === (content.subject || '').trim().toLowerCase());
 
+  const isSheetTruthy = (v?: string) => v === '1' || String(v || '').toLowerCase() === 'true';
+
   const [formData, setFormData] = useState({
     date: (() => { const d = content.date ? new Date(content.date) : new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })(),
     subject: isPredefinedSubject ? content.subject : 'Other',
@@ -39,7 +41,8 @@ export default function EditContentModal({
     description: content.description || '',
     audios: audioItemsFromContent(content.audio_url, content.audio_file_id),
     attachments: parseItems(content.attachments),
-    links: parseItems(content.links)
+    links: parseItems(content.links),
+    is_private: isSheetTruthy(content.is_private),
   });
 
   const [customSubject, setCustomSubject] = useState(isPredefinedSubject ? '' : content.subject);
@@ -322,6 +325,15 @@ export default function EditContentModal({
               </div>
             </div>
           </div>
+
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '1.25rem', fontSize: '0.85rem', color: 'var(--admin-text-main)', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={formData.is_private}
+              onChange={(e) => setFormData({ ...formData, is_private: e.target.checked })}
+            />
+            Private content (admin only)
+          </label>
 
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', marginTop: '1.5rem', borderTop: '1px solid var(--admin-border)', paddingTop: '1.5rem' }}>
             <button 

@@ -46,10 +46,20 @@ type LearningContent = {
   has_audio?: string;
   attachments: string;
   links: string;
+  is_private?: string;
 };
+
+function isSheetTruthy(v?: string) {
+  return v === '1' || String(v || '').toLowerCase() === 'true';
+}
 
 function stripCachedAudioFields(content: LearningContent[]): LearningContent[] {
   return content.map((item) => ({ ...item, audio_url: '', audio_file_id: '' }));
+}
+
+function stripPrivateContent(content: LearningContent[], userEmail?: string | null): LearningContent[] {
+  if (userEmail && isAdminEmail(userEmail)) return content;
+  return content.filter((item) => !isSheetTruthy(item.is_private));
 }
  
 type Subject = {
@@ -127,12 +137,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       try {
         const parsed = JSON.parse(cachedData);
         const hasAuth = Boolean(token);
+        const cachedUser = savedUser && token ? JSON.parse(savedUser) : null;
+        const cachedContent = hasAuth ? (parsed.learningContent || []) : stripCachedAudioFields(parsed.learningContent || []);
         setAllHomework(parsed.homework || []);
         setAllUsers(parsed.users || []);
         setAllProgress(parsed.progress || []);
-        setLearningContent(
-          hasAuth ? (parsed.learningContent || []) : stripCachedAudioFields(parsed.learningContent || [])
-        );
+        setLearningContent(stripPrivateContent(cachedContent, cachedUser?.email));
         setSubjects(parsed.subjects || []);
         setAnalytics((parsed.analytics || []).filter((a: { email?: string }) => !isAdminEmail(a.email)));
         setAnalyticsIpNotes(parsed.analyticsIpNotes || []);

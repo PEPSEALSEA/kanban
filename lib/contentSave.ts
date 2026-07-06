@@ -10,6 +10,7 @@ type ContentFormData = {
   audios: string[];
   attachments: string[];
   links: string[];
+  is_private: boolean;
 };
 
 export async function saveLearningContent(
@@ -30,6 +31,7 @@ export async function saveLearningContent(
     audio_file_id,
     attachments: formData.attachments.join(','),
     links: formData.links.join(','),
+    is_private: formData.is_private ? '1' : '',
   };
 
   if (contentId) params.id = contentId;

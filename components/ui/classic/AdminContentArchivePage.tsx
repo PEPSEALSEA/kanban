@@ -17,7 +17,10 @@ type LearningContent = {
   audio_url: string;
   attachments: string;
   links: string;
+  is_private?: string;
 };
+
+const isPrivateContent = (item: LearningContent) => item.is_private === '1' || String(item.is_private || '').toLowerCase() === 'true';
 
 const ContentItem = React.memo(({ item, subjects, onEdit, isMobile }: { item: LearningContent, subjects: any[], onEdit: (item: any) => void, isMobile: boolean }) => {
   const subjectColor = subjects.find(s => s.name.trim().toLowerCase() === (item.subject || '').trim().toLowerCase())?.color || 'var(--admin-primary)';
@@ -45,7 +48,14 @@ const ContentItem = React.memo(({ item, subjects, onEdit, isMobile }: { item: Le
           </span>
         </div>
         <div style={{ fontSize: '0.7rem', color: 'var(--admin-text-muted)', marginBottom: '-0.5rem' }}>ID: {item.id}</div>
-        <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--admin-text-main)', margin: 0 }}>{item.title}</h3>
+        <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--admin-text-main)', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+          {item.title}
+          {isPrivateContent(item) && (
+            <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 700, background: 'rgba(239, 68, 68, 0.12)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.25)' }}>
+              Private
+            </span>
+          )}
+        </h3>
         <div style={{ fontSize: '0.85rem', color: 'var(--admin-text-muted)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
           {item.description}
         </div>
@@ -72,7 +82,14 @@ const ContentItem = React.memo(({ item, subjects, onEdit, isMobile }: { item: Le
         <div style={{ fontSize: '0.75rem', color: 'var(--admin-text-muted)' }}>ID: {item.id}</div>
       </td>
       <td style={{ verticalAlign: 'top' }}>
-        <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--admin-text-main)', marginBottom: '0.25rem' }}>{item.title}</div>
+        <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--admin-text-main)', marginBottom: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+          {item.title}
+          {isPrivateContent(item) && (
+            <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 700, background: 'rgba(239, 68, 68, 0.12)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.25)' }}>
+              Private
+            </span>
+          )}
+        </div>
         <div style={{ fontSize: '0.85rem', color: 'var(--admin-text-muted)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
           {item.description}
         </div>
