@@ -159,9 +159,8 @@ export default function AppShell({ children, title, breadcrumb, actions }: AppSh
           <Button
             variant="ghost"
             size="icon"
-            className="lg:hidden"
+            className="exp-mobile-menu-btn"
             onClick={() => setMobileOpen(true)}
-            style={{ display: 'none' }}
           >
             ☰
           </Button>

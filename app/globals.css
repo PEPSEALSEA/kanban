@@ -553,6 +553,130 @@ h4 {
   color: #0f172a;
 }
 
+/* Fix the header nav to the bottom of the screen on mobile, app-style */
+@media (max-width: 768px) {
+  body:has(> .header-nav-container) {
+    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .header-nav-container {
+    position: fixed;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    margin-bottom: 0;
+    padding: 0.5rem 0.5rem calc(0.5rem + env(safe-area-inset-bottom, 0px));
+    gap: 0.5rem;
+    background: #fff;
+    border-top: 4px solid #000;
+  }
+
+  .header-nav {
+    width: 100%;
+    justify-content: space-around;
+    gap: 0.25rem;
+    padding: 0.35rem;
+    box-shadow: none;
+    border-width: 2px;
+  }
+
+  .header-nav-auth {
+    position: fixed;
+    top: 8px;
+    left: 8px;
+    bottom: auto;
+    z-index: 1600;
+    padding: 0.25rem;
+    box-shadow: 3px 3px 0 0 #000;
+  }
+
+  .header-nav-user {
+    gap: 0.35rem;
+  }
+
+  .header-nav-logout {
+    font-size: 0.65rem;
+  }
+
+  .nav-item {
+    flex: 1;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.15rem;
+    padding: 0.4rem 0.25rem;
+    font-size: 0.6rem;
+    text-align: center;
+  }
+
+  .nav-item .text-xl {
+    font-size: 1.15rem;
+  }
+
+  .nav-item.active {
+    transform: none;
+  }
+}
+
+/* UI Version Switcher (available in both classic and experimental UI) */
+.ui-version-switcher {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 3000;
+}
+
+.ui-version-switcher__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 9999px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(15, 16, 17, 0.85);
+  backdrop-filter: blur(12px);
+  color: #f7f8f8;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.ui-version-switcher__btn:hover {
+  border-color: var(--exp-primary, #5e6ad2);
+  background: rgba(15, 16, 17, 0.95);
+}
+
+.ui-version-switcher__btn--active {
+  border-color: var(--exp-primary, #5e6ad2);
+  background: rgba(94, 106, 210, 0.15);
+}
+
+.ui-version-switcher__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #62666d;
+  transition: background 0.15s ease;
+}
+
+.ui-version-switcher__btn--active .ui-version-switcher__dot {
+  background: var(--exp-primary, #5e6ad2);
+  box-shadow: 0 0 8px rgba(94, 106, 210, 0.6);
+}
+
+@media (max-width: 768px) {
+  .ui-version-switcher {
+    top: 8px;
+    right: 8px;
+  }
+  .ui-version-switcher__btn {
+    padding: 5px 10px;
+    font-size: 11px;
+  }
+}
+
 /* Admin Dashboard Styles */
 .admin-theme {
   --admin-bg: #0f172a;
@@ -811,7 +935,7 @@ h4 {
   display: flex;
   flex-direction: column;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  z-index: 1100;
+  z-index: 1300;
 }
 
 .admin-sidebar.collapsed {
@@ -881,30 +1005,13 @@ h4 {
   }
   .admin-main {
     padding: 1rem;
+    padding-bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px));
     width: 100%;
-  }
-  .admin-menu-toggle {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 44px;
-    height: 44px;
-    margin-bottom: 1rem;
-    border: 1px solid var(--admin-border);
-    border-radius: 0.75rem;
-    background: var(--admin-card-bg);
-    color: var(--admin-text-main);
-    font-size: 1.25rem;
-    cursor: pointer;
-    transition: background 0.2s;
-  }
-  .admin-menu-toggle:hover {
-    background: rgba(255, 255, 255, 0.08);
   }
   .admin-sidebar-overlay {
     position: fixed;
     inset: 0;
-    z-index: 1050;
+    z-index: 1250;
     border: none;
     padding: 0;
     background: rgba(0, 0, 0, 0.45);
@@ -915,8 +1022,49 @@ h4 {
   }
 }
 
-.admin-menu-toggle {
+.admin-mobile-nav {
   display: none;
+}
+
+@media (max-width: 1024px) {
+  .admin-mobile-nav {
+    display: flex;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1200;
+    background: var(--admin-sidebar-bg);
+    border-top: 1px solid var(--admin-border);
+    padding: 0.4rem 0.25rem calc(0.4rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .admin-mobile-nav-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.2rem;
+    padding: 0.4rem 0.2rem;
+    color: var(--admin-text-muted);
+    text-decoration: none;
+    font-size: 0.65rem;
+    font-weight: 600;
+    background: none;
+    border: none;
+    cursor: pointer;
+    border-radius: 0.5rem;
+  }
+
+  .admin-mobile-nav-icon {
+    font-size: 1.15rem;
+  }
+
+  .admin-mobile-nav-item.active {
+    color: var(--admin-primary);
+    background: rgba(99, 102, 241, 0.12);
+  }
 }
 
 .admin-nav-item {

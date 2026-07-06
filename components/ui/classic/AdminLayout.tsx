@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import AdminSidebar from '@/components/AdminSidebar';
+import AdminMobileNav from '@/components/AdminMobileNav';
 import { useData } from '@/components/DataProvider';
 import Link from 'next/link';
 
@@ -74,18 +75,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         />
       )}
       <main className="admin-main">
-        {isMobileViewport && (
-          <button
-            type="button"
-            className="admin-menu-toggle"
-            aria-label="Open menu"
-            onClick={() => setMobileSidebarOpen(true)}
-          >
-            ☰
-          </button>
-        )}
         {children}
       </main>
+      {isMobileViewport && (
+        <AdminMobileNav onMore={() => setMobileSidebarOpen(true)} />
+      )}
     </div>
   );
 }
