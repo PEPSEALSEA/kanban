@@ -6,6 +6,7 @@ import { compressAudioIfNeeded } from '@/lib/audio-compressor';
 import { useDeviceDetection } from '@/hooks/useDeviceDetection';
 import { useModalShell } from '@/hooks/useModalShell';
 import { useData } from '@/components/DataProvider';
+import AttachmentFileInput from '@/components/AttachmentFileInput';
 
 import { UPLOAD_SERVICE_URL } from '@/lib/config';
 import { makeAudioEntry } from '@/lib/audioItems';
@@ -266,12 +267,10 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
             </div>
             <div>
               <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.4rem', color: 'var(--admin-text-muted)' }}>PDF / Attachments</label>
-              <input
-                type="file"
+              <AttachmentFileInput
                 multiple
-                onChange={e => handleFileUpload(e, 'attachment')}
+                onChange={(e) => handleFileUpload(e, 'attachment')}
                 disabled={isUploading}
-                style={{ fontSize: '0.8rem' }}
               />
               {isUploading && uploadProgress && activeUploadType === 'attachment' && (
                 <p style={{ fontSize: '0.7rem', color: uploadProgress.includes('⚡') ? '#10b981' : '#f59e0b', marginTop: '0.4rem', fontWeight: 600 }}>

@@ -4,7 +4,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { GoogleLogin } from "@react-oauth/google";
 import ChatReferencesPanel from "@/components/chat/ChatReferencesPanel";
 import MarkdownRenderer from "@/components/MarkdownRenderer";
+import AttachmentFileInput from "@/components/AttachmentFileInput";
 import { useData } from "@/components/DataProvider";
+import { useDeviceDetection } from "@/hooks/useDeviceDetection";
 import { completeGoogleLogin } from "@/lib/googleLogin";
 import {
   DEFAULT_GEMINI_MODEL,
@@ -34,6 +36,7 @@ type ChatPanelProps = {
 
 export default function ChatPanel({ variant = "classic" }: ChatPanelProps) {
   const { user, setUser, refreshData } = useData();
+  const { isMobile } = useDeviceDetection();
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<AssistantMessage[]>([]);
   const [loading, setLoading] = useState(false);
@@ -289,28 +292,49 @@ export default function ChatPanel({ variant = "classic" }: ChatPanelProps) {
           )}
           {error && <div className="mb-2 text-xs text-red-600">{error}</div>}
           <div className="flex gap-2">
-            <button
-              className={
-                isExperimental
-                  ? "rounded-lg border border-[var(--exp-border)] px-3 py-2 text-sm hover:bg-[var(--exp-bg)]"
-                  : "rounded-lg border-2 border-black px-3 py-2 text-sm hover:bg-slate-100"
-              }
-              onClick={() => fileRef.current?.click()}
-              type="button"
-            >
-              ไฟล์
-            </button>
-            <input
-              ref={fileRef}
-              type="file"
-              className="hidden"
-              accept="image/*,application/pdf"
-              onChange={(e) => {
-                onPickFile(e.target.files?.[0]).catch((err: unknown) =>
-                  setError(err instanceof Error ? err.message : "อ่านไฟล์ไม่สำเร็จ")
-                );
-              }}
-            />
+            {isMobile ? (
+              <AttachmentFileInput
+                multiple={false}
+                compact
+                showCamera
+                disabled={loading}
+                buttonClassName={
+                  isExperimental
+                    ? "rounded-lg border border-[var(--exp-border)] px-2 py-2 text-xs hover:bg-[var(--exp-bg)] disabled:opacity-50"
+                    : "rounded-lg border-2 border-black px-2 py-2 text-xs hover:bg-slate-100 disabled:opacity-50"
+                }
+                onChange={(e) => {
+                  onPickFile(e.target.files?.[0]).catch((err: unknown) =>
+                    setError(err instanceof Error ? err.message : "อ่านไฟล์ไม่สำเร็จ")
+                  );
+                }}
+              />
+            ) : (
+              <>
+                <button
+                  className={
+                    isExperimental
+                      ? "rounded-lg border border-[var(--exp-border)] px-3 py-2 text-sm hover:bg-[var(--exp-bg)]"
+                      : "rounded-lg border-2 border-black px-3 py-2 text-sm hover:bg-slate-100"
+                  }
+                  onClick={() => fileRef.current?.click()}
+                  type="button"
+                >
+                  ไฟล์
+                </button>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  className="hidden"
+                  accept="image/*,application/pdf"
+                  onChange={(e) => {
+                    onPickFile(e.target.files?.[0]).catch((err: unknown) =>
+                      setError(err instanceof Error ? err.message : "อ่านไฟล์ไม่สำเร็จ")
+                    );
+                  }}
+                />
+              </>
+            )}
             <input
               className={
                 isExperimental

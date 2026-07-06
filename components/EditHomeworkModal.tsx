@@ -5,6 +5,7 @@ import { uploadToTelegramDirect } from '@/lib/telegram';
 import { useDeviceDetection } from '@/hooks/useDeviceDetection';
 import { useModalShell } from '@/hooks/useModalShell';
 import { useData } from '@/components/DataProvider';
+import AttachmentFileInput from '@/components/AttachmentFileInput';
 
 import { API_URL, UPLOAD_SERVICE_URL } from '@/lib/config';
 import { authHeaders } from '@/lib/auth';
@@ -221,12 +222,10 @@ export default function EditHomeworkModal({
 
           <div>
             <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.4rem', color: 'var(--admin-text-muted)' }}>Attachments (Telegram Upload)</label>
-            <input 
-              type="file" 
-              multiple 
-              onChange={handleFileUpload} 
+            <AttachmentFileInput
+              multiple
+              onChange={handleFileUpload}
               disabled={isUploading}
-              style={{ fontSize: '0.8rem' }}
             />
             {isUploading && <p style={{ fontSize: '0.75rem', color: 'var(--admin-primary)', marginTop: '0.5rem' }}>Uploading...</p>}
             <div style={{ marginTop: '0.5rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
