@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useData } from '@/components/DataProvider';
 import AttachmentList from '@/components/AttachmentList';
 import AudioPlayer from '@/components/AudioPlayer';
-import AudioAccessNotice from '@/components/AudioAccessNotice';
 import ContentExportImageModal from '@/components/ContentExportImageModal';
 import MarkdownRenderer from '@/components/MarkdownRenderer';
 import ResizableContentPanel from '@/components/ResizableContentPanel';
@@ -47,8 +46,6 @@ export default function LearningContentPage() {
     error, 
     refreshData,
     logEvent,
-    canAccessAudio,
-    user,
   } = useData();
 
   const [view, setView] = useState<'calendar' | 'detail'>('calendar');
@@ -311,12 +308,6 @@ export default function LearningContentPage() {
                 {activeContent.title}
               </h1>
 
-              <AudioAccessNotice
-                hasAudio={Boolean(activeContent.has_audio) || memoizedAudioList.length > 0}
-                canAccessAudio={canAccessAudio}
-                isLoggedIn={Boolean(user)}
-              />
-
               {memoizedAudioList.length > 0 && (
                 <motion.div
                   className="mb-10 flex flex-col gap-6"
@@ -335,14 +326,6 @@ export default function LearningContentPage() {
                     />
                   ))}
                 </motion.div>
-              )}
-
-              {activeContent.has_audio && !canAccessAudio && (
-                <div className="mb-10 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
-                  {!user
-                    ? 'This lesson includes audio. Sign in with Google using the button in the header to listen.'
-                    : 'This lesson includes audio, but your account does not have audio access yet. Ask an admin to add your email to the AudioPermissions sheet.'}
-                </div>
               )}
 
               {(activeContent.links || activeContent.attachments) && (
