@@ -14,6 +14,7 @@ type Bindings = {
   GOOGLE_CLIENT_EMAIL: string;
   GOOGLE_PRIVATE_KEY: string;
   GEMINI_API_KEY?: string;
+  GEMINI_MODEL?: string;
   TELEGRAM_BOT_TOKEN?: string;
   TELEGRAM_CHAT_ID?: string;
   GOOGLE_CLIENT_ID: string;
@@ -141,6 +142,7 @@ const SHEETS = {
   ANALYTICS: "Analytics",
   ANALYTICS_IP_NOTES: "AnalyticsIpNotes",
   AUDIO_PERMISSIONS: "AudioPermissions",
+  AI_CHAT_LOGS: "AiChatLogs",
 };
 
 const EXPECTED_HEADERS = {
@@ -153,11 +155,17 @@ const EXPECTED_HEADERS = {
   [SHEETS.URLS]: ["id", "filename", "contentType", "url", "created_at", "uploader", "fileId"],
   [SHEETS.ANALYTICS]: ["id", "event_type", "device_name", "browser", "ip_address", "email", "created_at", "page_visited", "content_id", "fingerprint", "session_id", "metadata", "visitor_id"],
   [SHEETS.ANALYTICS_IP_NOTES]: ["ip_address", "name", "note", "updated_at", "updated_by"],
-  [SHEETS.AUDIO_PERMISSIONS]: ["email", "note", "created_at"]
+  [SHEETS.AUDIO_PERMISSIONS]: ["email", "note", "created_at"],
+  [SHEETS.AI_CHAT_LOGS]: [
+    "id", "email", "user_name", "user_message", "ai_answer", "model", "attachment_name",
+    "status", "context_total_rows", "context_subjects", "context_dates",
+    "references_json", "source_links_json", "error_message", "created_at",
+  ],
 };
 
 const ANALYTICS_COLUMNS = EXPECTED_HEADERS[SHEETS.ANALYTICS];
 const ANALYTICS_IP_NOTES_COLUMNS = EXPECTED_HEADERS[SHEETS.ANALYTICS_IP_NOTES];
+const AI_CHAT_LOGS_COLUMNS = EXPECTED_HEADERS[SHEETS.AI_CHAT_LOGS];
 const APP_BASE_URL = "https://pepsealsea.github.io/kanban";
 
 
@@ -295,7 +303,7 @@ function stripCitationMarkers(text: string): string {
     .trim();
 }
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    function isGeminiLocationRestrictionError(err: unknown): boolean {
+function isGeminiLocationRestrictionError(err: unknown): boolean {
   const msg = normalizeText((err as Error | undefined)?.message || err || "");
   return (
     msg.includes("user location is not supported") ||
@@ -440,6 +448,23 @@ type FilterSummary = {
   sourceDates: string[];
   sourceSubjects: string[];
 };
+
+type ContextSummary = {
+  totalRows: number;
+  totalSubjects: number;
+  totalDates: number;
+  modelUsed: string;
+  contextWarning?: string;
+};
+
+const ALLOWED_GEMINI_MODELS = [
+  "gemini-2.5-flash",
+  "gemini-3.1-flash-lite",
+  "gemini-3.5-flash",
+] as const;
+
+const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
+const CONTEXT_SIZE_WARNING_CHARS = 900_000;
 
 function inferDateTarget(message: string): DateTarget {
   const text = normalizeText(message);
@@ -626,76 +651,203 @@ function filterRowsByIntent(rows: ClassContextRow[], message: string, intent: Qu
   return result.slice(0, 30);
 }
 
-function buildFilteredSheetDataChunk(rows: ClassContextRow[]): string {
-  const grouped = new Map<
-    string,
-    {
-      date: string;
-      subject: string;
-      homeworkItems: string[];
-      deadlineItems: string[];
-      contentItems: string[];
-      emphasisItems: string[];
-      sourceLinks: string[];
-    }
-  >();
-
-  for (const row of rows) {
-    const key = `${row.date}__${row.subject}`;
-    const curr = grouped.get(key) || {
-      date: row.date || "-",
-      subject: row.subject || "-",
-      homeworkItems: [],
-      deadlineItems: [],
-      contentItems: [],
-      emphasisItems: [],
-      sourceLinks: [],
-    };
-
-    if (row.homework) curr.homeworkItems.push(row.homework);
-    if (row.deadlineDate) curr.deadlineItems.push(row.deadlineDate);
-    if (row.content) curr.contentItems.push(row.content);
-    if (row.emphasis) curr.emphasisItems.push(row.emphasis);
-    curr.sourceLinks.push(...(row.sourceLinks || []));
-    grouped.set(key, curr);
+function resolveGeminiModel(requested: unknown, env: Bindings): string {
+  const candidate = String(requested || env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL).trim();
+  if ((ALLOWED_GEMINI_MODELS as readonly string[]).includes(candidate)) {
+    return candidate;
   }
-
-  const compactRows = Array.from(grouped.values())
-    .map((row) => ({
-      date: row.date,
-      subject: row.subject,
-      homework: shortText(Array.from(new Set(row.homeworkItems)).join(" | "), 2200),
-      deadlines: shortText(Array.from(new Set(row.deadlineItems)).join(" | "), 160),
-      content: shortText(Array.from(new Set(row.contentItems)).join(" | "), 2800),
-      emphasis: shortText(Array.from(new Set(row.emphasisItems)).join(" | "), 600),
-      sourceLinks: Array.from(new Set(row.sourceLinks)).slice(0, 12),
-    }))
-    .sort((a, b) => String(a.date).localeCompare(String(b.date)));
-
-  return JSON.stringify(compactRows, null, 2);
+  return DEFAULT_GEMINI_MODEL;
 }
 
-function buildSystemInstruction(filteredSheetDataChunk: string): string {
-  const chunk = filteredSheetDataChunk && filteredSheetDataChunk.trim() ? filteredSheetDataChunk : "[]";
-  return `คุณคือ "ผู้เชี่ยวชาญการวิเคราะห์ข้อมูลและสรุปเนื้อหาห้องเรียน" หน้าที่ของคุณคือตอบคำถามผู้ใช้โดยอิงจากข้อมูลใน Google Sheet ที่แนบมาให้เท่านั้น
+function buildFullSheetDataChunk(rows: ClassContextRow[]): string {
+  const payload = rows.map((row) => ({
+    date: row.date || "-",
+    subject: row.subject || "-",
+    rowType: row.rowType,
+    homework: row.homework || "",
+    homeworkDeadline: row.homeworkDeadline || row.deadlineDate || "",
+    createdDate: row.createdDate || "",
+    deadlineDate: row.deadlineDate || "",
+    content: row.content || "",
+    emphasis: row.emphasis || "",
+    sourceLinks: Array.from(new Set(row.sourceLinks || [])),
+  }));
 
-[ข้อมูลที่คุณต้องใช้ประมวลผล (Google Sheet Data Chunk)]
+  return JSON.stringify(payload, null, 2);
+}
+
+function buildRagSystemInstruction(fullSheetDataChunk: string): string {
+  const chunk = fullSheetDataChunk && fullSheetDataChunk.trim() ? fullSheetDataChunk : "[]";
+  return `คุณคือผู้เชี่ยวชาญวิเคราะห์เนื้อหาการเรียนทุกวิชา
+Take your time to analyze — ใช้เวลาไตร่ตรองอย่างละเอียดก่อนตอบทุกครั้ง
+
+[ข้อมูลทั้งหมดจาก Google Sheet]
 ${chunk}
 
-[กฎเหล็กและกระบวนการคิด]
-1. การจำกัดขอบเขตข้อมูล: ห้ามใช้จินตนาการหรือคิดคำตอบขึ้นมาเองเด็ดขาด หากคำถามของผู้ใช้ไม่มีคำตอบระบุอยู่ในข้อมูล Sheet ที่แนบมา ให้ตอบว่า "ขออภัยครับ ไม่พบข้อมูลในระบบตามช่วงเวลา/วิชาที่ระบุ"
-2. วิธีการอ่านและกรองข้อมูล:
-   - เมื่อผู้ใช้ระบุชื่อวิชา ให้ใช้เฉพาะแถวที่มีวิชานั้น
-   - เมื่อผู้ใช้ระบุวันที่หรือช่วงเวลา ให้เรียงจากเก่าไปใหม่และใช้เฉพาะช่วงที่ถาม
-3. รูปแบบการตอบกลับ:
-   - 📅 วันที่: [ว/ด/ป]
-   - 📘 วิชา: [ชื่อวิชา]
-   - 📝 สรุปเนื้อหาสำคัญ: [สรุปจากข้อมูล content แบบครบประเด็นหลัก]
-   - จุดที่คุณครูเน้นย้ำ: [ดึงจากข้อมูลจุดเน้น]
-   - 📌 การบ้านและกำหนดส่ง: [รายละเอียดการบ้าน; ถ้าไม่มีให้ระบุว่า ไม่มี]
-4. ห้ามคัดลอกข้อมูลดิบยาวๆ จากชีตมาตอบตรงๆ ให้สรุปใหม่แบบกระชับแต่ครบสาระ (ไม่เกิน 10 บรรทัดต่อ 1 วัน/วิชา)
-5. หากเจอข้อมูลวิชาเดียวกันในวันเดียวกันหลายรายการ ให้รวมให้เป็นภาพรวมเดียว ลดความซ้ำซ้อน
-6. ห้ามใส่รูปแบบอ้างอิงแบบ [1], [2], (ref), หรือ citation ใดๆ ในเนื้อหา หากต้องระบุแหล่งที่มาให้แสดงเฉพาะลิงก์จริงภายใต้หัวข้อ "แหล่งที่มา" เท่านั้น`;
+[กระบวนการวิเคราะห์]
+1. อ่านและทำความเข้าใจข้อมูลทุกแถว ทุกวิชา ทุกคาบเรียน ก่อนตอบคำถาม
+2. เมื่อผู้ใช้ให้ keyword หรือหัวข้อ ให้ค้นหาเชิงลึก (Deep Content Search) ข้ามวิชาและข้ามวันที่
+3. เชื่อมโยงเนื้อหาที่เกี่ยวข้องกัน แม้มาจากวิชาหรือเวลาที่ต่างกัน
+4. ไม่ข้ามรายละเอียดสำคัญ แม้ข้อมูลจะกระจายอยู่หลายคาบหรือหลายวิชา
+5. ห้ามใช้จินตนาการหรือข้อมูลนอกชีต หากไม่พบข้อมูลที่เกี่ยวข้อง ให้ระบุชัดเจน
+
+[รูปแบบคำตอบ]
+- เปิดด้วยบทสรุปภาพรวมที่ครอบคลุมและเชื่อมโยงกัน
+- แยกตามหัวข้อ/วิชา/ช่วงเวลาที่เกี่ยวข้องกับคำถาม
+- ระบุจุดเน้นจากครูและการบ้านที่เกี่ยวข้อง (ถ้ามี)
+- ใช้ markdown เพื่อความอ่านง่าย (หัวข้อ, รายการ)
+- ห้ามใส่รูปแบบอ้างอิงแบบ [1], [2], (ref), หรือ citation ใดๆ ในเนื้อหา
+- หากต้องระบุแหล่งที่มา ให้แสดงเฉพาะลิงก์จริงภายใต้หัวข้อ "แหล่งที่มา" เท่านั้น`;
+}
+
+function buildContextSummary(
+  rows: ClassContextRow[],
+  modelUsed: string,
+  chunkLength: number
+): ContextSummary {
+  const subjects = new Set(rows.map((row) => row.subject).filter(Boolean));
+  const dates = new Set(rows.map((row) => row.date).filter(Boolean));
+  const summary: ContextSummary = {
+    totalRows: rows.length,
+    totalSubjects: subjects.size,
+    totalDates: dates.size,
+    modelUsed,
+  };
+  if (chunkLength > CONTEXT_SIZE_WARNING_CHARS) {
+    summary.contextWarning = "ข้อมูล context มีขนาดใหญ่มาก อาจใกล้ขีดจำกัดของโมเดล";
+  }
+  return summary;
+}
+
+type ChatReference = {
+  refId: number;
+  date: string;
+  subject: string;
+  rowType: "homework" | "content";
+  title: string;
+  snippet: string;
+  sourceLinks: string[];
+  archiveUrl?: string;
+};
+
+function tokenizeForScoring(text: string): string[] {
+  return normalizeText(text)
+    .split(/\s+/)
+    .filter((token) => token.length >= 2)
+    .slice(0, 40);
+}
+
+function scoreRowRelevance(row: ClassContextRow, message: string, answer: string): number {
+  const corpus = normalizeText(
+    `${row.subject} ${row.homework} ${row.content} ${row.emphasis} ${row.deadlineDate} ${row.createdDate}`
+  );
+  let score = 0;
+  const tokens = Array.from(new Set([...tokenizeForScoring(message), ...tokenizeForScoring(answer)]));
+  for (const token of tokens) {
+    if (corpus.includes(token)) {
+      score += token.length >= 4 ? 2 : 1;
+    }
+  }
+  if (rowMatchesMessage(row, message)) score += 5;
+  return score;
+}
+
+function extractRowTitle(row: ClassContextRow): string {
+  const text = row.rowType === "content" ? row.content : row.homework;
+  const firstLine = String(text || "").split(/\n/)[0].trim();
+  return shortText(firstLine, 80) || row.subject || "-";
+}
+
+function extractRowSnippet(row: ClassContextRow): string {
+  const text = row.rowType === "content" ? row.content : row.homework;
+  const combined = `${text} ${row.emphasis}`.trim();
+  return shortText(combined, 200);
+}
+
+function pickArchiveUrl(row: ClassContextRow): string | undefined {
+  const links = row.sourceLinks || [];
+  const archive = links.find((link) => link.includes("/content") || link.includes("/#/view"));
+  return archive || links[0];
+}
+
+function buildChatReferences(
+  rows: ClassContextRow[],
+  message: string,
+  answer: string,
+  limit = 12
+): ChatReference[] {
+  const scored = rows
+    .map((row) => ({ row, score: scoreRowRelevance(row, message, answer) }))
+    .sort((a, b) => b.score - a.score || String(b.row.date).localeCompare(String(a.row.date)));
+
+  const matched = scored.filter((item) => item.score > 0).slice(0, limit);
+  const selected = matched.length > 0 ? matched : scored.slice(0, Math.min(8, limit));
+
+  return selected.map((item, index) => ({
+    refId: index + 1,
+    date: item.row.date || "-",
+    subject: item.row.subject || "-",
+    rowType: item.row.rowType,
+    title: extractRowTitle(item.row),
+    snippet: extractRowSnippet(item.row),
+    sourceLinks: Array.from(new Set(item.row.sourceLinks || [])).slice(0, 8),
+    archiveUrl: pickArchiveUrl(item.row),
+  }));
+}
+
+function truncateForSheet(value: string, maxLen = 8000): string {
+  const text = String(value || "");
+  if (text.length <= maxLen) return text;
+  return `${text.slice(0, Math.max(0, maxLen - 3))}...`;
+}
+
+async function logAiChat(
+  env: Bindings,
+  payload: {
+    email: string;
+    userName?: string;
+    userMessage: string;
+    aiAnswer?: string;
+    model: string;
+    attachmentName?: string;
+    status: "success" | "fallback" | "error";
+    contextSummary: ContextSummary;
+    references: ChatReference[];
+    sourceLinks: string[];
+    errorMessage?: string;
+  }
+): Promise<void> {
+  const id = `CHAT-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+  const row = [
+    id,
+    payload.email,
+    payload.userName || "",
+    truncateForSheet(payload.userMessage, 4000),
+    truncateForSheet(payload.aiAnswer || "", 8000),
+    payload.model,
+    payload.attachmentName || "",
+    payload.status,
+    payload.contextSummary.totalRows,
+    payload.contextSummary.totalSubjects,
+    payload.contextSummary.totalDates,
+    JSON.stringify(payload.references),
+    JSON.stringify(payload.sourceLinks),
+    truncateForSheet(payload.errorMessage || "", 1000),
+    new Date().toISOString(),
+  ];
+  const endCol = String.fromCharCode(64 + AI_CHAT_LOGS_COLUMNS.length);
+  await appendSheetRow(env, `${SHEETS.AI_CHAT_LOGS}!A:${endCol}`, row);
+}
+
+async function getAiChatLogs(env: Bindings) {
+  try {
+    const endCol = String.fromCharCode(64 + AI_CHAT_LOGS_COLUMNS.length);
+    const rows = await getSheetValues(env, `${SHEETS.AI_CHAT_LOGS}!A2:${endCol}`);
+    return toObjects(rows, AI_CHAT_LOGS_COLUMNS);
+  } catch (e) {
+    console.warn("AiChatLogs sheet may not exist yet", e);
+    return [];
+  }
 }
 
 async function askGeminiWithContext(
@@ -706,10 +858,13 @@ async function askGeminiWithContext(
     attachment?: { mimeType?: string; dataBase64?: string; name?: string };
     systemInstruction: string;
     useGrounding: boolean;
+    model: string;
   }
 ) {
   const apiKey = env.GEMINI_API_KEY;
   if (!apiKey) throw new Error("GEMINI_API_KEY is missing");
+
+  const model = resolveGeminiModel(payload.model, env);
 
   const historyContents = (payload.history || [])
     .filter((item) => item && item.text)
@@ -748,15 +903,15 @@ async function askGeminiWithContext(
     ],
     ...(payload.useGrounding ? { tools: [{ google_search: {} }] } : {}),
     generationConfig: {
-      temperature: 0.15,
+      temperature: 0.2,
       topK: 24,
       topP: 0.8,
-      maxOutputTokens: 700,
+      maxOutputTokens: 8192,
     },
   };
 
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1390,14 +1545,53 @@ async function sendSubmissionNotification(env: Bindings, studentName: string | a
 app.get('/health', (c) => c.text('ok'));
 
 app.post('/api/gemini-chat', async (c) => {
-  try {
-    const authUser = await requireAuth(c);
-    const body = await c.req.json();
-    const message = String(body?.message || "").trim();
-    const history = Array.isArray(body?.history) ? body.history : [];
-    const userEmail = authUser.email;
-    const attachment = body?.attachment;
+  const authUser = await requireAuth(c);
+  const body = await c.req.json();
+  const message = String(body?.message || "").trim();
+  const history = Array.isArray(body?.history) ? body.history : [];
+  const userEmail = authUser.email;
+  const userName = String(body?.user?.name || "");
+  const attachment = body?.attachment;
+  const modelUsed = resolveGeminiModel(body?.model, c.env);
+  const attachmentName = String(attachment?.name || "");
 
+  let contextRows: ClassContextRow[] = [];
+  let contextSummary: ContextSummary = {
+    totalRows: 0,
+    totalSubjects: 0,
+    totalDates: 0,
+    modelUsed,
+  };
+
+  const writeLog = (
+    status: "success" | "fallback" | "error",
+    extra: {
+      aiAnswer?: string;
+      references?: ChatReference[];
+      sourceLinks?: string[];
+      errorMessage?: string;
+    } = {}
+  ) => {
+    const references = extra.references || buildChatReferences(contextRows, message, extra.aiAnswer || "");
+    const sourceLinks =
+      extra.sourceLinks ||
+      Array.from(new Set(references.flatMap((ref) => ref.sourceLinks || []))).slice(0, 30);
+    logAiChat(c.env, {
+      email: userEmail,
+      userName,
+      userMessage: message || (attachmentName ? `[attachment] ${attachmentName}` : ""),
+      aiAnswer: extra.aiAnswer,
+      model: modelUsed,
+      attachmentName,
+      status,
+      contextSummary,
+      references,
+      sourceLinks,
+      errorMessage: extra.errorMessage,
+    }).catch((err) => console.warn("logAiChat failed", err));
+  };
+
+  try {
     if (!message && !attachment?.dataBase64) {
       return c.json({ success: false, error: "Message or attachment is required" }, 400);
     }
@@ -1405,18 +1599,15 @@ app.post('/api/gemini-chat', async (c) => {
       return c.json({ success: false, error: "User email is required" }, 401);
     }
 
-    const [homeworkList, learningContentList, subjects] = await Promise.all([
+    const [homeworkList, learningContentList] = await Promise.all([
       getHomeworkList(c.env),
       getLearningContent(c.env),
-      getSubjects(c.env),
     ]);
-    const availableSubjects = subjects.map((item) => String(item?.name || "")).filter(Boolean);
-    const intent = parseUserQueryIntent(message || "วิเคราะห์ไฟล์ที่แนบ", availableSubjects);
-    const allRows = buildClassContextRows(homeworkList, learningContentList);
-    const contextRows = filterRowsByIntent(allRows, message || "วิเคราะห์ไฟล์ที่แนบ", intent);
-    const filteredSheetDataChunk = buildFilteredSheetDataChunk(contextRows);
-    const systemInstruction = buildSystemInstruction(filteredSheetDataChunk);
-    const useGrounding = false;
+    contextRows = buildClassContextRows(homeworkList, learningContentList);
+    const fullSheetDataChunk = buildFullSheetDataChunk(contextRows);
+    const systemInstruction = buildRagSystemInstruction(fullSheetDataChunk);
+    const useGrounding = shouldUseGrounding(message || "วิเคราะห์ไฟล์ที่แนบ");
+    contextSummary = buildContextSummary(contextRows, modelUsed, fullSheetDataChunk.length);
     const contextRowsForResponse = contextRows.slice(0, 8).map((row) => ({
       ...row,
       homework: shortText(row.homework, 160),
@@ -1424,11 +1615,9 @@ app.post('/api/gemini-chat', async (c) => {
       emphasis: shortText(row.emphasis, 140),
       sourceLinks: (row.sourceLinks || []).slice(0, 8),
     }));
-    const sourceLinks = Array.from(
-      new Set(contextRows.flatMap((row) => row.sourceLinks || []))
-    ).slice(0, 20);
 
     let answer = "";
+    let status: "success" | "fallback" = "success";
     try {
       answer = await askGeminiWithContext(c.env, {
         message: message || "ช่วยวิเคราะห์ไฟล์ที่แนบ",
@@ -1436,36 +1625,33 @@ app.post('/api/gemini-chat', async (c) => {
         attachment,
         systemInstruction,
         useGrounding,
+        model: modelUsed,
       });
     } catch (err) {
       if (isGeminiLocationRestrictionError(err)) {
         answer = buildFallbackAnswerFromRows(contextRows, message || "สรุปข้อมูล");
+        status = "fallback";
       } else {
+        writeLog("error", { errorMessage: (err as Error)?.message || "gemini chat failed" });
         throw err;
       }
     }
 
-    const sourceDates = Array.from(new Set(contextRowsForResponse.map((row) => row.date).filter(Boolean))).slice(0, 10);
-    const sourceSubjects = Array.from(new Set(contextRowsForResponse.map((row) => row.subject).filter(Boolean))).slice(0, 10);
-    const filterSummary: FilterSummary = {
-      subjectKeywords: intent.subjectKeywords,
-      dateRange: intent.dateRange,
-      dateTarget: intent.dateTarget,
-      dueDateTarget: intent.dueDateTarget,
-      wantsEmphasis: intent.wantsEmphasis,
-      explicitWebSearch: intent.explicitWebSearch,
-      matchedRowsCount: contextRows.length,
-      sourceDates,
-      sourceSubjects,
-    };
+    const references = buildChatReferences(contextRows, message, answer);
+    const sourceLinks = Array.from(
+      new Set(references.flatMap((ref) => ref.sourceLinks || []))
+    ).slice(0, 30);
+
+    writeLog(status, { aiAnswer: answer, references, sourceLinks });
 
     return c.json({
       success: true,
       data: {
         answer,
+        references,
         sourceLinks,
         contextRows: contextRowsForResponse,
-        filterSummary,
+        contextSummary,
       },
     });
   } catch (err: any) {
@@ -1583,7 +1769,10 @@ app.get('/', async (c) => {
           analytics: await getAnalytics(c.env),
           analyticsIpNotes: await getAnalyticsIpNotes(c.env),
           audioAccessGranted: audioLevel !== 'none',
-          ...(isAdminEmail(email) ? { audioPermissions: permitted } : {}),
+          ...(isAdminEmail(email) ? {
+            audioPermissions: permitted,
+            aiChatLogs: await getAiChatLogs(c.env),
+          } : {}),
         };
         break;
       }

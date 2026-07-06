@@ -36,6 +36,7 @@ export default function AdminSidebar({
     { name: 'Kanban Editor', icon: '📝', path: '/admin/kanban' },
     { name: 'Content Archive Editor', icon: '📁', path: '/admin/content-archive' },
     { name: 'Subject Manager', icon: '🏷️', path: '/admin/subjects' },
+    { name: 'AI Chat Logs', icon: '💬', path: '/admin/ai-chat' },
   ];
 
   return (

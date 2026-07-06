@@ -8,7 +8,6 @@ import UiVersionSwitcher from "@/components/UiVersionSwitcher";
 import SyncToast from "@/components/SyncToast";
 import AnalyticsTracker from "@/components/AnalyticsTracker";
 import GoogleAutoLogin from "@/components/GoogleAutoLogin";
-import ChatWidget from "@/components/ChatWidget";
 import "./globals.css";
 import "katex/dist/katex.min.css";
 
@@ -63,7 +62,6 @@ export default function RootLayout({
             <UiVersionProvider>
               <AnalyticsTracker />
               <SyncToast />
-              <ChatWidget />
               <ConditionalHeaderNav />
               <UiVersionSwitcher />
               {children}

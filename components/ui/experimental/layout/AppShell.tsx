@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { GoogleLogin, googleLogout } from '@react-oauth/google';
@@ -18,16 +18,19 @@ type AppShellProps = {
   actions?: React.ReactNode;
 };
 
-const NAV = [
+const BASE_NAV = [
   { href: '/', label: 'Board', icon: '◫' },
   { href: '/content', label: 'Archive', icon: '◷' },
 ];
+
+const CHAT_NAV = { href: '/chat', label: 'AI Chat', icon: '◎' };
 
 const ADMIN_NAV = [
   { href: '/admin', label: 'Overview', icon: '◎' },
   { href: '/admin/kanban', label: 'Homework', icon: '◫' },
   { href: '/admin/content-archive', label: 'Content', icon: '◷' },
   { href: '/admin/subjects', label: 'Subjects', icon: '◈' },
+  { href: '/admin/ai-chat', label: 'AI Chat Logs', icon: '◉' },
 ];
 
 export default function AppShell({ children, title, breadcrumb, actions }: AppShellProps) {
@@ -37,7 +40,10 @@ export default function AppShell({ children, title, breadcrumb, actions }: AppSh
   const [mobileOpen, setMobileOpen] = useState(false);
   const isAdminRoute = pathname.startsWith('/admin');
   const showAdmin = user && isAdminEmail(user.email);
-  const navItems = isAdminRoute ? ADMIN_NAV : NAV;
+  const navItems = useMemo(() => {
+    if (isAdminRoute) return ADMIN_NAV;
+    return user ? [...BASE_NAV, CHAT_NAV] : BASE_NAV;
+  }, [isAdminRoute, user]);
 
   const isActive = (path: string) => {
     if (path === '/') return pathname === '/' || pathname === '/kanban' || pathname === '';

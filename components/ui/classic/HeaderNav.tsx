@@ -49,6 +49,15 @@ export default function HeaderNav() {
           <span className="text-xl">📅</span>
           ARCHIVE
         </Link>
+        {user && (
+          <Link
+            href="/chat"
+            className={`nav-item uppercase tracking-tighter ${isActive('/chat') ? 'active' : ''}`}
+          >
+            <span className="text-xl">💬</span>
+            AI CHAT
+          </Link>
+        )}
         {showAdmin && (
           <Link
             href="/admin"

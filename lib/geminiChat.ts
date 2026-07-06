@@ -14,6 +14,17 @@ export type ChatAttachment = {
   dataBase64: string;
 };
 
+export const GEMINI_MODELS = [
+  { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
+  { id: "gemini-3.1-flash-lite", label: "Gemini 3.1 Flash Lite" },
+  { id: "gemini-3.5-flash", label: "Gemini 3.5 Flash" },
+] as const;
+
+export type GeminiModelId = (typeof GEMINI_MODELS)[number]["id"];
+
+export const DEFAULT_GEMINI_MODEL: GeminiModelId = "gemini-2.5-flash";
+export const GEMINI_MODEL_STORAGE_KEY = "studyflow_gemini_model";
+
 export type GeminiChatRequest = {
   message: string;
   history: ChatMessage[];
@@ -22,12 +33,52 @@ export type GeminiChatRequest = {
     name?: string;
   };
   attachment?: ChatAttachment;
+  model?: string;
+};
+
+export type GeminiContextSummary = {
+  totalRows: number;
+  totalSubjects: number;
+  totalDates: number;
+  modelUsed: string;
+  contextWarning?: string;
+};
+
+export type GeminiChatReference = {
+  refId: number;
+  date: string;
+  subject: string;
+  rowType: "content" | "homework";
+  title: string;
+  snippet: string;
+  sourceLinks: string[];
+  archiveUrl?: string;
+};
+
+export type AiChatLog = {
+  id: string;
+  email: string;
+  user_name: string;
+  user_message: string;
+  ai_answer: string;
+  model: string;
+  attachment_name: string;
+  status: "success" | "fallback" | "error" | string;
+  context_total_rows: string;
+  context_subjects: string;
+  context_dates: string;
+  references_json: string;
+  source_links_json: string;
+  error_message: string;
+  created_at: string;
 };
 
 export type GeminiChatResponse = {
   answer: string;
+  references?: GeminiChatReference[];
   sourceLinks?: string[];
   contextRows?: GeminiContextRow[];
+  contextSummary?: GeminiContextSummary;
   filterSummary?: GeminiFilterSummary;
 };
 
@@ -54,6 +105,20 @@ export type GeminiFilterSummary = {
   sourceDates: string[];
   sourceSubjects: string[];
 };
+
+export function getStoredGeminiModel(): GeminiModelId {
+  if (typeof window === "undefined") return DEFAULT_GEMINI_MODEL;
+  const stored = localStorage.getItem(GEMINI_MODEL_STORAGE_KEY);
+  if (stored && GEMINI_MODELS.some((m) => m.id === stored)) {
+    return stored as GeminiModelId;
+  }
+  return DEFAULT_GEMINI_MODEL;
+}
+
+export function setStoredGeminiModel(model: GeminiModelId): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(GEMINI_MODEL_STORAGE_KEY, model);
+}
 
 function readFileAsBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {

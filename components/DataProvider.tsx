@@ -5,6 +5,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { API_URL } from '@/lib/config';
 import { isAdminEmail } from '@/lib/admin';
 import { authHeaders, getIdToken } from '@/lib/auth';
+import type { AiChatLog } from '@/lib/geminiChat';
 
 export const GAS_WEB_APP_URL = API_URL;
 
@@ -73,6 +74,7 @@ type DataContextType = {
   subjects: Subject[];
   analytics: any[];
   analyticsIpNotes: AnalyticsIpNoteRow[];
+  aiChatLogs: AiChatLog[];
   audioPermissions: string[];
   canAccessAudio: boolean;
   user: UserInfo | null;
@@ -100,6 +102,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [analytics, setAnalytics] = useState<any[]>([]);
   const [analyticsIpNotes, setAnalyticsIpNotes] = useState<AnalyticsIpNoteRow[]>([]);
+  const [aiChatLogs, setAiChatLogs] = useState<AiChatLog[]>([]);
   const [audioPermissions, setAudioPermissions] = useState<string[]>([]);
   const [audioAccessGranted, setAudioAccessGranted] = useState(false);
   const [user, setUser] = useState<UserInfo | null>(null);
@@ -133,6 +136,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         setSubjects(parsed.subjects || []);
         setAnalytics((parsed.analytics || []).filter((a: { email?: string }) => !isAdminEmail(a.email)));
         setAnalyticsIpNotes(parsed.analyticsIpNotes || []);
+        setAiChatLogs(parsed.aiChatLogs || []);
         setAudioPermissions(hasAuth ? (parsed.audioPermissions || []) : []);
         setAudioAccessGranted(hasAuth && Boolean(parsed.audioAccessGranted));
         setIsLoading(false);
@@ -161,6 +165,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         setSubjects(payload.subjects || []);
         setAnalytics((payload.analytics || []).filter((a: { email?: string }) => !isAdminEmail(a.email)));
         setAnalyticsIpNotes(payload.analyticsIpNotes || []);
+        setAiChatLogs(payload.aiChatLogs || []);
         setAudioPermissions(payload.audioPermissions || []);
         setAudioAccessGranted(Boolean(payload.audioAccessGranted));
         
@@ -322,6 +327,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       subjects,
       analytics,
       analyticsIpNotes,
+      aiChatLogs,
       audioPermissions,
       canAccessAudio: userCanAccessAudio,
       user,
