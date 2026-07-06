@@ -534,6 +534,7 @@ function buildClassContextRows(homeworkList: any[], learningContentList: any[]):
   const rows: ClassContextRow[] = [];
 
   for (const item of learningContentList) {
+    if (isSheetTruthy(item.is_private)) continue;
     const itemDate = parseDateValue(String(item.date || ""));
     const description = String(item.description || "");
     const sourceLinks = Array.from(
@@ -1250,6 +1251,7 @@ async function generateDailySummary(env: Bindings, targetDate?: string) {
   const oneWeekLater = new Date(gmt7Now.getTime() + 7 * 86400000);
 
   const todayLC = learningContent.filter(item => {
+    if (isSheetTruthy(item.is_private)) return false;
     const itemDate = new Date(item.date);
     return getMidnightGMT7(itemDate).getTime() === gmt7Now.getTime();
   });
@@ -1612,7 +1614,7 @@ app.post('/api/gemini-chat', async (c) => {
       getHomeworkList(c.env),
       getLearningContent(c.env),
     ]);
-    contextRows = buildClassContextRows(homeworkList, filterPrivateLearningContent(learningContentList, userEmail));
+    contextRows = buildClassContextRows(homeworkList, learningContentList);
     const fullSheetDataChunk = buildFullSheetDataChunk(contextRows);
     const systemInstruction = buildRagSystemInstruction(fullSheetDataChunk);
     const useGrounding = shouldUseGrounding(message || "วิเคราะห์ไฟล์ที่แนบ");
