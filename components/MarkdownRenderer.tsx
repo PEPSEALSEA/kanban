@@ -70,6 +70,61 @@ function mergeTableHeaderFragments(fragments: string[], expectedColumns: number)
   return `| ${cells.join(' | ')} |`;
 }
 
+function splitInlineTableFromListLine(line: string): [string, string] | null {
+  const listMatch = line.match(/^(\s*[*+-]\s+)(.+)$/);
+  if (!listMatch) return null;
+
+  const [, listPrefix, content] = listMatch;
+  if (content.trim().startsWith('|')) return null;
+
+  const pipeIndex = content.indexOf('|');
+  if (pipeIndex < 0) return null;
+
+  const intro = content.slice(0, pipeIndex).trimEnd();
+  const tablePart = content.slice(pipeIndex).trim();
+  if ((tablePart.match(/\|/g) ?? []).length < 2 || !intro) return null;
+
+  return [`${listPrefix}${intro}`, tablePart];
+}
+
+/**
+ * Move markdown tables that start mid-line inside list items onto their own lines.
+ * e.g. "* intro: | A | B |" -> "* intro:\n\n| A | B |"
+ */
+function repairInlineListTables(text: string): string {
+  if (!text || !text.includes('|')) return text;
+
+  const lines = text.split('\n');
+  const out: string[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const split = splitInlineTableFromListLine(line);
+
+    if (split) {
+      out.push(split[0]);
+      out.push('');
+      out.push(split[1]);
+
+      while (i + 1 < lines.length) {
+        const nextTrimmed = lines[i + 1].trim();
+        if (!nextTrimmed) break;
+        if (nextTrimmed.startsWith('|') || looksLikeTableSeparator(nextTrimmed)) {
+          i++;
+          out.push(nextTrimmed);
+        } else {
+          break;
+        }
+      }
+      continue;
+    }
+
+    out.push(line);
+  }
+
+  return out.join('\n');
+}
+
 function repairSplitTableHeaders(lines: string[]): string[] {
   const out = [...lines];
 
@@ -127,7 +182,7 @@ function repairSplitTableHeaders(lines: string[]): string[] {
 function preprocessMarkdownTables(text: string): string {
   if (!text || !text.includes('|')) return text;
 
-  const lines = repairSplitTableHeaders(text.split('\n'));
+  const lines = repairSplitTableHeaders(repairInlineListTables(text).split('\n'));
   const out: string[] = [];
   let inTable = false;
   let rowBuffer: string | null = null;
