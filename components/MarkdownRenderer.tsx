@@ -238,6 +238,25 @@ function preprocessTableCellMath(text: string): string {
   }).join('\n');
 }
 
+function isInsideBraces(text: string, index: number): boolean {
+  let depth = 0;
+  for (let i = 0; i < index; i++) {
+    if (text[i] === '{') depth++;
+    else if (text[i] === '}') depth = Math.max(0, depth - 1);
+  }
+  return depth > 0;
+}
+
+function isMathBoundaryChar(char: string, text: string, index: number, direction: 'forward' | 'backward'): boolean {
+  if (isInsideBraces(text, index)) return false;
+  if (/[\u0E00-\u0E7F"'\n$]/.test(char)) return true;
+  // Markdown bold/italic markers should not be pulled into math spans.
+  if (char === '*') return true;
+  // Closing paren usually ends prose labels like "1)" before a limit expression.
+  if (direction === 'backward' && char === ')') return true;
+  return false;
+}
+
 function preprocessLatex(text: string): string {
   if (!text) return text;
 
@@ -249,10 +268,21 @@ function preprocessLatex(text: string): string {
 
     // Table rows are handled by preprocessTableCellMath
     if (isTableLine(line)) return line;
+
+    // Headers: wrap only the body after # markers so markdown heading parsing still works
+    const headerMatch = trimmed.match(/^(#+\s+)(.+)$/);
+    if (headerMatch) {
+      const [, prefix, body] = headerMatch;
+      if (MATH_OR_CHEM_RE.test(body)) {
+        const indent = line.match(/^\s*/)?.[0] ?? '';
+        return indent + prefix + wrapInlineLatexSegment(body);
+      }
+      return line;
+    }
     
     // Skip if it looks like Markdown formatting that would be broken by LaTeX wrapping
-    // e.g. bold, italic, lists, headers, blockquotes
-    if (/\*\*|__/.test(trimmed) || /^[*+-]\s/.test(trimmed) || /^#+\s/.test(trimmed) || /^>\s/.test(trimmed)) {
+    // e.g. bold, italic, lists, blockquotes
+    if (/\*\*|__/.test(trimmed) || /^[*+-]\s/.test(trimmed) || /^>\s/.test(trimmed)) {
       return line;
     }
 
@@ -318,14 +348,12 @@ function wrapInlineLatexSegment(text: string): string {
       let start = match.index;
       let end = match.index + match[0].length;
       
-      // Expansion rule: Expand as long as we don't hit Thai characters, Quotes, delimiters ($), or newlines.
-      // We allow spaces and punctuation during expansion to capture the full context.
-      const BOUNDARY_CHAR = /[\u0E00-\u0E7F"'\n$]/;
-      
-      while (start > 0 && !BOUNDARY_CHAR.test(segment[start - 1])) {
+      // Expansion rule: stop at Thai/plain-text boundaries, but allow Thai inside LaTeX braces
+      // (e.g. \text{หน้า}) so commands are not split mid-expression.
+      while (start > 0 && !isMathBoundaryChar(segment[start - 1], segment, start - 1, 'backward')) {
         start--;
       }
-      while (end < segment.length && !BOUNDARY_CHAR.test(segment[end])) {
+      while (end < segment.length && !isMathBoundaryChar(segment[end], segment, end, 'forward')) {
         end++;
       }
       
