@@ -3,5 +3,5 @@
 import ChatPanel from '@/components/chat/ChatPanel';
 
 export default function ClassicChatPage() {
-  return <ChatPanel variant="classic" />;
+  return <ChatPanel />;
 }

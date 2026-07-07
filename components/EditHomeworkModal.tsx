@@ -3,7 +3,6 @@
 import React, { useState } from 'react';
 import { uploadToTelegramDirect } from '@/lib/telegram';
 import { useDeviceDetection } from '@/hooks/useDeviceDetection';
-import { useModalShell } from '@/hooks/useModalShell';
 import { useData } from '@/components/DataProvider';
 import AttachmentFileInput from '@/components/AttachmentFileInput';
 
@@ -42,7 +41,17 @@ export default function EditHomeworkModal({
   const [isUploading, setIsUploading] = useState(false);
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error' | 'deleting'>('idle');
   const { isMobile } = useDeviceDetection();
-  const { overlayClassName, overlayStyle, panelClassName } = useModalShell();
+  const overlayStyle = {
+    position: 'fixed' as const,
+    inset: 0,
+    background: 'rgba(0,0,0,0.5)',
+    backdropFilter: 'blur(4px)',
+    zIndex: 2000,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '1rem',
+  };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -153,8 +162,8 @@ export default function EditHomeworkModal({
   };
 
   return (
-    <div className={overlayClassName} style={overlayStyle}>
-      <div className={panelClassName} style={{ width: '100%', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }}>
+    <div style={overlayStyle}>
+      <div className="admin-card" style={{ width: '100%', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid var(--admin-border)', paddingBottom: '1rem' }}>
           <h2 style={{ fontSize: '1.25rem', color: 'var(--admin-text-main)' }}>Edit Task</h2>
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: 'var(--admin-text-muted)' }}>✕</button>

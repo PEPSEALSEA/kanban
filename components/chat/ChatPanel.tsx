@@ -30,11 +30,7 @@ type AssistantMessage = ChatMessage & {
   contextSummary?: GeminiContextSummary;
 };
 
-type ChatPanelProps = {
-  variant?: "classic" | "experimental";
-};
-
-export default function ChatPanel({ variant = "classic" }: ChatPanelProps) {
+export default function ChatPanel() {
   const { user, setUser, refreshData } = useData();
   const { isMobile } = useDeviceDetection();
   const [input, setInput] = useState("");
@@ -58,20 +54,6 @@ export default function ChatPanel({ variant = "classic" }: ChatPanelProps) {
   const canSend = useMemo(() => {
     return !loading && (input.trim().length > 0 || Boolean(attachment));
   }, [loading, input, attachment]);
-
-  const isExperimental = variant === "experimental";
-
-  const shellClass = isExperimental
-    ? "flex min-h-0 flex-1 flex-col"
-    : "mx-auto flex min-h-[calc(100vh-6rem)] w-full max-w-4xl flex-col px-4 pb-4 pt-2";
-
-  const panelClass = isExperimental
-    ? "flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-[var(--exp-border)] bg-[var(--exp-surface)]"
-    : "flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border-2 border-black bg-white shadow-[8px_8px_0px_0px_#000]";
-
-  const headerClass = isExperimental
-    ? "flex flex-wrap items-center justify-between gap-3 border-b border-[var(--exp-border)] px-4 py-3"
-    : "flex flex-wrap items-center justify-between gap-3 border-b-2 border-black px-4 py-3";
 
   const onModelChange = (value: string) => {
     const next = value as GeminiModelId;
@@ -146,14 +128,8 @@ export default function ChatPanel({ variant = "classic" }: ChatPanelProps) {
 
   if (!user) {
     return (
-      <div className={shellClass}>
-        <div
-          className={
-            isExperimental
-              ? "flex flex-1 flex-col items-center justify-center rounded-xl border border-[var(--exp-border)] bg-[var(--exp-surface)] p-8 text-center"
-              : "flex flex-1 flex-col items-center justify-center rounded-2xl border-2 border-black bg-white p-8 text-center shadow-[8px_8px_0px_0px_#000]"
-          }
-        >
+      <div className="mx-auto flex min-h-[calc(100vh-6rem)] w-full max-w-4xl flex-col px-4 pb-4 pt-2">
+        <div className="flex flex-1 flex-col items-center justify-center rounded-2xl border-2 border-black bg-white p-8 text-center shadow-[8px_8px_0px_0px_#000]">
           <h2 className="mb-2 text-xl font-bold">AI Chat</h2>
           <p className="mb-6 max-w-md text-sm text-slate-600">
             เข้าสู่ระบบด้วย Google เพื่อค้นหาและสรุปเนื้อหาจากทุกวิชาและทุกคาบเรียน
@@ -172,9 +148,9 @@ export default function ChatPanel({ variant = "classic" }: ChatPanelProps) {
   }
 
   return (
-    <div className={shellClass}>
-      <div className={panelClass}>
-        <div className={headerClass}>
+    <div className="mx-auto flex min-h-[calc(100vh-6rem)] w-full max-w-4xl flex-col px-4 pb-4 pt-2">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border-2 border-black bg-white shadow-[8px_8px_0px_0px_#000]">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-black px-4 py-3">
           <div>
             <h1 className="text-lg font-bold">AI Chat</h1>
             <p className="text-xs text-slate-500">
@@ -187,11 +163,7 @@ export default function ChatPanel({ variant = "classic" }: ChatPanelProps) {
               value={model}
               onChange={(e) => onModelChange(e.target.value)}
               disabled={loading}
-              className={
-                isExperimental
-                  ? "rounded-lg border border-[var(--exp-border)] bg-[var(--exp-bg)] px-2 py-1.5 text-sm outline-none"
-                  : "rounded-lg border-2 border-black bg-white px-2 py-1.5 text-sm outline-none"
-              }
+              className="rounded-lg border-2 border-black bg-white px-2 py-1.5 text-sm outline-none"
             >
               {GEMINI_MODELS.map((m) => (
                 <option key={m.id} value={m.id}>
@@ -204,13 +176,7 @@ export default function ChatPanel({ variant = "classic" }: ChatPanelProps) {
 
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
           {messages.length === 0 && !loading && (
-            <div
-              className={
-                isExperimental
-                  ? "rounded-xl border border-[var(--exp-border)] bg-[var(--exp-bg)] p-4 text-sm text-slate-600"
-                  : "rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600"
-              }
-            >
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
               ลองค้นหา เช่น <strong>กรีก โรมัน</strong> หรือ <strong>การบ้านวันนี้</strong>{" "}
               หรือแนบรูป/PDF เพื่อให้ช่วยวิเคราะห์
             </div>
@@ -221,12 +187,8 @@ export default function ChatPanel({ variant = "classic" }: ChatPanelProps) {
                 key={`${m.role}-${idx}`}
                 className={`rounded-xl px-4 py-3 text-sm ${
                   m.role === "user"
-                    ? isExperimental
-                      ? "ml-8 bg-[var(--exp-accent-muted)] text-slate-900"
-                      : "ml-12 bg-sky-100 text-slate-900"
-                    : isExperimental
-                      ? "mr-8 bg-[var(--exp-bg)] text-slate-800"
-                      : "mr-12 bg-slate-100 text-slate-800"
+                    ? "ml-12 bg-sky-100 text-slate-900"
+                    : "mr-12 bg-slate-100 text-slate-800"
                 }`}
               >
                 {m.role === "user" ? (
@@ -244,22 +206,13 @@ export default function ChatPanel({ variant = "classic" }: ChatPanelProps) {
                         {(m.references || []).length} แหล่งอ้างอิง
                       </p>
                     )}
-                    <ChatReferencesPanel
-                      references={m.references || []}
-                      variant={variant}
-                    />
+                    <ChatReferencesPanel references={m.references || []} />
                   </>
                 )}
               </div>
             ))}
             {loading && (
-              <div
-                className={
-                  isExperimental
-                    ? "mr-8 rounded-xl bg-[var(--exp-bg)] px-4 py-3 text-sm text-slate-600"
-                    : "mr-12 rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-600"
-                }
-              >
+              <div className="mr-12 rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-600">
                 กำลังวิเคราะห์ข้อมูลทั้งหมดจากทุกวิชาและทุกคาบ...
               </div>
             )}
@@ -267,13 +220,7 @@ export default function ChatPanel({ variant = "classic" }: ChatPanelProps) {
           </div>
         </div>
 
-        <div
-          className={
-            isExperimental
-              ? "border-t border-[var(--exp-border)] p-4"
-              : "border-t-2 border-black p-4"
-          }
-        >
+        <div className="border-t-2 border-black p-4">
           {attachmentName && (
             <div className="mb-2 flex items-center justify-between rounded-lg bg-slate-100 px-2 py-1 text-xs">
               <span className="truncate">{attachmentName}</span>
@@ -298,11 +245,7 @@ export default function ChatPanel({ variant = "classic" }: ChatPanelProps) {
                 compact
                 showCamera
                 disabled={loading}
-                buttonClassName={
-                  isExperimental
-                    ? "rounded-lg border border-[var(--exp-border)] px-2 py-2 text-xs hover:bg-[var(--exp-bg)] disabled:opacity-50"
-                    : "rounded-lg border-2 border-black px-2 py-2 text-xs hover:bg-slate-100 disabled:opacity-50"
-                }
+                buttonClassName="rounded-lg border-2 border-black px-2 py-2 text-xs hover:bg-slate-100 disabled:opacity-50"
                 onChange={(e) => {
                   onPickFile(e.target.files?.[0]).catch((err: unknown) =>
                     setError(err instanceof Error ? err.message : "อ่านไฟล์ไม่สำเร็จ")
@@ -312,11 +255,7 @@ export default function ChatPanel({ variant = "classic" }: ChatPanelProps) {
             ) : (
               <>
                 <button
-                  className={
-                    isExperimental
-                      ? "rounded-lg border border-[var(--exp-border)] px-3 py-2 text-sm hover:bg-[var(--exp-bg)]"
-                      : "rounded-lg border-2 border-black px-3 py-2 text-sm hover:bg-slate-100"
-                  }
+                  className="rounded-lg border-2 border-black px-3 py-2 text-sm hover:bg-slate-100"
                   onClick={() => fileRef.current?.click()}
                   type="button"
                 >
@@ -336,11 +275,7 @@ export default function ChatPanel({ variant = "classic" }: ChatPanelProps) {
               </>
             )}
             <input
-              className={
-                isExperimental
-                  ? "flex-1 rounded-lg border border-[var(--exp-border)] bg-[var(--exp-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--exp-accent)]"
-                  : "flex-1 rounded-lg border-2 border-black px-3 py-2 text-sm outline-none focus:border-sky-500"
-              }
+              className="flex-1 rounded-lg border-2 border-black px-3 py-2 text-sm outline-none focus:border-sky-500"
               placeholder="พิมพ์หัวข้อหรือ keyword..."
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -355,11 +290,7 @@ export default function ChatPanel({ variant = "classic" }: ChatPanelProps) {
               disabled={loading}
             />
             <button
-              className={
-                isExperimental
-                  ? "rounded-lg bg-[var(--exp-accent)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-                  : "rounded-lg border-2 border-black bg-sky-400 px-4 py-2 text-sm font-bold text-black shadow-[2px_2px_0px_0px_#000] disabled:opacity-50"
-              }
+              className="rounded-lg border-2 border-black bg-sky-400 px-4 py-2 text-sm font-bold text-black shadow-[2px_2px_0px_0px_#000] disabled:opacity-50"
               disabled={!canSend}
               onClick={() =>
                 onSubmit().catch((err: unknown) =>

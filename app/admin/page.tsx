@@ -1,11 +1,7 @@
 'use client';
 
-import UiPageSwitch from '@/components/UiPageSwitch';
-import ClassicAdminDashboardPage from '@/components/ui/classic/AdminDashboardPage';
-import ExperimentalAdminDashboardPage from '@/components/ui/experimental/admin/AdminDashboardPage';
+import AdminDashboardPage from '@/components/ui/classic/AdminDashboardPage';
 
-export default function AdminDashboardPage() {
-  return (
-    <UiPageSwitch classic={ClassicAdminDashboardPage} experimental={ExperimentalAdminDashboardPage} />
-  );
+export default function AdminPage() {
+  return <AdminDashboardPage />;
 }

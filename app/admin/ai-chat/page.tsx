@@ -1,11 +1,7 @@
 'use client';
 
-import UiPageSwitch from '@/components/UiPageSwitch';
-import ClassicAdminAiChatPage from '@/components/ui/classic/AdminAiChatPage';
-import ExperimentalAdminAiChatPage from '@/components/ui/experimental/admin/AdminAiChatPage';
+import AdminAiChatPage from '@/components/ui/classic/AdminAiChatPage';
 
-export default function AdminAiChatPage() {
-  return (
-    <UiPageSwitch classic={ClassicAdminAiChatPage} experimental={ExperimentalAdminAiChatPage} />
-  );
+export default function AdminAiChatRoutePage() {
+  return <AdminAiChatPage />;
 }

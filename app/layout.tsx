@@ -1,10 +1,8 @@
 import type { Metadata } from "next";
-import { Inter, Mali, Roboto_Mono } from "next/font/google";
+import { Mali, Roboto_Mono } from "next/font/google";
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { DataProvider } from "@/components/DataProvider";
-import { UiVersionProvider } from "@/components/UiVersionProvider";
-import ConditionalHeaderNav from "@/components/ConditionalHeaderNav";
-import UiVersionSwitcher from "@/components/UiVersionSwitcher";
+import HeaderNav from "@/components/ui/classic/HeaderNav";
 import SyncToast from "@/components/SyncToast";
 import AnalyticsTracker from "@/components/AnalyticsTracker";
 import GoogleAutoLogin from "@/components/GoogleAutoLogin";
@@ -15,11 +13,6 @@ const mali = Mali({
   weight: ['200', '300', '400', '500', '600', '700'],
   subsets: ["latin", "thai"],
   variable: "--font-mali",
-});
-
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
 });
 
 const robotoMono = Roboto_Mono({
@@ -45,7 +38,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport = {
-  themeColor: '#010102',
+  themeColor: '#bae6fd',
 };
 
 export default function RootLayout({
@@ -55,17 +48,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${mali.variable} ${inter.variable} ${robotoMono.variable}`}>
+      <body className={`${mali.variable} ${robotoMono.variable}`}>
         <GoogleOAuthProvider clientId="787988651964-gf258mnif89bu6g0jao2mpdsm72j96da.apps.googleusercontent.com">
           <DataProvider>
             <GoogleAutoLogin />
-            <UiVersionProvider>
-              <AnalyticsTracker />
-              <SyncToast />
-              <ConditionalHeaderNav />
-              <UiVersionSwitcher />
-              {children}
-            </UiVersionProvider>
+            <AnalyticsTracker />
+            <SyncToast />
+            <HeaderNav />
+            {children}
           </DataProvider>
         </GoogleOAuthProvider>
       </body>
