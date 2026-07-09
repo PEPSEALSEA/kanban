@@ -181,14 +181,29 @@ const APP_BASE_URL = "https://pepsealsea.github.io/kanban";
 
 // --- AUTH & API HELPERS ---
 
-async function getAuthToken(env: Bindings) {
-  const client = new JWT({
-    email: env.GOOGLE_CLIENT_EMAIL,
-    key: env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
-    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-  });
-  const credentials = await client.authorize();
-  return credentials.access_token;
+let cachedAuthToken: { value: string; expiresAt: number } | null = null;
+let authTokenPromise: Promise<string> | null = null;
+
+async function getAuthToken(env: Bindings): Promise<string> {
+  const now = Date.now();
+  if (cachedAuthToken && now < cachedAuthToken.expiresAt - 60_000) {
+    return cachedAuthToken.value;
+  }
+  if (!authTokenPromise) {
+    authTokenPromise = (async () => {
+      const client = new JWT({
+        email: env.GOOGLE_CLIENT_EMAIL,
+        key: env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+        scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+      });
+      const credentials = await client.authorize();
+      const token = credentials.access_token as string;
+      cachedAuthToken = { value: token, expiresAt: now + 3_500_000 };
+      authTokenPromise = null;
+      return token;
+    })();
+  }
+  return authTokenPromise;
 }
 
 async function getSheetValues(env: Bindings, range: string) {
@@ -1786,24 +1801,45 @@ app.get('/', async (c) => {
       }
       case "batchData": {
         const email = await optionalAuth(c);
-        const audioLevel = await resolveAudioAccess(c.env, email);
-        const permitted = await getAudioPermissions(c.env);
+        const admin = isAdminEmail(email);
+        const [
+          audioPermissions,
+          learningContentRaw,
+          homework,
+          users,
+          progress,
+          subjects,
+          analytics,
+          analyticsIpNotes,
+          aiChatLogs,
+        ] = await Promise.all([
+          getAudioPermissions(c.env),
+          getLearningContent(c.env),
+          getHomeworkList(c.env),
+          getUserList(c.env),
+          getAllProgress(c.env),
+          getSubjects(c.env),
+          getAnalytics(c.env),
+          getAnalyticsIpNotes(c.env),
+          admin ? getAiChatLogs(c.env) : Promise.resolve([]),
+        ]);
+        const audioLevel = resolveAudioAccessLevel(email, audioPermissions, isAdminEmail);
         const learningContent = sanitizeLearningContentList(
-          filterPrivateLearningContent(await getLearningContent(c.env), email),
+          filterPrivateLearningContent(learningContentRaw, email),
           audioLevel
         );
         result = {
-          homework: await getHomeworkList(c.env),
-          users: await getUserList(c.env),
-          progress: await getAllProgress(c.env),
+          homework,
+          users,
+          progress,
           learningContent,
-          subjects: await getSubjects(c.env),
-          analytics: await getAnalytics(c.env),
-          analyticsIpNotes: await getAnalyticsIpNotes(c.env),
+          subjects,
+          analytics,
+          analyticsIpNotes,
           audioAccessGranted: audioLevel !== 'none',
-          ...(isAdminEmail(email) ? {
-            audioPermissions: permitted,
-            aiChatLogs: await getAiChatLogs(c.env),
+          ...(admin ? {
+            audioPermissions,
+            aiChatLogs,
           } : {}),
         };
         break;

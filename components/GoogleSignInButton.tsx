@@ -19,7 +19,6 @@ export default function GoogleSignInButton({ size = 'medium' }: GoogleSignInButt
       }}
       onError={() => {}}
       size={size}
-      useOneTap
     />
   );
 }

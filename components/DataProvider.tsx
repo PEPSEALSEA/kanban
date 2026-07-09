@@ -149,11 +149,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         setAiChatLogs(parsed.aiChatLogs || []);
         setAudioPermissions(hasAuth ? (parsed.audioPermissions || []) : []);
         setAudioAccessGranted(hasAuth && Boolean(parsed.audioAccessGranted));
-        setIsLoading(false);
       } catch (e) {
         console.error("Cache parsing failed", e);
       }
     }
+    setIsLoading(false);
   }, []);
 
   const refreshData = useCallback(async () => {

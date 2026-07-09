@@ -30,14 +30,29 @@ const AI_CHAT_LOGS_COLUMNS = [
   'created_at',
 ];
 
-export async function getAuthToken(env: SheetBindings) {
-  const client = new JWT({
-    email: env.GOOGLE_CLIENT_EMAIL,
-    key: env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
-    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-  });
-  const credentials = await client.authorize();
-  return credentials.access_token as string;
+let cachedAuthToken: { value: string; expiresAt: number } | null = null;
+let authTokenPromise: Promise<string> | null = null;
+
+export async function getAuthToken(env: SheetBindings): Promise<string> {
+  const now = Date.now();
+  if (cachedAuthToken && now < cachedAuthToken.expiresAt - 60_000) {
+    return cachedAuthToken.value;
+  }
+  if (!authTokenPromise) {
+    authTokenPromise = (async () => {
+      const client = new JWT({
+        email: env.GOOGLE_CLIENT_EMAIL,
+        key: env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+        scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+      });
+      const credentials = await client.authorize();
+      const token = credentials.access_token as string;
+      cachedAuthToken = { value: token, expiresAt: now + 3_500_000 };
+      authTokenPromise = null;
+      return token;
+    })();
+  }
+  return authTokenPromise;
 }
 
 export async function getSheetValues(env: SheetBindings, range: string) {
