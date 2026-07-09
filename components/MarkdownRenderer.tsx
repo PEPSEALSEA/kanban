@@ -9,6 +9,7 @@ import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
 import CodeBlock from '@/components/CodeBlock';
+import WaterHeatingCurveChart from '@/components/charts/WaterHeatingCurveChart';
 import type { Schema } from 'hast-util-sanitize';
 
 interface MarkdownRendererProps {
@@ -468,8 +469,18 @@ function wrapInlineLatexSegment(text: string): string {
   }).join('');
 }
 
+const WATER_HEATING_ASCII =
+  /```[^\n]*\nT\(°C\)[\s\S]*?ช่วง 1: น้ำแข็ง[\s\S]*?└[─\-]+ Q\s*\n```/g;
+
+function preprocessWaterHeatingGraph(text: string): string {
+  return text
+    .replace(WATER_HEATING_ASCII, '```water-heating-curve\n\n```')
+    .replace(/```water-heating-curve\s*\n```/g, '```water-heating-curve\n\n```');
+}
+
 function preprocessContent(content: string): string {
-  const tablesFixed = preprocessMarkdownTables(content);
+  const graphFixed = preprocessWaterHeatingGraph(content);
+  const tablesFixed = preprocessMarkdownTables(graphFixed);
   const latexFixed = preprocessLatex(tablesFixed);
   return preprocessTableCellMath(latexFixed);
 }
@@ -502,8 +513,12 @@ export default function MarkdownRenderer({ content, className }: MarkdownRendere
             if (React.isValidElement<{ className?: string; children?: React.ReactNode }>(child)) {
               const className = child.props.className || '';
               const match = /language-([\w-]+)/.exec(className);
+              const lang = match?.[1] ?? 'text';
               const code = String(child.props.children ?? '').replace(/\n$/, '');
-              return <CodeBlock language={match?.[1] ?? 'text'} code={code} />;
+              if (lang === 'water-heating-curve') {
+                return <WaterHeatingCurveChart />;
+              }
+              return <CodeBlock language={lang} code={code} />;
             }
             return (
               <pre className="code-block-gemini code-block-gemini--plain my-6 overflow-x-auto">
