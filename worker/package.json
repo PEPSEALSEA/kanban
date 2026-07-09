@@ -17,7 +17,10 @@
     "wrangler": "^4.92.0"
   },
   "dependencies": {
+    "@ai-sdk/google": "^4.0.10",
+    "ai": "^7.0.18",
     "google-auth-library": "^10.6.2",
-    "hono": "^4.12.18"
+    "hono": "^4.12.18",
+    "zod": "^4.4.3"
   }
 }

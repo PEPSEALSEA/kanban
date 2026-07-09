@@ -6,6 +6,7 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { useData } from "@/components/DataProvider";
 import { completeGoogleLogin } from "@/lib/googleLogin";
+import { authHeaders } from "@/lib/auth";
 import { CHAT_API_PATH } from "@/lib/chatApi";
 import {
   createSessionId,
@@ -27,7 +28,14 @@ export default function AiChatPage() {
   const isHydrated = useRef(false);
   const skipNextPersist = useRef(false);
 
-  const transport = useMemo(() => new DefaultChatTransport({ api: CHAT_API_PATH }), []);
+  const transport = useMemo(
+    () =>
+      new DefaultChatTransport({
+        api: CHAT_API_PATH,
+        headers: () => authHeaders(),
+      }),
+    []
+  );
 
   const { messages, sendMessage, status, setMessages, error } = useChat({
     id: activeSessionId,

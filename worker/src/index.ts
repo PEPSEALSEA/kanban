@@ -6,6 +6,7 @@ import {
   resolveAudioAccessLevel,
   sanitizeLearningContentList,
 } from './audioSecurity';
+import { handleAiChatRequest } from './aiChat';
 
 type Bindings = {
   SPREADSHEET_ID: string;
@@ -1554,6 +1555,17 @@ async function sendSubmissionNotification(env: Bindings, studentName: string | a
 // --- ROUTES ---
 
 app.get('/health', (c) => c.text('ok'));
+
+app.post('/api/chat', async (c) => {
+  try {
+    await requireAuth(c);
+    return handleAiChatRequest(c);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Request failed';
+    const status = message === 'Authentication required' ? 401 : 500;
+    return c.json({ error: message }, status);
+  }
+});
 
 app.post('/api/gemini-chat', async (c) => {
   const authUser = await requireAuth(c);
