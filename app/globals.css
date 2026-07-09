@@ -1334,3 +1334,44 @@ h4 {
     left: -10px !important;
   }
 }
+
+/* AI Chat — Claude-inspired layout, sky-blue theme */
+.ai-chat {
+  --chat-sidebar-width: 280px;
+  --chat-max-width: 768px;
+  --chat-font-size: 15px;
+  --chat-line-height: 1.65;
+}
+
+.ai-chat-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--accent-blue);
+  border-top-color: var(--primary-hover);
+  border-radius: 50%;
+  animation: ai-chat-spin 0.7s linear infinite;
+}
+
+@keyframes ai-chat-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.ai-chat-message-body {
+  font-size: var(--chat-font-size);
+  line-height: var(--chat-line-height);
+  color: var(--text-main);
+}
+
+.ai-chat-composer {
+  resize: none;
+  font-size: var(--chat-font-size);
+  line-height: var(--chat-line-height);
+}
+
+.ai-chat-composer:focus {
+  outline: none;
+  border-color: var(--primary-hover);
+  box-shadow: 0 0 0 2px rgba(125, 211, 252, 0.35);
+}

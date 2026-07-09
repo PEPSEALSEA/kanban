@@ -1,7 +1,7 @@
 'use client';
 
-import ChatPanel from '@/components/chat/ChatPanel';
+import AiChatPage from '@/components/ai-chat/AiChatPage';
 
 export default function ClassicChatPage() {
-  return <ChatPanel />;
+  return <AiChatPage />;
 }
