@@ -1,9 +1,10 @@
 # Simple workflow for deploying static content to GitHub Pages
-# If this job is stuck on "Waiting for a runner", cancel it and run: npm run deploy:pages
-# See docs/DEPLOY.md
 name: Deploy Next.js to Pages
 
 on:
+  push:
+    branches: ["main"]
+
   workflow_dispatch:
 
 permissions:

@@ -12,7 +12,10 @@ Read **`docs/DEPLOY.md`** before any deploy, hosting, or CI change.
 ## Deploy commands
 
 ```powershell
-# Frontend (when GitHub Actions is slow/stuck)
+# Frontend (default): push to main → GitHub Actions deploys Pages
+git push origin main
+
+# Frontend fallback if Actions runner queue is stuck
 npm run deploy:pages
 
 # Backend

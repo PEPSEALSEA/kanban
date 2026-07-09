@@ -15,56 +15,37 @@ The AI chat UI is on Pages; streaming goes to the Worker (`POST /api/chat`).
 
 ---
 
-## Method A — Deploy from your computer (recommended when Actions is stuck)
-
-Use this when GitHub Actions shows **"Waiting for a runner"** for many minutes.
-
-### One-time GitHub setup
-
-1. Repo **Settings → Pages**
-2. **Source:** Deploy from a branch
-3. **Branch:** `gh-pages` / **folder:** `/ (root)`
-4. Save
-
-### Every deploy (Windows PowerShell)
-
-```powershell
-cd e:\Github2\kanban
-npm run deploy:pages
-```
-
-Or run the script directly:
-
-```powershell
-.\scripts\deploy-pages.ps1
-```
-
-This will:
-
-1. `npm run build` → static files in `./out`
-2. Push `out/` to the `gh-pages` branch (via `gh-pages` package)
-3. GitHub Pages updates in ~1–2 minutes
-
-### Requirements
-
-- Node.js 22+ (same as CI)
-- `git` configured with push access to `PEPSEALSEA/kanban`
-- First run: `npm install` (installs `gh-pages` devDependency)
-
-### Cancel a stuck Actions run
-
-Actions → open the run → **Cancel workflow** → use Method A instead.
-
----
-
-## Method B — GitHub Actions (automatic on push to `main`)
+## Method A — GitHub Actions (default)
 
 Workflow: [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml)
 
-- Triggers on push to `main` and **workflow_dispatch** (manual)
-- Builds on `ubuntu-latest`, uploads `./out`, deploys to Pages **only if** Pages source is **GitHub Actions**
+- Triggers on **push to `main`** and **workflow_dispatch** (manual)
+- Builds on `ubuntu-latest`, uploads `./out`, deploys to Pages
 
-If you switched Pages to **gh-pages branch** (Method A), this workflow still builds but **will not update the live site** unless you change Pages source back to Actions.
+### One-time GitHub setup
+
+Repo **Settings → Pages** → **Source:** **GitHub Actions**
+
+### Normal flow
+
+```powershell
+git push origin main
+```
+
+Actions builds and deploys automatically.
+
+---
+
+## Method B — Deploy from your computer (fallback)
+
+Use only when GitHub Actions is stuck on **"Waiting for a runner"** (known GitHub queue bug).
+
+```powershell
+npm run deploy:pages
+```
+
+Requires Pages source: **Deploy from a branch** → `gh-pages` / `/ (root)`.  
+After Actions works again, switch Pages source back to **GitHub Actions** (Method A).
 
 ---
 
@@ -104,7 +85,7 @@ Local dev secrets: `worker/.dev.vars` (gitignored)
 
 | Problem | Fix |
 |---------|-----|
-| Actions stuck on runner queue | Cancel run → `npm run deploy:pages` |
+| Actions stuck on runner queue | Cancel run → use Method B (`npm run deploy:pages`), or retry later |
 | Chat 401 | User must sign in with Google; token sent as `Authorization: Bearer` |
 | Chat 500 `GEMINI_API_KEY` | Set secret on Cloudflare Worker |
 | Site 404 on refresh | Ensure deploy uses `--nojekyll` — already in `deploy:pages` script |
