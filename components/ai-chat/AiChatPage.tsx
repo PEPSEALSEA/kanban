@@ -1,11 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { GoogleLogin } from "@react-oauth/google";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { useData } from "@/components/DataProvider";
-import { completeGoogleLogin } from "@/lib/googleLogin";
 import { authHeaders } from "@/lib/auth";
 import { CHAT_API_PATH } from "@/lib/chatApi";
 import {
@@ -20,7 +18,7 @@ import ChatMessageList from "@/components/ai-chat/ChatMessageList";
 import ChatComposer from "@/components/ai-chat/ChatComposer";
 
 export default function AiChatPage() {
-  const { user, setUser, refreshData } = useData();
+  const { user } = useData();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [input, setInput] = useState("");
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -129,18 +127,8 @@ export default function AiChatPage() {
         <div className="neo-card w-full p-8 text-center">
           <h2 className="mb-2 text-xl font-bold text-text-main">AI Chat</h2>
           <p className="mb-6 text-sm text-text-muted">
-            Sign in with Google to start a conversation with StudyFlow AI.
+            Sign in with Google using the button in the top navigation bar to start a conversation with StudyFlow AI.
           </p>
-          <div className="flex justify-center">
-            <GoogleLogin
-              onSuccess={async (credentialResponse) => {
-                if (!credentialResponse.credential) return;
-                await completeGoogleLogin(credentialResponse.credential, setUser, refreshData);
-              }}
-              onError={() => {}}
-              size="large"
-            />
-          </div>
         </div>
       </div>
     );

@@ -3,21 +3,16 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { GoogleLogin, googleLogout } from '@react-oauth/google';
+import { googleLogout } from '@react-oauth/google';
+import GoogleSignInButton from '@/components/GoogleSignInButton';
 import { useData } from '@/components/DataProvider';
 import { isAdminEmail } from '@/lib/admin';
 import { clearIdToken } from '@/lib/auth';
-import { completeGoogleLogin } from '@/lib/googleLogin';
 
 export default function HeaderNav() {
   const pathname = usePathname();
   const { user, setUser, refreshData } = useData();
   const showAdmin = user && isAdminEmail(user.email);
-
-  const handleLoginSuccess = async (credentialResponse: { credential?: string }) => {
-    if (!credentialResponse.credential) return;
-    await completeGoogleLogin(credentialResponse.credential, setUser, refreshData);
-  };
 
   const handleLogout = () => {
     googleLogout();
@@ -71,7 +66,7 @@ export default function HeaderNav() {
 
       <div className="header-nav-auth">
         {!user ? (
-          <GoogleLogin onSuccess={handleLoginSuccess} onError={() => {}} size="medium" auto_select />
+          <GoogleSignInButton />
         ) : (
           <div className="header-nav-user">
             <img src={user.picture} alt="" className="header-nav-avatar" />

@@ -1,89 +1,190 @@
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import {
   convertToModelMessages,
+  createUIMessageStream,
   createUIMessageStreamResponse,
-  isStepCount,
   streamText,
   toUIMessageStream,
-  tool,
   type UIMessage,
 } from 'ai';
-import { z } from 'zod';
-import type { Context } from 'hono';
+import {
+  buildFallbackAnswerFromRows,
+  isGeminiLocationRestrictionError,
+  loadRagContext,
+  resolveGeminiModel,
+} from './ragContext';
+import { logAiChat, type SheetBindings } from './sheets';
 
-type ChatBindings = {
+type ChatBindings = SheetBindings & {
   GEMINI_API_KEY?: string;
+  GEMINI_MODEL?: string;
 };
 
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+function extractLastUserText(messages: UIMessage[]): string {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const message = messages[i];
+    if (message.role !== 'user') continue;
+    const text = message.parts
+      .filter((part) => part.type === 'text')
+      .map((part) => (part.type === 'text' ? part.text : ''))
+      .join('')
+      .trim();
+    if (text) return text;
+  }
+  return '';
+}
 
-const chatTools = {
-  analyzeContext: tool({
-    description:
-      'Analyze the user message and conversation context to identify topics, intent, and key concepts.',
-    inputSchema: z.object({
-      query: z.string().describe('The user question or topic to analyze'),
-    }),
-    execute: async ({ query }) => {
-      await delay(1800);
-      return {
-        summary: `Identified core topics around "${query.slice(0, 80)}"`,
-        intent: 'information_request',
-        keywords: query.split(/\s+/).filter(Boolean).slice(0, 6),
-      };
-    },
-  }),
-  searchFile: tool({
-    description: 'Search project files for relevant context matching the query.',
-    inputSchema: z.object({
-      filename: z.string().describe('File name to search'),
-      query: z.string().describe('Search terms'),
-    }),
-    execute: async ({ filename, query }) => {
-      await delay(2200);
-      return {
-        filename,
-        matches: [
-          { line: 42, excerpt: `...${query} found in configuration...` },
-          { line: 128, excerpt: `Related context for ${filename}` },
-        ],
-        totalMatches: 2,
-      };
-    },
-  }),
-};
+function logChat(
+  env: SheetBindings,
+  payload: {
+    email: string;
+    userName?: string;
+    userMessage: string;
+    model: string;
+    status: 'success' | 'fallback' | 'error';
+    contextSummary: { totalRows: number; totalSubjects: number; totalDates: number };
+    aiAnswer?: string;
+    errorMessage?: string;
+  }
+) {
+  logAiChat(env, {
+    email: payload.email,
+    userName: payload.userName,
+    userMessage: payload.userMessage,
+    aiAnswer: payload.aiAnswer,
+    model: payload.model,
+    status: payload.status,
+    contextTotalRows: payload.contextSummary.totalRows,
+    contextSubjects: payload.contextSummary.totalSubjects,
+    contextDates: payload.contextSummary.totalDates,
+    errorMessage: payload.errorMessage,
+  }).catch((logErr) => console.warn('logAiChat failed', logErr));
+}
 
-const SYSTEM_PROMPT = `You are a helpful study assistant for StudyFlow. When answering questions:
-- First use analyzeContext to understand what the user needs
-- Then use searchFile if file-specific context would help (pick a plausible filename like notes.txt or homework.pdf)
-- Finally synthesize a clear, concise answer in the same language as the user`;
+function createFallbackStreamResponse(fallbackText: string, messages: UIMessage[]) {
+  return createUIMessageStreamResponse({
+    stream: createUIMessageStream({
+      originalMessages: messages,
+      execute: ({ writer }) => {
+        writer.write({ type: 'text-start', id: 'fallback-text' });
+        writer.write({ type: 'text-delta', id: 'fallback-text', delta: fallbackText });
+        writer.write({ type: 'text-end', id: 'fallback-text' });
+      },
+    }),
+  });
+}
 
 export async function handleAiChatRequest(
-  c: Context<{ Bindings: ChatBindings }>
+  env: ChatBindings,
+  authUser: { email: string; name?: string },
+  body: { messages?: UIMessage[] }
 ): Promise<Response> {
-  const apiKey = c.env.GEMINI_API_KEY;
+  const apiKey = env.GEMINI_API_KEY;
   if (!apiKey) {
-    return c.json({ error: 'GEMINI_API_KEY not configured' }, 500);
+    return Response.json({ error: 'GEMINI_API_KEY not configured' }, { status: 500 });
   }
 
-  const body = await c.req.json<{ messages?: UIMessage[] }>();
   const messages = Array.isArray(body?.messages) ? body.messages : [];
+  const userMessage = extractLastUserText(messages);
+  const modelUsed = resolveGeminiModel(undefined, env);
+  const emptyContext = { totalRows: 0, totalSubjects: 0, totalDates: 0 };
+
+  let contextSummary = emptyContext;
+  let contextRows: Awaited<ReturnType<typeof loadRagContext>>['contextRows'] = [];
+  let systemInstruction = '';
+
+  try {
+    const rag = await loadRagContext(env, authUser.email);
+    contextRows = rag.contextRows;
+    systemInstruction = rag.systemInstruction;
+    contextSummary = rag.contextSummary;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to load Google Sheet data';
+    logChat(env, {
+      email: authUser.email,
+      userName: authUser.name,
+      userMessage: userMessage || '(empty)',
+      model: modelUsed,
+      status: 'error',
+      contextSummary: emptyContext,
+      errorMessage: message,
+    });
+    return Response.json({ error: `Google Sheet error: ${message}` }, { status: 500 });
+  }
 
   const google = createGoogleGenerativeAI({ apiKey });
 
-  const result = streamText({
-    model: google('gemini-2.0-flash'),
-    system: SYSTEM_PROMPT,
-    messages: await convertToModelMessages(messages),
-    tools: chatTools,
-    stopWhen: isStepCount(5),
-  });
+  try {
+    const result = streamText({
+      model: google(modelUsed),
+      system: systemInstruction,
+      messages: await convertToModelMessages(messages),
+      temperature: 0.2,
+    });
 
-  return createUIMessageStreamResponse({
-    stream: toUIMessageStream({
-      stream: result.stream,
-      tools: chatTools,
-      originalMessages: messages,
-    }),
-  });
+    return createUIMessageStreamResponse({
+      stream: toUIMessageStream({
+        stream: result.stream,
+        originalMessages: messages,
+        onError: (error) => {
+          const message = error instanceof Error ? error.message : 'Gemini chat failed';
+          if (isGeminiLocationRestrictionError(error)) {
+            return buildFallbackAnswerFromRows(contextRows, userMessage || 'สรุปข้อมูล');
+          }
+          logChat(env, {
+            email: authUser.email,
+            userName: authUser.name,
+            userMessage: userMessage || '(empty)',
+            model: modelUsed,
+            status: 'error',
+            contextSummary,
+            errorMessage: message,
+          });
+          return message;
+        },
+        onFinish: ({ responseMessage }) => {
+          const answer = responseMessage.parts
+            .filter((part) => part.type === 'text')
+            .map((part) => (part.type === 'text' ? part.text : ''))
+            .join('')
+            .trim();
+          logChat(env, {
+            email: authUser.email,
+            userName: authUser.name,
+            userMessage: userMessage || '(empty)',
+            model: modelUsed,
+            status: 'success',
+            contextSummary,
+            aiAnswer: answer,
+          });
+        },
+      }),
+    });
+  } catch (err) {
+    if (isGeminiLocationRestrictionError(err)) {
+      const fallback = buildFallbackAnswerFromRows(contextRows, userMessage || 'สรุปข้อมูล');
+      logChat(env, {
+        email: authUser.email,
+        userName: authUser.name,
+        userMessage: userMessage || '(empty)',
+        model: modelUsed,
+        status: 'fallback',
+        contextSummary,
+        aiAnswer: fallback,
+      });
+      return createFallbackStreamResponse(fallback, messages);
+    }
+
+    const message = err instanceof Error ? err.message : 'Gemini chat failed';
+    logChat(env, {
+      email: authUser.email,
+      userName: authUser.name,
+      userMessage: userMessage || '(empty)',
+      model: modelUsed,
+      status: 'error',
+      contextSummary,
+      errorMessage: message,
+    });
+    return Response.json({ error: message }, { status: 500 });
+  }
 }

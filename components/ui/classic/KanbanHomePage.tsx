@@ -2,14 +2,12 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
-import { GoogleLogin, googleLogout } from '@react-oauth/google';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useData } from '@/components/DataProvider';
 import AttachmentList from '@/components/AttachmentList';
 import MarkdownRenderer from '@/components/MarkdownRenderer';
 import { API_URL, UPLOAD_SERVICE_URL } from '@/lib/config';
-import { clearIdToken, authHeaders } from '@/lib/auth';
-import { completeGoogleLogin } from '@/lib/googleLogin';
+import { authHeaders } from '@/lib/auth';
 
 // --- CONFIGURATION ---
 const GAS_WEB_APP_URL = API_URL;
@@ -173,19 +171,6 @@ export default function StudyFlow() {
       ...(activeHomework.link_image ? activeHomework.link_image.split(',').filter(Boolean).map(parseItem) : [])
     ];
   }, [activeHomework?.id, activeHomework?.link_work, activeHomework?.link_image]);
-
-  const handleLoginSuccess = async (credentialResponse: { credential?: string }) => {
-    if (!credentialResponse.credential) return;
-    await completeGoogleLogin(credentialResponse.credential, setUser, refreshData);
-  };
-
-  const handleLogout = () => {
-    googleLogout();
-    clearIdToken();
-    setUser(null);
-    localStorage.removeItem('homework_user');
-    refreshData();
-  };
 
   const handleFileUpload = async (file: File, homeworkId: string, status: string, fileId: string): Promise<boolean> => {
     try {
@@ -503,16 +488,6 @@ export default function StudyFlow() {
           <div className="w-10 h-10 bg-sky-100 rounded-xl flex items-center justify-center text-xl">🎓</div>
           <h1 className="text-xl font-bold tracking-tight text-slate-800">Kanban603BPK</h1>
         </div>
-        {!user ? (
-          <div className="rounded-lg overflow-hidden border border-slate-200">
-            <GoogleLogin onSuccess={handleLoginSuccess} onError={() => {}} auto_select />
-          </div>
-        ) : (
-          <div className="flex items-center gap-4">
-            <img src={user.picture} className="w-9 h-9 rounded-full border border-slate-200" alt="" />
-            <button onClick={handleLogout} className="text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors">LOGOUT</button>
-          </div>
-        )}
       </header>
 
       {/* View Switcher Controls */}

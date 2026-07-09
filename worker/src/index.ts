@@ -1558,8 +1558,9 @@ app.get('/health', (c) => c.text('ok'));
 
 app.post('/api/chat', async (c) => {
   try {
-    await requireAuth(c);
-    return handleAiChatRequest(c);
+    const authUser = await requireAuth(c);
+    const body = await c.req.json<{ messages?: import('ai').UIMessage[] }>();
+    return handleAiChatRequest(c.env, authUser, body);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Request failed';
     const status = message === 'Authentication required' ? 401 : 500;
