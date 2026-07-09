@@ -91,6 +91,7 @@ type DataContextType = {
   setUser: (user: UserInfo | null) => void;
   isLoading: boolean;
   isSyncing: boolean;
+  readyForAutoLogin: boolean;
   refreshData: () => Promise<void>;
   saveAnalyticsIpNote: (ip: string, name: string, note: string) => Promise<void>;
   logEvent: (eventType: string, extraData?: {
@@ -118,6 +119,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [readyForAutoLogin, setReadyForAutoLogin] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Restore user only when a valid Google ID token exists (localStorage).
@@ -190,6 +192,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false);
       setIsSyncing(false);
+      setReadyForAutoLogin(true);
     }
   }, []);
 
@@ -344,6 +347,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setUser,
       isLoading,
       isSyncing,
+      readyForAutoLogin,
       refreshData,
       saveAnalyticsIpNote,
       logEvent,

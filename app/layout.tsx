@@ -5,6 +5,7 @@ import { DataProvider } from "@/components/DataProvider";
 import HeaderNav from "@/components/ui/classic/HeaderNav";
 import SyncToast from "@/components/SyncToast";
 import AnalyticsTracker from "@/components/AnalyticsTracker";
+import GoogleAutoLogin from "@/components/GoogleAutoLogin";
 import { GOOGLE_CLIENT_ID } from '@/lib/googleClientId';
 import "./globals.css";
 import "katex/dist/katex.min.css";
@@ -51,6 +52,7 @@ export default function RootLayout({
       <body className={`${mali.variable} ${robotoMono.variable}`}>
         <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
           <DataProvider>
+            <GoogleAutoLogin />
             <AnalyticsTracker />
             <SyncToast />
             <HeaderNav />
