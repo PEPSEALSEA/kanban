@@ -258,6 +258,50 @@ function preprocessMarkdownTables(text: string): string {
  */
 const MATH_OR_CHEM_RE = /(?:\\(?:frac|left|right|sqrt|sum|prod|int|lim|dots|cdots|ldots|text|mathbb|mathcal|mathbf|mathrm|begin|end|over|under|hat|bar|vec|tilde|infty|alpha|beta|gamma|delta|epsilon|theta|lambda|mu|sigma|omega|pi|phi|psi|rho|tau|chi|nu|xi|zeta|eta|kappa|iota|partial|nabla|forall|exists|neq|notin|subset|supset|cup|cap|wedge|vee|neg|implies|iff|to|mapsto|circ|cdot|times|div|pm|mp|leq|geq|approx|equiv|sim|cong|propto|perp|parallel|angle|triangle|square|diamond|star|bullet|oplus|otimes|bigoplus|bigotimes|binom|choose|atop|cos|sin|tan|log|ln|exp|det|min|max|sup|limsup|liminf|rightarrow|leftarrow|leftrightarrow|Rightarrow|Leftarrow|Leftrightarrow|rightleftharpoons|rightharpoondown|rightharpoonup|leftharpoondown|leftharpoonup)(?![a-zA-Z]))|(?:[A-Z][a-z]?[\^_](?:\{[0-9+\-]+\}|[0-9+\-]))/;
 
+// e.g. Q_เพิ่ม, k_B, v_rms, m_น้ำ — underscore subscripts with Thai or Latin labels
+const SUBSCRIPT_NOTATION_RE =
+  /(?<![A-Za-z0-9$\\])([A-Za-z])_([A-Za-z0-9\u0E00-\u0E7F]+)(?![A-Za-z0-9_])/g;
+
+function formatSubscriptLatex(base: string, sub: string): string {
+  if (/[\u0E00-\u0E7F]/.test(sub)) {
+    return `$${base}_{\\text{${sub}}}$`;
+  }
+  return `$${base}_{${sub}}$`;
+}
+
+function replaceSubscriptNotationInSegment(segment: string): string {
+  return segment.replace(SUBSCRIPT_NOTATION_RE, (_, base: string, sub: string) =>
+    formatSubscriptLatex(base, sub)
+  );
+}
+
+/**
+ * Convert physics-style underscore subscripts to LaTeX before markdown parsing.
+ * Prevents markdown emphasis from pairing underscores in e.g. "Q_เพิ่ม = Q_ลด".
+ */
+function preprocessSubscriptNotation(text: string): string {
+  if (!text || !text.includes('_')) return text;
+
+  let inFence = false;
+  const lines = text.split('\n');
+
+  return lines
+    .map((line) => {
+      const trimmed = line.trim();
+      if (trimmed.startsWith('```')) {
+        inFence = !inFence;
+        return line;
+      }
+      if (inFence) return line;
+
+      const parts = line.split(/(\$\$?[^$]+\$\$?|`[^`]+`)/g);
+      return parts
+        .map((part, index) => (index % 2 !== 0 ? part : replaceSubscriptNotationInSegment(part)))
+        .join('');
+    })
+    .join('\n');
+}
+
 function isTableLine(line: string): boolean {
   const trimmed = line.trim();
   return trimmed.startsWith('|') && !looksLikeTableSeparator(trimmed);
@@ -480,7 +524,8 @@ function preprocessWaterHeatingGraph(text: string): string {
 
 function preprocessContent(content: string): string {
   const graphFixed = preprocessWaterHeatingGraph(content);
-  const tablesFixed = preprocessMarkdownTables(graphFixed);
+  const subscriptsFixed = preprocessSubscriptNotation(graphFixed);
+  const tablesFixed = preprocessMarkdownTables(subscriptsFixed);
   const latexFixed = preprocessLatex(tablesFixed);
   return preprocessTableCellMath(latexFixed);
 }
