@@ -10,6 +10,7 @@ import {
 import {
   buildFallbackAnswerFromRows,
   isGeminiLocationRestrictionError,
+  isGeminiQuotaError,
   loadRagContext,
   resolveGeminiModel,
 } from './ragContext';
@@ -94,7 +95,7 @@ export async function handleAiChatRequest(
   let systemInstruction = '';
 
   try {
-    const rag = await loadRagContext(env, authUser.email);
+    const rag = await loadRagContext(env, authUser.email, userMessage);
     contextRows = rag.contextRows;
     systemInstruction = rag.systemInstruction;
     contextSummary = rag.contextSummary;
@@ -114,12 +115,15 @@ export async function handleAiChatRequest(
 
   const google = createGoogleGenerativeAI({ apiKey });
 
+  const recentMessages = messages.slice(-8);
+
   try {
     const result = streamText({
       model: google(modelUsed),
       system: systemInstruction,
-      messages: await convertToModelMessages(messages),
+      messages: await convertToModelMessages(recentMessages),
       temperature: 0.2,
+      maxRetries: 0,
     });
 
     return createUIMessageStreamResponse({
@@ -130,6 +134,9 @@ export async function handleAiChatRequest(
           const message = error instanceof Error ? error.message : 'Gemini chat failed';
           if (isGeminiLocationRestrictionError(error)) {
             return buildFallbackAnswerFromRows(contextRows, userMessage || 'สรุปข้อมูล');
+          }
+          if (isGeminiQuotaError(error)) {
+            return 'ขออภัย ใช้งาน Gemini เกินโควต้าชั่วคราว กรุณารอประมาณ 1 นาทีแล้วลองใหม่';
           }
           logChat(env, {
             email: authUser.email,

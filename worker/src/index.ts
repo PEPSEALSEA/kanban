@@ -459,6 +459,7 @@ type QueryIntent = {
   dueDateTarget: DateTarget;
   wantsEmphasis: boolean;
   todayHomework: boolean;
+  wantsExamSummary: boolean;
   explicitWebSearch: boolean;
 };
 
@@ -488,7 +489,7 @@ const ALLOWED_GEMINI_MODELS = [
   "gemini-3.5-flash",
 ] as const;
 
-const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
+const DEFAULT_GEMINI_MODEL = "gemini-3.1-flash-lite";
 const CONTEXT_SIZE_WARNING_CHARS = 900_000;
 
 function inferDateTarget(message: string): DateTarget {
@@ -508,6 +509,17 @@ function inferDueDateTarget(message: string): DateTarget {
     text.includes("due");
   if (!asksDueDate) return null;
   return inferDateTarget(message);
+}
+
+function inferExamSummaryIntent(message: string): boolean {
+  const text = normalizeText(message);
+  return (
+    text.includes("สอบ") ||
+    text.includes("exam") ||
+    text.includes("midterm") ||
+    text.includes("final") ||
+    text.includes("prelim")
+  );
 }
 
 function shouldUseGrounding(message: string): boolean {
@@ -542,6 +554,7 @@ function parseUserQueryIntent(message: string, availableSubjects: string[]): Que
     dueDateTarget: inferDueDateTarget(message),
     wantsEmphasis: inferEmphasisIntent(message),
     todayHomework: inferTodayHomeworkIntent(message),
+    wantsExamSummary: inferExamSummaryIntent(message),
     explicitWebSearch: shouldUseGrounding(message),
   };
 }
@@ -664,6 +677,12 @@ function filterRowsByIntent(rows: ClassContextRow[], message: string, intent: Qu
     result = result.filter((row) => row.date === targetDate);
   }
 
+  if (intent.wantsExamSummary && !intent.dateRange && !intent.dateTarget) {
+    const cutoff = formatDateOnly(new Date(getMidnightGMT7(new Date()).getTime() - 60 * 86400000));
+    const recent = result.filter((row) => row.date >= cutoff);
+    if (recent.length > 0) result = recent;
+  }
+
   const keywordFiltered = result.filter((row) => rowMatchesMessage(row, message));
   if (keywordFiltered.length > 0) {
     result = keywordFiltered;
@@ -672,6 +691,12 @@ function filterRowsByIntent(rows: ClassContextRow[], message: string, intent: Qu
   if (intent.wantsEmphasis) {
     const withEmphasis = result.filter((row) => row.emphasis);
     if (withEmphasis.length > 0) result = withEmphasis;
+  }
+
+  if (result.length === 0) {
+    const cutoff = formatDateOnly(new Date(getMidnightGMT7(new Date()).getTime() - 30 * 86400000));
+    const recent = rows.filter((row) => row.date >= cutoff);
+    result = recent.length > 0 ? recent : rows;
   }
 
   return result.slice(0, 30);
@@ -690,16 +715,15 @@ function buildFullSheetDataChunk(rows: ClassContextRow[]): string {
     date: row.date || "-",
     subject: row.subject || "-",
     rowType: row.rowType,
-    homework: row.homework || "",
+    homework: shortText(row.homework, 480),
     homeworkDeadline: row.homeworkDeadline || row.deadlineDate || "",
     createdDate: row.createdDate || "",
     deadlineDate: row.deadlineDate || "",
-    content: row.content || "",
-    emphasis: row.emphasis || "",
-    sourceLinks: Array.from(new Set(row.sourceLinks || [])),
+    content: shortText(row.content, 480),
+    emphasis: shortText(row.emphasis, 200),
   }));
 
-  return JSON.stringify(payload, null, 2);
+  return JSON.stringify(payload);
 }
 
 function buildRagSystemInstruction(fullSheetDataChunk: string): string {
@@ -707,7 +731,7 @@ function buildRagSystemInstruction(fullSheetDataChunk: string): string {
   return `คุณคือผู้เชี่ยวชาญวิเคราะห์เนื้อหาการเรียนทุกวิชา
 Take your time to analyze — ใช้เวลาไตร่ตรองอย่างละเอียดก่อนตอบทุกครั้ง
 
-[ข้อมูลทั้งหมดจาก Google Sheet]
+[ข้อมูลที่เกี่ยวข้องจาก Google Sheet — กรองตามคำถามแล้ว]
 ${chunk}
 
 [กระบวนการวิเคราะห์]
@@ -932,7 +956,7 @@ async function askGeminiWithContext(
       temperature: 0.2,
       topK: 24,
       topP: 0.8,
-      maxOutputTokens: 8192,
+      maxOutputTokens: 4096,
     },
   };
 
@@ -1643,11 +1667,14 @@ app.post('/api/gemini-chat', async (c) => {
       getLearningContent(c.env),
     ]);
     contextRows = buildClassContextRows(homeworkList, learningContentList);
-    const fullSheetDataChunk = buildFullSheetDataChunk(contextRows);
+    const availableSubjects = Array.from(new Set(contextRows.map((row) => row.subject).filter(Boolean)));
+    const queryIntent = parseUserQueryIntent(message || "วิเคราะห์ไฟล์ที่แนบ", availableSubjects);
+    const promptRows = filterRowsByIntent(contextRows, message || "วิเคราะห์ไฟล์ที่แนบ", queryIntent);
+    const fullSheetDataChunk = buildFullSheetDataChunk(promptRows);
     const systemInstruction = buildRagSystemInstruction(fullSheetDataChunk);
     const useGrounding = shouldUseGrounding(message || "วิเคราะห์ไฟล์ที่แนบ");
-    contextSummary = buildContextSummary(contextRows, modelUsed, fullSheetDataChunk.length);
-    const contextRowsForResponse = contextRows.slice(0, 8).map((row) => ({
+    contextSummary = buildContextSummary(promptRows, modelUsed, fullSheetDataChunk.length);
+    const contextRowsForResponse = promptRows.slice(0, 8).map((row) => ({
       ...row,
       homework: shortText(row.homework, 160),
       content: shortText(row.content, 180),
@@ -1668,7 +1695,7 @@ app.post('/api/gemini-chat', async (c) => {
       });
     } catch (err) {
       if (isGeminiLocationRestrictionError(err)) {
-        answer = buildFallbackAnswerFromRows(contextRows, message || "สรุปข้อมูล");
+        answer = buildFallbackAnswerFromRows(promptRows, message || "สรุปข้อมูล");
         status = "fallback";
       } else {
         writeLog("error", { errorMessage: (err as Error)?.message || "gemini chat failed" });
@@ -1676,7 +1703,7 @@ app.post('/api/gemini-chat', async (c) => {
       }
     }
 
-    const references = buildChatReferences(contextRows, message, answer);
+    const references = buildChatReferences(promptRows, message, answer);
     const sourceLinks = Array.from(
       new Set(references.flatMap((ref) => ref.sourceLinks || []))
     ).slice(0, 30);

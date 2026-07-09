@@ -15,14 +15,14 @@ export type ChatAttachment = {
 };
 
 export const GEMINI_MODELS = [
+  { id: "gemini-3.1-flash-lite", label: "Gemini 3.1 Flash Lite (แนะนำ)" },
   { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
-  { id: "gemini-3.1-flash-lite", label: "Gemini 3.1 Flash Lite" },
   { id: "gemini-3.5-flash", label: "Gemini 3.5 Flash" },
 ] as const;
 
 export type GeminiModelId = (typeof GEMINI_MODELS)[number]["id"];
 
-export const DEFAULT_GEMINI_MODEL: GeminiModelId = "gemini-2.5-flash";
+export const DEFAULT_GEMINI_MODEL: GeminiModelId = "gemini-3.1-flash-lite";
 export const GEMINI_MODEL_STORAGE_KEY = "studyflow_gemini_model";
 
 export type GeminiChatRequest = {
