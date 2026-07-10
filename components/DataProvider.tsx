@@ -146,8 +146,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         setAllProgress(parsed.progress || []);
         setLearningContent(stripPrivateContent(cachedContent, cachedUser?.email));
         setSubjects(parsed.subjects || []);
-        setAnalytics((parsed.analytics || []).filter((a: { email?: string }) => !isAdminEmail(a.email)));
-        setAnalyticsIpNotes(parsed.analyticsIpNotes || []);
+        setAnalytics([]);
+        setAnalyticsIpNotes([]);
         setAiChatLogs(parsed.aiChatLogs || []);
         setAudioPermissions(hasAuth ? (parsed.audioPermissions || []) : []);
         setAudioAccessGranted(hasAuth && Boolean(parsed.audioAccessGranted));
@@ -175,14 +175,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         setAllProgress(payload.progress || []);
         setLearningContent(payload.learningContent || []);
         setSubjects(payload.subjects || []);
-        setAnalytics((payload.analytics || []).filter((a: { email?: string }) => !isAdminEmail(a.email)));
+        setAnalytics([]);
         setAnalyticsIpNotes(payload.analyticsIpNotes || []);
         setAiChatLogs(payload.aiChatLogs || []);
         setAudioPermissions(payload.audioPermissions || []);
         setAudioAccessGranted(Boolean(payload.audioAccessGranted));
-        
-        // Update cache
-        localStorage.setItem('studyflow_cache', JSON.stringify(payload));
+
+        const cachePayload = {
+          ...payload,
+          analytics: [],
+          analyticsIpNotes: payload.analyticsIpNotes || [],
+        };
+        localStorage.setItem('studyflow_cache', JSON.stringify(cachePayload));
       } else {
         throw new Error(data.error || "Failed to load data");
       }

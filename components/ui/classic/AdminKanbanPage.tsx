@@ -1,18 +1,36 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useData, GAS_WEB_APP_URL } from '@/components/DataProvider';
 import { authHeaders } from '@/lib/auth';
 import EditHomeworkModal from '@/components/EditHomeworkModal';
 import DiscordSummaryPreview from '@/components/DiscordSummaryPreview';
 import { useDeviceDetection } from '@/hooks/useDeviceDetection';
+import AdminPagination from '@/components/admin/AdminPagination';
+import { fetchAdminJson, type AdminListResult, type AdminPageSize } from '@/lib/adminList';
 
 type SummaryPreviewMode = 'rendered' | 'raw';
 
+type HomeworkRow = {
+  id: string;
+  subject: string;
+  title: string;
+  description?: string;
+  deadline?: string;
+  link_image?: string;
+};
+
 export default function KanbanEditor() {
-  const { allHomework, refreshData, subjects } = useData();
-  const [editingHomework, setEditingHomework] = useState<any>(null);
+  const { subjects } = useData();
+  const [homework, setHomework] = useState<HomeworkRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState<AdminPageSize>(20);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [listLoading, setListLoading] = useState(true);
+  const [listError, setListError] = useState<string | null>(null);
+  const [editingHomework, setEditingHomework] = useState<any>(null);
   const [isSendingSummary, setIsSendingSummary] = useState(false);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
   const [summaryPreview, setSummaryPreview] = useState<string | null>(null);
@@ -25,33 +43,38 @@ export default function KanbanEditor() {
   });
   const { isMobile } = useDeviceDetection();
 
-  const filteredHomework = useMemo(() => {
-    let tasks = [...allHomework];
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedSearch(searchTerm.trim()), 300);
+    return () => window.clearTimeout(t);
+  }, [searchTerm]);
 
-    // Sort by deadline descending (latest first)
-    tasks.sort((a, b) => {
-      const dateA = (a as any).deadline ? new Date((a as any).deadline).getTime() : 0;
-      const dateB = (b as any).deadline ? new Date((b as any).deadline).getTime() : 0;
-      
-      if (dateB !== dateA) {
-        return dateB - dateA;
-      }
-      
-      // Secondary sort by id descending (assuming newer tasks have larger IDs)
-      return String((b as any).id).localeCompare(String((a as any).id));
-    });
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, limit]);
 
-    if (searchTerm) {
-      const lowerTerm = searchTerm.toLowerCase();
-      tasks = tasks.filter(hw =>
-        (hw.title || '').toLowerCase().includes(lowerTerm) ||
-        (hw.subject || '').toLowerCase().includes(lowerTerm) ||
-        (hw.description || '').toLowerCase().includes(lowerTerm)
-      );
+  const loadHomework = useCallback(async () => {
+    setListLoading(true);
+    setListError(null);
+    try {
+      const data = await fetchAdminJson<AdminListResult<HomeworkRow>>('adminHomeworkList', {
+        page,
+        limit,
+        q: debouncedSearch || undefined,
+      });
+      setHomework(data.items || []);
+      setTotal(data.total || 0);
+    } catch (e: any) {
+      setListError(e.message || 'Failed to load homework');
+      setHomework([]);
+      setTotal(0);
+    } finally {
+      setListLoading(false);
     }
+  }, [page, limit, debouncedSearch]);
 
-    return tasks;
-  }, [allHomework, searchTerm]);
+  useEffect(() => {
+    void loadHomework();
+  }, [loadHomework]);
 
   const handleOpenSummaryPreview = async () => {
     setIsLoadingPreview(true);
@@ -329,9 +352,14 @@ export default function KanbanEditor() {
         />
 
         <div style={{ overflowX: 'auto' }}>
-          {isMobile ? (
+          {listError && (
+            <div style={{ padding: '1rem', color: '#f87171', marginBottom: '0.5rem' }}>{listError}</div>
+          )}
+          {listLoading && homework.length === 0 ? (
+            <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--admin-text-muted)' }}>Loading…</div>
+          ) : isMobile ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {filteredHomework.map((hw) => (
+              {homework.map((hw) => (
                 <div key={hw.id} style={{ 
                   background: 'rgba(255, 255, 255, 0.03)', 
                   border: '1px solid var(--admin-border)', 
@@ -379,7 +407,7 @@ export default function KanbanEditor() {
                   </button>
                 </div>
               ))}
-              {filteredHomework.length === 0 && (
+              {homework.length === 0 && (
                 <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--admin-text-muted)' }}>
                   No tasks found matching your search.
                 </div>
@@ -397,7 +425,7 @@ export default function KanbanEditor() {
                 </tr>
               </thead>
               <tbody>
-                {filteredHomework.map((hw) => (
+                {homework.map((hw) => (
                   <tr key={hw.id} style={{ borderBottom: '1px solid var(--admin-border)' }}>
                     <td style={{ padding: '1rem' }}>
                       <span style={{ 
@@ -440,7 +468,7 @@ export default function KanbanEditor() {
                     </td>
                   </tr>
                 ))}
-                {filteredHomework.length === 0 && (
+                {homework.length === 0 && (
                   <tr>
                     <td colSpan={5} style={{ padding: '2rem', textAlign: 'center', color: 'var(--admin-text-muted)' }}>
                       No tasks found matching your search.
@@ -451,13 +479,21 @@ export default function KanbanEditor() {
             </table>
           )}
         </div>
+        <AdminPagination
+          page={page}
+          limit={limit}
+          total={total}
+          disabled={listLoading}
+          onPageChange={setPage}
+          onLimitChange={setLimit}
+        />
       </div>
 
       {editingHomework && (
         <EditHomeworkModal
           homework={editingHomework}
           onClose={() => setEditingHomework(null)}
-          onRefresh={refreshData}
+          onRefresh={loadHomework}
         />
       )}
     </div>

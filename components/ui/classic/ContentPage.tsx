@@ -14,6 +14,8 @@ import { parseAudioItems } from '@/lib/audioItems';
 import { getContentTxtUrl } from '@/lib/contentJsonUrl';
 import { parseContentDescription } from '@/lib/parseContentDescription';
 import { subjectBadgeStyle } from '@/lib/colors';
+import { API_URL } from '@/lib/config';
+import { authHeaders } from '@/lib/auth';
 
 const SUBJECT_COLORS: Record<string, string> = {
   'Math': '#6366f1',
@@ -24,6 +26,24 @@ const SUBJECT_COLORS: Record<string, string> = {
   'Computer': '#8b5cf6',
   'Other': '#94a3b8'
 };
+
+function monthKey(d: Date) {
+  return d.getFullYear() * 12 + d.getMonth();
+}
+
+function getArchiveMonthBounds(now = new Date()) {
+  const min = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const max = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  return { min, max };
+}
+
+function clampToArchiveMonth(d: Date, now = new Date()) {
+  const { min, max } = getArchiveMonthBounds(now);
+  const key = monthKey(d);
+  if (key < monthKey(min)) return new Date(min);
+  if (key > monthKey(max)) return new Date(max);
+  return new Date(d.getFullYear(), d.getMonth(), 1);
+}
 
 type LearningContent = {
   id: string;
@@ -57,6 +77,7 @@ export default function LearningContentPage() {
   const [mounted, setMounted] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [copiedAiLink, setCopiedAiLink] = useState(false);
+  const [fetchedContent, setFetchedContent] = useState<LearningContent | null>(null);
   const { isMobile } = useDeviceDetection();
 
   // --- HASH ROUTING ---
@@ -66,19 +87,47 @@ export default function LearningContentPage() {
       const params = new URLSearchParams(hash.split('?')[1]);
       const id = params.get('id');
       if (id) {
-        const found = learningContent.find((c: LearningContent) => c.id === id);
+        const found =
+          learningContent.find((c: LearningContent) => c.id === id) ||
+          (fetchedContent?.id === id ? fetchedContent : null);
         if (found) {
           setActiveContent(found);
           logEvent('check_content', { content_id: id });
           setView('detail');
           return;
         }
+
+        void (async () => {
+          try {
+            const res = await fetch(
+              `${API_URL}?action=learningContent&id=${encodeURIComponent(id)}`,
+              { headers: authHeaders() }
+            );
+            const data = await res.json();
+            const items = data?.data;
+            const item = Array.isArray(items) ? items[0] : null;
+            if (item) {
+              setFetchedContent(item);
+              setActiveContent(item);
+              logEvent('check_content', { content_id: id });
+              setView('detail');
+              return;
+            }
+          } catch {
+            // fall through to calendar
+          }
+          setView('calendar');
+          setActiveContent(null);
+          setIsExportOpen(false);
+        })();
+        return;
       }
     }
     setView('calendar');
     setActiveContent(null);
+    setFetchedContent(null);
     setIsExportOpen(false);
-  }, [learningContent, logEvent]);
+  }, [learningContent, fetchedContent, logEvent]);
 
   useEffect(() => {
     setMounted(true);
@@ -207,6 +256,16 @@ export default function LearningContentPage() {
 
   const isSearching = searchTerm.trim() || selectedSubject !== 'All';
   const getContentHref = useCallback((id: string) => `#/view?id=${encodeURIComponent(id)}`, []);
+  const archiveBounds = useMemo(() => getArchiveMonthBounds(), []);
+  const canGoPrevMonth = monthKey(currentMonth) > monthKey(archiveBounds.min);
+  const canGoNextMonth = monthKey(currentMonth) < monthKey(archiveBounds.max);
+
+  const shiftArchiveMonth = useCallback((delta: number) => {
+    setCurrentMonth((prev) => {
+      const next = new Date(prev.getFullYear(), prev.getMonth() + delta, 1);
+      return clampToArchiveMonth(next);
+    });
+  }, []);
 
   const copyAiLink = useCallback(async (id: string) => {
     const url = getContentTxtUrl(id);
@@ -511,9 +570,29 @@ export default function LearningContentPage() {
                       {mounted && currentMonth.toLocaleDateString('th-TH', { month: 'long', year: 'numeric' })}
                     </h2>
                     <div className="flex gap-2 bg-white/50 p-1 rounded-xl border border-slate-200/60 shadow-sm">
-                      <button onClick={() => setCurrentMonth(new Date(currentMonth.setMonth(currentMonth.getMonth() - 1)))} className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-slate-800 transition-colors text-lg">←</button>
-                      <button onClick={() => setCurrentMonth(new Date())} className="px-4 text-[10px] font-bold uppercase tracking-widest text-sky-600 hover:text-sky-700">Today</button>
-                      <button onClick={() => setCurrentMonth(new Date(currentMonth.setMonth(currentMonth.getMonth() + 1)))} className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-slate-800 transition-colors text-lg">→</button>
+                      <button
+                        type="button"
+                        disabled={!canGoPrevMonth}
+                        onClick={() => shiftArchiveMonth(-1)}
+                        className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-slate-800 transition-colors text-lg disabled:opacity-30 disabled:cursor-not-allowed"
+                      >
+                        ←
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCurrentMonth(clampToArchiveMonth(new Date()))}
+                        className="px-4 text-[10px] font-bold uppercase tracking-widest text-sky-600 hover:text-sky-700"
+                      >
+                        Today
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!canGoNextMonth}
+                        onClick={() => shiftArchiveMonth(1)}
+                        className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-slate-800 transition-colors text-lg disabled:opacity-30 disabled:cursor-not-allowed"
+                      >
+                        →
+                      </button>
                     </div>
                   </div>
 

@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useData } from '@/components/DataProvider';
 import CreateContentModal from '@/components/CreateContentModal';
 import EditContentModal from '@/components/EditContentModal';
-import MarkdownRenderer from '@/components/MarkdownRenderer';
 import { useDeviceDetection } from '@/hooks/useDeviceDetection';
+import AdminPagination from '@/components/admin/AdminPagination';
+import { fetchAdminJson, type AdminListResult, type AdminPageSize } from '@/lib/adminList';
 
 type LearningContent = {
   id: string;
@@ -127,36 +128,56 @@ const ContentItem = React.memo(({ item, subjects, onEdit, isMobile }: { item: Le
 ContentItem.displayName = 'ContentItem';
 
 export default function ContentArchiveEditor() {
-  const { learningContent, isLoading, refreshData, subjects } = useData();
+  const { subjects } = useData();
+  const [items, setItems] = useState<LearningContent[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState<AdminPageSize>(20);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [subjectFilter, setSubjectFilter] = useState('All');
+  const [listLoading, setListLoading] = useState(true);
+  const [listError, setListError] = useState<string | null>(null);
   const [activeModal, setActiveModal] = useState<{ type: 'create' | 'edit', content?: any } | null>(null);
   const { isMobile } = useDeviceDetection();
 
-  const filteredContent = useMemo(() => {
-    const term = searchTerm.toLowerCase().trim();
-    const subFilter = subjectFilter.trim().toLowerCase();
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedSearch(searchTerm.trim()), 300);
+    return () => window.clearTimeout(t);
+  }, [searchTerm]);
 
-    return learningContent.filter((item: LearningContent) => {
-      // Filter by dropdown subject first (most efficient)
-      const matchesSubjectFilter = subFilter === 'all' || item.subject.trim().toLowerCase() === subFilter;
-      if (!matchesSubjectFilter) return false;
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, subjectFilter, limit]);
 
-      // Search by term
-      if (!term) return true;
+  const loadContent = useCallback(async () => {
+    setListLoading(true);
+    setListError(null);
+    try {
+      const data = await fetchAdminJson<AdminListResult<LearningContent>>('adminContentList', {
+        page,
+        limit,
+        q: debouncedSearch || undefined,
+        subject: subjectFilter !== 'All' ? subjectFilter : undefined,
+      });
+      setItems(data.items || []);
+      setTotal(data.total || 0);
+    } catch (e: any) {
+      setListError(e.message || 'Failed to load content');
+      setItems([]);
+      setTotal(0);
+    } finally {
+      setListLoading(false);
+    }
+  }, [page, limit, debouncedSearch, subjectFilter]);
 
-      return (
-        item.title.toLowerCase().includes(term) || 
-        item.description.toLowerCase().includes(term) ||
-        item.id.toLowerCase().includes(term) ||
-        item.subject.toLowerCase().includes(term)
-      );
-    }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [learningContent, searchTerm, subjectFilter]);
+  useEffect(() => {
+    void loadContent();
+  }, [loadContent]);
 
   const filterSubjects = ['All', ...subjects.map(s => s.name), 'Other'];
 
-  if (isLoading && learningContent.length === 0) {
+  if (listLoading && items.length === 0) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
         <div className="loader"></div>
@@ -180,7 +201,6 @@ export default function ContentArchiveEditor() {
         </button>
       </header>
 
-      {/* Filters and Search */}
       <div className="admin-card" style={{ marginBottom: '2rem', padding: '1.25rem' }}>
         <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: '250px' }}>
@@ -209,12 +229,15 @@ export default function ContentArchiveEditor() {
         </div>
       </div>
 
-      {/* Content List */}
+      {listError && (
+        <div style={{ color: '#f87171', marginBottom: '1rem' }}>{listError}</div>
+      )}
+
       <div className="admin-card" style={{ padding: isMobile ? '1rem' : 0, overflow: 'hidden' }}>
         {isMobile ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {filteredContent.length > 0 ? (
-              filteredContent.map((item: LearningContent) => (
+            {items.length > 0 ? (
+              items.map((item: LearningContent) => (
                 <ContentItem 
                   key={item.id} 
                   item={item} 
@@ -241,8 +264,8 @@ export default function ContentArchiveEditor() {
               </tr>
             </thead>
             <tbody>
-              {filteredContent.length > 0 ? (
-                filteredContent.map((item: LearningContent) => (
+              {items.length > 0 ? (
+                items.map((item: LearningContent) => (
                   <ContentItem 
                     key={item.id} 
                     item={item} 
@@ -262,20 +285,29 @@ export default function ContentArchiveEditor() {
             </tbody>
           </table>
         )}
+        <div style={{ padding: isMobile ? 0 : '0 1.25rem 1rem' }}>
+          <AdminPagination
+            page={page}
+            limit={limit}
+            total={total}
+            disabled={listLoading}
+            onPageChange={setPage}
+            onLimitChange={setLimit}
+          />
+        </div>
       </div>
 
-      {/* Modals */}
       {activeModal?.type === 'create' && (
         <CreateContentModal 
           onClose={() => setActiveModal(null)} 
-          onRefresh={refreshData} 
+          onRefresh={loadContent} 
         />
       )}
       {activeModal?.type === 'edit' && (
         <EditContentModal 
           content={activeModal.content} 
           onClose={() => setActiveModal(null)} 
-          onRefresh={refreshData} 
+          onRefresh={loadContent} 
         />
       )}
     </div>

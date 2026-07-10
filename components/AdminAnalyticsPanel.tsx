@@ -21,6 +21,8 @@ import {
   type AnalyticsRow as DashboardRow,
 } from '@/lib/analytics-dashboard';
 import AnalyticsOverview from '@/components/AnalyticsOverview';
+import { fetchAdminJson } from '@/lib/adminList';
+import type { AnalyticsIpNoteRow } from '@/components/DataProvider';
 
 export type AnalyticsRow = {
   id: string;
@@ -650,12 +652,41 @@ const saveBtnStyle: React.CSSProperties = {
 
 // ---- Main Panel ----
 
-export default function AdminAnalyticsPanel({ analytics }: { analytics: AnalyticsRow[] }) {
-  const { analyticsIpNotes, saveAnalyticsIpNote, learningContent, allHomework } = useData();
+export default function AdminAnalyticsPanel() {
+  const { saveAnalyticsIpNote, learningContent, allHomework } = useData();
+  const [analytics, setAnalytics] = useState<AnalyticsRow[]>([]);
+  const [analyticsIpNotes, setAnalyticsIpNotes] = useState<AnalyticsIpNoteRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'visitors'>('overview');
   const [selectedVisitorId, setSelectedVisitorId] = useState<string | null>(null);
   const [range, setRange] = useState<DateRangeDays>(7);
   const [search, setSearch] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await fetchAdminJson<{ analytics: AnalyticsRow[]; analyticsIpNotes: AnalyticsIpNoteRow[] }>('adminAnalytics');
+        if (cancelled) return;
+        setAnalytics(data.analytics || []);
+        setAnalyticsIpNotes(data.analyticsIpNotes || []);
+      } catch (e: any) {
+        if (!cancelled) setError(e.message || 'Failed to load analytics');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const handleSaveNote = async (ip: string, name: string, note: string) => {
+    await saveAnalyticsIpNote(ip, name, note);
+    const data = await fetchAdminJson<{ analyticsIpNotes: AnalyticsIpNoteRow[] }>('adminAnalytics');
+    setAnalyticsIpNotes(data.analyticsIpNotes || []);
+  };
 
   const ipNotes = useMemo(() => ipNotesToMap(analyticsIpNotes), [analyticsIpNotes]);
   const filtered = useMemo(() => filterAnalytics(analytics as DashboardRow[], range), [analytics, range]);
@@ -701,6 +732,20 @@ export default function AdminAnalyticsPanel({ analytics }: { analytics: Analytic
     { value: 30, label: '30 วัน' },
     { value: 'month', label: 'เดือนนี้' },
   ];
+
+  if (loading) {
+    return (
+      <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--admin-text-muted)' }}>
+        Loading analytics…
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={{ padding: '2rem', color: '#f87171' }}>{error}</div>
+    );
+  }
 
   return (
     <div>
@@ -833,7 +878,7 @@ export default function AdminAnalyticsPanel({ analytics }: { analytics: Analytic
           ipNotes={ipNotes}
           resourceLookups={resourceLookups}
           onClose={() => setSelectedVisitorId(null)}
-          onSaveNote={saveAnalyticsIpNote}
+          onSaveNote={handleSaveNote}
         />
       )}
     </div>

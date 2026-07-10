@@ -1106,6 +1106,54 @@ async function getAnalytics(env: Bindings) {
   }
 }
 
+function startOfLocalDay(d: Date) {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+function getThreeMonthWindow(now = new Date()) {
+  const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(now.getFullYear(), now.getMonth() + 2, 0);
+  end.setHours(23, 59, 59, 999);
+  return { start, end };
+}
+
+function filterHomeworkFromToday(homework: any[]) {
+  const today = startOfLocalDay(new Date());
+  return homework.filter((hw) => {
+    const deadline = startOfLocalDay(new Date(hw.deadline));
+    return !Number.isNaN(deadline.getTime()) && deadline.getTime() >= today.getTime();
+  });
+}
+
+function filterLearningContentThreeMonths(items: any[]) {
+  const { start, end } = getThreeMonthWindow();
+  return items.filter((item) => {
+    const d = new Date(item.date);
+    return !Number.isNaN(d.getTime()) && d.getTime() >= start.getTime() && d.getTime() <= end.getTime();
+  });
+}
+
+function parsePageLimit(pageRaw?: string, limitRaw?: string) {
+  const page = Math.max(1, parseInt(String(pageRaw || '1'), 10) || 1);
+  const parsedLimit = parseInt(String(limitRaw || '20'), 10) || 20;
+  const limit = parsedLimit === 50 ? 50 : 20;
+  return { page, limit };
+}
+
+function paginateItems<T>(items: T[], page: number, limit: number) {
+  const total = items.length;
+  const start = (page - 1) * limit;
+  return {
+    items: items.slice(start, start + limit),
+    total,
+    page,
+    limit,
+  };
+}
+
 // --- TELEGRAM PROXY (Ported from google-apps-script-download.js) ---
 
 async function uploadToTelegram(env: Bindings, blob: Blob, filename: string, contentType: string) {
@@ -1832,12 +1880,10 @@ app.get('/', async (c) => {
         const [
           audioPermissions,
           learningContentRaw,
-          homework,
+          homeworkRaw,
           users,
           progress,
           subjects,
-          analytics,
-          analyticsIpNotes,
           aiChatLogs,
         ] = await Promise.all([
           getAudioPermissions(c.env),
@@ -1846,23 +1892,23 @@ app.get('/', async (c) => {
           getUserList(c.env),
           getAllProgress(c.env),
           getSubjects(c.env),
-          getAnalytics(c.env),
-          getAnalyticsIpNotes(c.env),
           admin ? getAiChatLogs(c.env) : Promise.resolve([]),
         ]);
         const audioLevel = resolveAudioAccessLevel(email, audioPermissions, isAdminEmail);
         const learningContent = sanitizeLearningContentList(
-          filterPrivateLearningContent(learningContentRaw, email),
+          filterLearningContentThreeMonths(
+            filterPrivateLearningContent(learningContentRaw, email)
+          ),
           audioLevel
         );
         result = {
-          homework,
+          homework: filterHomeworkFromToday(homeworkRaw),
           users,
           progress,
           learningContent,
           subjects,
-          analytics,
-          analyticsIpNotes,
+          analytics: [],
+          analyticsIpNotes: [],
           audioAccessGranted: audioLevel !== 'none',
           ...(admin ? {
             audioPermissions,
@@ -1875,6 +1921,83 @@ app.get('/', async (c) => {
       // --- Requires admin ---
       case "allProgress": await requireAdmin(c); result = await getAllProgress(c.env); break;
       case "users": await requireAdmin(c); result = await getUserList(c.env); break;
+      case "adminHomeworkList": {
+        await requireAdmin(c);
+        const { page, limit } = parsePageLimit(c.req.query('page'), c.req.query('limit'));
+        const q = String(c.req.query('q') || '').toLowerCase().trim();
+        let tasks = await getHomeworkList(c.env);
+        tasks.sort((a: any, b: any) => {
+          const dateA = a.deadline ? new Date(a.deadline).getTime() : 0;
+          const dateB = b.deadline ? new Date(b.deadline).getTime() : 0;
+          if (dateB !== dateA) return dateB - dateA;
+          return String(b.id).localeCompare(String(a.id));
+        });
+        if (q) {
+          tasks = tasks.filter((hw: any) =>
+            String(hw.title || '').toLowerCase().includes(q) ||
+            String(hw.subject || '').toLowerCase().includes(q) ||
+            String(hw.description || '').toLowerCase().includes(q) ||
+            String(hw.id || '').toLowerCase().includes(q)
+          );
+        }
+        result = paginateItems(tasks, page, limit);
+        break;
+      }
+      case "adminContentList": {
+        await requireAdmin(c);
+        const { page, limit } = parsePageLimit(c.req.query('page'), c.req.query('limit'));
+        const q = String(c.req.query('q') || '').toLowerCase().trim();
+        const subject = String(c.req.query('subject') || '').trim();
+        let items = await getLearningContent(c.env);
+        items.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        if (subject && subject.toLowerCase() !== 'all') {
+          items = items.filter((item: any) =>
+            String(item.subject || '').trim().toLowerCase() === subject.toLowerCase()
+          );
+        }
+        if (q) {
+          items = items.filter((item: any) =>
+            String(item.title || '').toLowerCase().includes(q) ||
+            String(item.description || '').toLowerCase().includes(q) ||
+            String(item.id || '').toLowerCase().includes(q) ||
+            String(item.subject || '').toLowerCase().includes(q)
+          );
+        }
+        result = paginateItems(items, page, limit);
+        break;
+      }
+      case "adminDashboard": {
+        await requireAdmin(c);
+        const [homework, users, progress, learningContent] = await Promise.all([
+          getHomeworkList(c.env),
+          getUserList(c.env),
+          getAllProgress(c.env),
+          getLearningContent(c.env),
+        ]);
+        const today = startOfLocalDay(new Date());
+        const next7Days = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+        const upcomingDeadlines = homework.filter((hw: any) => {
+          const deadline = startOfLocalDay(new Date(hw.deadline));
+          return !Number.isNaN(deadline.getTime()) && deadline >= today && deadline <= next7Days;
+        }).length;
+        result = {
+          totalUsers: users.length,
+          activeTasks: homework.length,
+          totalContent: learningContent.length,
+          upcomingDeadlines,
+          recentActivity: progress.slice(-5).reverse(),
+        };
+        break;
+      }
+      case "adminAnalytics": {
+        await requireAdmin(c);
+        const [analytics, analyticsIpNotes] = await Promise.all([
+          getAnalytics(c.env),
+          getAnalyticsIpNotes(c.env),
+        ]);
+        result = { analytics, analyticsIpNotes };
+        break;
+      }
       case "dailySummary": {
         await requireAdmin(c);
         const summary = await generateDailySummary(c.env, c.req.query('date'));
@@ -1889,7 +2012,7 @@ app.get('/', async (c) => {
 
       default: return c.json({ success: false, error: "unknown action: " + action }, 400);
     }
-    return c.json({ success: true, ...result, data: result });
+    return c.json({ success: true, data: result });
   } catch (err: any) {
     const status = err.message === 'Authentication required' ? 401
       : err.message === 'Admin access required' ? 403
