@@ -1016,11 +1016,21 @@ async function getHomeworkWithProgress(env: Bindings, email: string) {
   return homework.map((hw: any) => ({ ...hw, my_status: progressMap[hw.id] || "pending" }));
 }
 
-async function getLearningContent(env: Bindings, date?: string, id?: string) {
+async function getLearningContent(env: Bindings, date?: string, id?: string, month?: string) {
   const rows = await getSheetValues(env, `${SHEETS.LEARNING_CONTENT}!A2:K`);
   const data = toObjects(rows, ["id", "date", "subject", "title", "description", "audio_file_id", "audio_url", "attachments", "links", "is_private", "created_at"]);
 
   if (id) return data.filter((item: any) => String(item.id) === String(id));
+  if (month) {
+    const match = String(month).match(/^(\d{4})-(\d{1,2})$/);
+    if (!match) return [];
+    const year = Number(match[1]);
+    const monthIndex = Number(match[2]) - 1;
+    return data.filter((item: any) => {
+      const itemDate = new Date(item.date);
+      return itemDate.getFullYear() === year && itemDate.getMonth() === monthIndex;
+    });
+  }
   if (date) {
     const filterDate = new Date(date);
     return data.filter((item: any) => {
@@ -1859,7 +1869,12 @@ app.get('/', async (c) => {
       case "learningContent": {
         const email = await optionalAuth(c);
         const raw = filterPrivateLearningContent(
-          await getLearningContent(c.env, c.req.query('date'), c.req.query('id')),
+          await getLearningContent(
+            c.env,
+            c.req.query('date'),
+            c.req.query('id'),
+            c.req.query('month')
+          ),
           email
         );
         const level = await resolveAudioAccess(c.env, email);

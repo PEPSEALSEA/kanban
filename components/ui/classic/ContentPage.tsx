@@ -31,18 +31,15 @@ function monthKey(d: Date) {
   return d.getFullYear() * 12 + d.getMonth();
 }
 
-function getArchiveMonthBounds(now = new Date()) {
-  const min = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const max = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-  return { min, max };
+function monthCacheKey(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
 
-function clampToArchiveMonth(d: Date, now = new Date()) {
-  const { min, max } = getArchiveMonthBounds(now);
+function isInPreloadWindow(d: Date, now = new Date()) {
   const key = monthKey(d);
-  if (key < monthKey(min)) return new Date(min);
-  if (key > monthKey(max)) return new Date(max);
-  return new Date(d.getFullYear(), d.getMonth(), 1);
+  const min = monthKey(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+  const max = monthKey(new Date(now.getFullYear(), now.getMonth() + 1, 1));
+  return key >= min && key <= max;
 }
 
 type LearningContent = {
@@ -78,7 +75,19 @@ export default function LearningContentPage() {
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [copiedAiLink, setCopiedAiLink] = useState(false);
   const [fetchedContent, setFetchedContent] = useState<LearningContent | null>(null);
+  const [extraByMonth, setExtraByMonth] = useState<Record<string, LearningContent[]>>({});
+  const [loadingMonth, setLoadingMonth] = useState(false);
   const { isMobile } = useDeviceDetection();
+
+  const archiveContent = useMemo(() => {
+    const map = new Map<string, LearningContent>();
+    for (const item of learningContent) map.set(item.id, item);
+    for (const items of Object.values(extraByMonth)) {
+      for (const item of items) map.set(item.id, item);
+    }
+    if (fetchedContent) map.set(fetchedContent.id, fetchedContent);
+    return Array.from(map.values());
+  }, [learningContent, extraByMonth, fetchedContent]);
 
   // --- HASH ROUTING ---
   const handleHashChange = useCallback(() => {
@@ -88,7 +97,7 @@ export default function LearningContentPage() {
       const id = params.get('id');
       if (id) {
         const found =
-          learningContent.find((c: LearningContent) => c.id === id) ||
+          archiveContent.find((c: LearningContent) => c.id === id) ||
           (fetchedContent?.id === id ? fetchedContent : null);
         if (found) {
           setActiveContent(found);
@@ -127,7 +136,7 @@ export default function LearningContentPage() {
     setActiveContent(null);
     setFetchedContent(null);
     setIsExportOpen(false);
-  }, [learningContent, fetchedContent, logEvent]);
+  }, [archiveContent, fetchedContent, logEvent]);
 
   useEffect(() => {
     setMounted(true);
@@ -164,7 +173,7 @@ export default function LearningContentPage() {
 
   const getContentsForDate = (day: number, month: number, year: number) => {
     const d = new Date(year, month, day);
-    return learningContent.filter((c: LearningContent) => {
+    return archiveContent.filter((c: LearningContent) => {
       const itemDate = new Date(c.date);
       return itemDate.getFullYear() === d.getFullYear() &&
              itemDate.getMonth() === d.getMonth() &&
@@ -183,7 +192,7 @@ export default function LearningContentPage() {
     if (!searchTerm.trim() && selectedSubject === 'All') return [];
     
     const term = searchTerm.toLowerCase().trim();
-    return learningContent.filter((c: LearningContent) => {
+    return archiveContent.filter((c: LearningContent) => {
       const matchesSearch = !term || 
         c.title.toLowerCase().includes(term) || 
         c.subject.toLowerCase().includes(term) || 
@@ -204,7 +213,7 @@ export default function LearningContentPage() {
 
       return String(a.id).localeCompare(String(b.id), undefined, { numeric: true });
     });
-  }, [learningContent, searchTerm, selectedSubject]);
+  }, [archiveContent, searchTerm, selectedSubject]);
 
   const memoizedAttachments = useMemo(() => {
     if (!activeContent) return [];
@@ -247,7 +256,7 @@ export default function LearningContentPage() {
     if (!selectedDate) return [];
     const d = new Date(selectedDate);
     return getContentsForDate(d.getDate(), d.getMonth(), d.getFullYear());
-  }, [selectedDate, learningContent]);
+  }, [selectedDate, archiveContent]);
 
   const detailParsed = useMemo(() => {
     if (!activeContent) return { intro: '', cards: [] as { num: string; text: string }[] };
@@ -256,16 +265,42 @@ export default function LearningContentPage() {
 
   const isSearching = searchTerm.trim() || selectedSubject !== 'All';
   const getContentHref = useCallback((id: string) => `#/view?id=${encodeURIComponent(id)}`, []);
-  const archiveBounds = useMemo(() => getArchiveMonthBounds(), []);
-  const canGoPrevMonth = monthKey(currentMonth) > monthKey(archiveBounds.min);
-  const canGoNextMonth = monthKey(currentMonth) < monthKey(archiveBounds.max);
 
   const shiftArchiveMonth = useCallback((delta: number) => {
-    setCurrentMonth((prev) => {
-      const next = new Date(prev.getFullYear(), prev.getMonth() + delta, 1);
-      return clampToArchiveMonth(next);
-    });
+    setCurrentMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + delta, 1));
   }, []);
+
+  useEffect(() => {
+    const key = monthCacheKey(currentMonth);
+    if (isInPreloadWindow(currentMonth)) return;
+    if (extraByMonth[key]) return;
+
+    let cancelled = false;
+    setLoadingMonth(true);
+    void (async () => {
+      try {
+        const res = await fetch(
+          `${API_URL}?action=learningContent&month=${encodeURIComponent(key)}`,
+          { headers: authHeaders() }
+        );
+        const data = await res.json();
+        const items = Array.isArray(data?.data) ? data.data : [];
+        if (!cancelled) {
+          setExtraByMonth((prev) => ({ ...prev, [key]: items }));
+        }
+      } catch {
+        if (!cancelled) {
+          setExtraByMonth((prev) => ({ ...prev, [key]: [] }));
+        }
+      } finally {
+        if (!cancelled) setLoadingMonth(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentMonth, extraByMonth]);
 
   const copyAiLink = useCallback(async (id: string) => {
     const url = getContentTxtUrl(id);
@@ -572,29 +607,33 @@ export default function LearningContentPage() {
                     <div className="flex gap-2 bg-white/50 p-1 rounded-xl border border-slate-200/60 shadow-sm">
                       <button
                         type="button"
-                        disabled={!canGoPrevMonth}
                         onClick={() => shiftArchiveMonth(-1)}
-                        className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-slate-800 transition-colors text-lg disabled:opacity-30 disabled:cursor-not-allowed"
+                        className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-slate-800 transition-colors text-lg"
                       >
                         ←
                       </button>
                       <button
                         type="button"
-                        onClick={() => setCurrentMonth(clampToArchiveMonth(new Date()))}
+                        onClick={() => setCurrentMonth(new Date(new Date().getFullYear(), new Date().getMonth(), 1))}
                         className="px-4 text-[10px] font-bold uppercase tracking-widest text-sky-600 hover:text-sky-700"
                       >
                         Today
                       </button>
                       <button
                         type="button"
-                        disabled={!canGoNextMonth}
                         onClick={() => shiftArchiveMonth(1)}
-                        className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-slate-800 transition-colors text-lg disabled:opacity-30 disabled:cursor-not-allowed"
+                        className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-slate-800 transition-colors text-lg"
                       >
                         →
                       </button>
                     </div>
                   </div>
+
+                  {loadingMonth && (
+                    <div className="mb-4 text-center text-xs font-semibold uppercase tracking-widest text-slate-400">
+                      Loading month…
+                    </div>
+                  )}
 
                   <div className="calendar-grid calendar-grid--archive">
                     {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map(d => (
