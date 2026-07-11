@@ -76,7 +76,9 @@ export default function LearningContentPage() {
   const [copiedAiLink, setCopiedAiLink] = useState(false);
   const [fetchedContent, setFetchedContent] = useState<LearningContent | null>(null);
   const [extraByMonth, setExtraByMonth] = useState<Record<string, LearningContent[]>>({});
+  const [subjectCache, setSubjectCache] = useState<Record<string, LearningContent[]>>({});
   const [loadingMonth, setLoadingMonth] = useState(false);
+  const [loadingSubject, setLoadingSubject] = useState(false);
   const { isMobile } = useDeviceDetection();
 
   const archiveContent = useMemo(() => {
@@ -85,9 +87,12 @@ export default function LearningContentPage() {
     for (const items of Object.values(extraByMonth)) {
       for (const item of items) map.set(item.id, item);
     }
+    for (const items of Object.values(subjectCache)) {
+      for (const item of items) map.set(item.id, item);
+    }
     if (fetchedContent) map.set(fetchedContent.id, fetchedContent);
     return Array.from(map.values());
-  }, [learningContent, extraByMonth, fetchedContent]);
+  }, [learningContent, extraByMonth, subjectCache, fetchedContent]);
 
   // --- HASH ROUTING ---
   const handleHashChange = useCallback(() => {
@@ -190,9 +195,15 @@ export default function LearningContentPage() {
 
   const searchResults = useMemo(() => {
     if (!searchTerm.trim() && selectedSubject === 'All') return [];
-    
+
+    const subjectKey = selectedSubject.trim();
+    const pool =
+      selectedSubject !== 'All' && subjectCache[subjectKey]
+        ? subjectCache[subjectKey]
+        : archiveContent;
+
     const term = searchTerm.toLowerCase().trim();
-    return archiveContent.filter((c: LearningContent) => {
+    return pool.filter((c: LearningContent) => {
       const matchesSearch = !term || 
         c.title.toLowerCase().includes(term) || 
         c.subject.toLowerCase().includes(term) || 
@@ -205,7 +216,7 @@ export default function LearningContentPage() {
     }).sort((a, b) => {
       const dateA = new Date(a.date).getTime();
       const dateB = new Date(b.date).getTime();
-      if (dateA !== dateB) return dateB - dateA; // Newest first
+      if (dateA !== dateB) return dateB - dateA;
 
       const subA = (a.subject || '').toLowerCase();
       const subB = (b.subject || '').toLowerCase();
@@ -213,7 +224,7 @@ export default function LearningContentPage() {
 
       return String(a.id).localeCompare(String(b.id), undefined, { numeric: true });
     });
-  }, [archiveContent, searchTerm, selectedSubject]);
+  }, [archiveContent, subjectCache, searchTerm, selectedSubject]);
 
   const memoizedAttachments = useMemo(() => {
     if (!activeContent) return [];
@@ -301,6 +312,42 @@ export default function LearningContentPage() {
       cancelled = true;
     };
   }, [currentMonth, extraByMonth]);
+
+  useEffect(() => {
+    if (selectedSubject === 'All') {
+      setLoadingSubject(false);
+      return;
+    }
+
+    const key = selectedSubject.trim();
+    if (!key || subjectCache[key]) return;
+
+    let cancelled = false;
+    setLoadingSubject(true);
+    void (async () => {
+      try {
+        const res = await fetch(
+          `${API_URL}?action=learningContent&subject=${encodeURIComponent(key)}`,
+          { headers: authHeaders() }
+        );
+        const data = await res.json();
+        const items = Array.isArray(data?.data) ? data.data : [];
+        if (!cancelled) {
+          setSubjectCache((prev) => ({ ...prev, [key]: items }));
+        }
+      } catch {
+        if (!cancelled) {
+          setSubjectCache((prev) => ({ ...prev, [key]: [] }));
+        }
+      } finally {
+        if (!cancelled) setLoadingSubject(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedSubject, subjectCache]);
 
   const copyAiLink = useCallback(async (id: string) => {
     const url = getContentTxtUrl(id);
@@ -547,7 +594,11 @@ export default function LearningContentPage() {
                     </div>
 
                     <div className="space-y-3 max-h-[calc(100vh-22rem)] overflow-y-auto pr-1 -mr-1">
-                    {searchResults.length > 0 ? (
+                    {loadingSubject && selectedSubject !== 'All' && !subjectCache[selectedSubject.trim()] ? (
+                      <div className="p-16 text-center text-xs font-semibold uppercase tracking-widest text-slate-400">
+                        Loading {selectedSubject}…
+                      </div>
+                    ) : searchResults.length > 0 ? (
                       searchResults.map((c: LearningContent, idx) => (
                         <motion.a
                           key={c.id}

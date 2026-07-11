@@ -1016,7 +1016,13 @@ async function getHomeworkWithProgress(env: Bindings, email: string) {
   return homework.map((hw: any) => ({ ...hw, my_status: progressMap[hw.id] || "pending" }));
 }
 
-async function getLearningContent(env: Bindings, date?: string, id?: string, month?: string) {
+async function getLearningContent(
+  env: Bindings,
+  date?: string,
+  id?: string,
+  month?: string,
+  subject?: string
+) {
   const rows = await getSheetValues(env, `${SHEETS.LEARNING_CONTENT}!A2:K`);
   const data = toObjects(rows, ["id", "date", "subject", "title", "description", "audio_file_id", "audio_url", "attachments", "links", "is_private", "created_at"]);
 
@@ -1030,6 +1036,11 @@ async function getLearningContent(env: Bindings, date?: string, id?: string, mon
       const itemDate = new Date(item.date);
       return itemDate.getFullYear() === year && itemDate.getMonth() === monthIndex;
     });
+  }
+  if (subject) {
+    const subjectKey = String(subject).trim().toLowerCase();
+    if (!subjectKey || subjectKey === 'all') return data;
+    return data.filter((item: any) => String(item.subject || '').trim().toLowerCase() === subjectKey);
   }
   if (date) {
     const filterDate = new Date(date);
@@ -1873,7 +1884,8 @@ app.get('/', async (c) => {
             c.env,
             c.req.query('date'),
             c.req.query('id'),
-            c.req.query('month')
+            c.req.query('month'),
+            c.req.query('subject')
           ),
           email
         );
