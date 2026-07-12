@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 
 import { API_URL } from '@/lib/config';
 import { isAdminEmail } from '@/lib/admin';
@@ -121,6 +121,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [isSyncing, setIsSyncing] = useState(false);
   const [readyForAutoLogin, setReadyForAutoLogin] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const refreshInFlightRef = useRef<Promise<void> | null>(null);
 
   // Restore user only when a valid Google ID token exists (localStorage).
   // homework_user alone is not enough — token expires after ~55 minutes.
@@ -159,45 +160,53 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const refreshData = useCallback(async () => {
-    setIsSyncing(true);
-    setError(null);
-    try {
-      const res = await fetch(`${GAS_WEB_APP_URL}?action=batchData`, { headers: authHeaders() });
-      if (!res.ok) throw new Error("Cloud synchronization failed");
-      const data = (await res.json()) as any;
-      
-      if (data.success) {
-        const payload = data.data;
-        if (!payload) throw new Error("API returned success but no data payload");
-        
-        setAllHomework(payload.homework || []);
-        setAllUsers(payload.users || []);
-        setAllProgress(payload.progress || []);
-        setLearningContent(payload.learningContent || []);
-        setSubjects(payload.subjects || []);
-        setAnalytics([]);
-        setAnalyticsIpNotes(payload.analyticsIpNotes || []);
-        setAiChatLogs(payload.aiChatLogs || []);
-        setAudioPermissions(payload.audioPermissions || []);
-        setAudioAccessGranted(Boolean(payload.audioAccessGranted));
+    if (refreshInFlightRef.current) return refreshInFlightRef.current;
 
-        const cachePayload = {
-          ...payload,
-          analytics: [],
-          analyticsIpNotes: payload.analyticsIpNotes || [],
-        };
-        localStorage.setItem('studyflow_cache', JSON.stringify(cachePayload));
-      } else {
-        throw new Error(data.error || "Failed to load data");
+    const run = (async () => {
+      setIsSyncing(true);
+      setError(null);
+      try {
+        const res = await fetch(`${GAS_WEB_APP_URL}?action=batchData`, { headers: authHeaders() });
+        if (!res.ok) throw new Error("Cloud synchronization failed");
+        const data = (await res.json()) as any;
+
+        if (data.success) {
+          const payload = data.data;
+          if (!payload) throw new Error("API returned success but no data payload");
+
+          setAllHomework(payload.homework || []);
+          setAllUsers(payload.users || []);
+          setAllProgress(payload.progress || []);
+          setLearningContent(payload.learningContent || []);
+          setSubjects(payload.subjects || []);
+          setAnalytics([]);
+          setAnalyticsIpNotes(payload.analyticsIpNotes || []);
+          setAiChatLogs(payload.aiChatLogs || []);
+          setAudioPermissions(payload.audioPermissions || []);
+          setAudioAccessGranted(Boolean(payload.audioAccessGranted));
+
+          const cachePayload = {
+            ...payload,
+            analytics: [],
+            analyticsIpNotes: payload.analyticsIpNotes || [],
+          };
+          localStorage.setItem('studyflow_cache', JSON.stringify(cachePayload));
+        } else {
+          throw new Error(data.error || "Failed to load data");
+        }
+      } catch (e: any) {
+        console.error(e);
+        setError(e.message);
+      } finally {
+        setIsLoading(false);
+        setIsSyncing(false);
+        setReadyForAutoLogin(true);
+        refreshInFlightRef.current = null;
       }
-    } catch (e: any) {
-      console.error(e);
-      setError(e.message);
-    } finally {
-      setIsLoading(false);
-      setIsSyncing(false);
-      setReadyForAutoLogin(true);
-    }
+    })();
+
+    refreshInFlightRef.current = run;
+    return run;
   }, []);
 
   const saveAnalyticsIpNote = useCallback(async (ip: string, name: string, note: string) => {

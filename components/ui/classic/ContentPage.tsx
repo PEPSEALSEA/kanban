@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useData } from '@/components/DataProvider';
 import AttachmentList from '@/components/AttachmentList';
@@ -75,13 +75,16 @@ export default function LearningContentPage() {
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [copiedAiLink, setCopiedAiLink] = useState(false);
   const [fetchedContent, setFetchedContent] = useState<LearningContent | null>(null);
+  const [viewId, setViewId] = useState<string | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [extraByMonth, setExtraByMonth] = useState<Record<string, LearningContent[]>>({});
   const [subjectCache, setSubjectCache] = useState<Record<string, LearningContent[]>>({});
   const [loadingMonth, setLoadingMonth] = useState(false);
   const [loadingSubject, setLoadingSubject] = useState(false);
+  const loggedViewIdRef = useRef<string | null>(null);
   const { isMobile } = useDeviceDetection();
 
-  const archiveContent = useMemo(() => {
+  const archiveById = useMemo(() => {
     const map = new Map<string, LearningContent>();
     for (const item of learningContent) map.set(item.id, item);
     for (const items of Object.values(extraByMonth)) {
@@ -91,67 +94,96 @@ export default function LearningContentPage() {
       for (const item of items) map.set(item.id, item);
     }
     if (fetchedContent) map.set(fetchedContent.id, fetchedContent);
-    return Array.from(map.values());
+    return map;
   }, [learningContent, extraByMonth, subjectCache, fetchedContent]);
 
+  const archiveContent = useMemo(() => Array.from(archiveById.values()), [archiveById]);
+
   // --- HASH ROUTING ---
-  const handleHashChange = useCallback(() => {
-    const hash = window.location.hash;
-    if (hash.startsWith('#/view')) {
-      const params = new URLSearchParams(hash.split('?')[1]);
-      const id = params.get('id');
-      if (id) {
-        const found =
-          archiveContent.find((c: LearningContent) => c.id === id) ||
-          (fetchedContent?.id === id ? fetchedContent : null);
-        if (found) {
-          setActiveContent(found);
-          logEvent('check_content', { content_id: id });
-          setView('detail');
-          return;
-        }
-
-        void (async () => {
-          try {
-            const res = await fetch(
-              `${API_URL}?action=learningContent&id=${encodeURIComponent(id)}`,
-              { headers: authHeaders() }
-            );
-            const data = await res.json();
-            const items = data?.data;
-            const item = Array.isArray(items) ? items[0] : null;
-            if (item) {
-              setFetchedContent(item);
-              setActiveContent(item);
-              logEvent('check_content', { content_id: id });
-              setView('detail');
-              return;
-            }
-          } catch {
-            // fall through to calendar
-          }
-          setView('calendar');
-          setActiveContent(null);
-          setIsExportOpen(false);
-        })();
-        return;
-      }
-    }
-    setView('calendar');
-    setActiveContent(null);
-    setFetchedContent(null);
-    setIsExportOpen(false);
-  }, [archiveContent, fetchedContent, logEvent]);
-
   useEffect(() => {
     setMounted(true);
-  }, []); 
+  }, []);
 
   useEffect(() => {
-    handleHashChange();
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
-  }, [handleHashChange]);
+    const readHash = () => {
+      const hash = window.location.hash;
+      if (!hash.startsWith('#/view')) {
+        setViewId(null);
+        return;
+      }
+      const id = new URLSearchParams(hash.split('?')[1] || '').get('id');
+      setViewId(id);
+    };
+    readHash();
+    window.addEventListener('hashchange', readHash);
+    return () => window.removeEventListener('hashchange', readHash);
+  }, []);
+
+  useEffect(() => {
+    if (!viewId) {
+      setView('calendar');
+      setActiveContent(null);
+      setFetchedContent(null);
+      setIsExportOpen(false);
+      setDetailLoading(false);
+      loggedViewIdRef.current = null;
+      return;
+    }
+
+    const found = archiveById.get(viewId) || null;
+    if (found) {
+      setActiveContent(found);
+      setView('detail');
+      setDetailLoading(false);
+      if (loggedViewIdRef.current !== viewId) {
+        loggedViewIdRef.current = viewId;
+        logEvent('check_content', { content_id: viewId });
+      }
+      return;
+    }
+
+    let cancelled = false;
+    const controller = new AbortController();
+    setDetailLoading(true);
+
+    void (async () => {
+      try {
+        const res = await fetch(
+          `${API_URL}?action=learningContent&id=${encodeURIComponent(viewId)}`,
+          { headers: authHeaders(), signal: controller.signal }
+        );
+        if (cancelled) return;
+        if (!res.ok) throw new Error(`Failed to load content (${res.status})`);
+        const data = await res.json();
+        const items = data?.data;
+        const item = Array.isArray(items) ? items[0] : null;
+        if (cancelled) return;
+        if (item) {
+          setFetchedContent(item);
+          setActiveContent(item);
+          setView('detail');
+          if (loggedViewIdRef.current !== viewId) {
+            loggedViewIdRef.current = viewId;
+            logEvent('check_content', { content_id: viewId });
+          }
+          return;
+        }
+      } catch (err) {
+        if (cancelled || (err instanceof DOMException && err.name === 'AbortError')) return;
+      } finally {
+        if (!cancelled) setDetailLoading(false);
+      }
+      if (cancelled) return;
+      setView('calendar');
+      setActiveContent(null);
+      setIsExportOpen(false);
+    })();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [viewId, archiveById, logEvent]);
 
   // --- CALENDAR LOGIC ---
   const daysInMonth = useMemo(() => {
@@ -811,7 +843,7 @@ export default function LearningContentPage() {
       )}
 
       <AnimatePresence>
-        {isLoading && (
+        {(isLoading || detailLoading) && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -819,7 +851,9 @@ export default function LearningContentPage() {
             className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[2000] flex flex-col items-center justify-center"
           >
             <div className="loader mb-4" />
-            <p className="font-black uppercase tracking-widest text-white text-xs">Loading Archive...</p>
+            <p className="font-black uppercase tracking-widest text-white text-xs">
+              {detailLoading ? 'Loading Content...' : 'Loading Archive...'}
+            </p>
           </motion.div>
         )}
       </AnimatePresence>

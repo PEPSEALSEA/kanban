@@ -1023,10 +1023,18 @@ async function getLearningContent(
   month?: string,
   subject?: string
 ) {
-  const rows = await getSheetValues(env, `${SHEETS.LEARNING_CONTENT}!A2:K`);
-  const data = toObjects(rows, ["id", "date", "subject", "title", "description", "audio_file_id", "audio_url", "attachments", "links", "is_private", "created_at"]);
+  const headers = ["id", "date", "subject", "title", "description", "audio_file_id", "audio_url", "attachments", "links", "is_private", "created_at"];
 
-  if (id) return data.filter((item: any) => String(item.id) === String(id));
+  if (id) {
+    const rowIndex = await findRowIndexById(env, SHEETS.LEARNING_CONTENT, String(id));
+    if (rowIndex < 0) return [];
+    const rowNum = rowIndex + 1;
+    const rows = await getSheetValues(env, `${SHEETS.LEARNING_CONTENT}!A${rowNum}:K${rowNum}`);
+    return toObjects(rows, headers).filter((item: any) => String(item.id) === String(id));
+  }
+
+  const rows = await getSheetValues(env, `${SHEETS.LEARNING_CONTENT}!A2:K`);
+  const data = toObjects(rows, headers);
   if (month) {
     const match = String(month).match(/^(\d{4})-(\d{1,2})$/);
     if (!match) return [];
