@@ -1356,7 +1356,67 @@ function homeworkSummaryLine(hw: any, suffix = "") {
   return summaryLinePlain(label, suffix);
 }
 
-async function generateDailySummary(env: Bindings, targetDate?: string) {
+type DailySummarySectionFlags = {
+  contentToday?: boolean;
+  homeworkToday?: boolean;
+  homeworkAll?: boolean;
+  footer?: boolean;
+};
+
+type DailySummaryParts = {
+  header: string;
+  contentToday: string;
+  homeworkToday: string;
+  homeworkAll: string;
+  footer: string;
+};
+
+function parseSummarySectionFlags(raw: unknown): DailySummarySectionFlags {
+  const parseOne = (value: unknown, fallback = true) => {
+    if (value === undefined || value === null || value === '') return fallback;
+    const s = String(value).trim().toLowerCase();
+    if (s === '0' || s === 'false' || s === 'no' || s === 'off') return false;
+    return true;
+  };
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    const obj = raw as Record<string, unknown>;
+    return {
+      contentToday: parseOne(obj.contentToday ?? obj.content_today),
+      homeworkToday: parseOne(obj.homeworkToday ?? obj.homework_today),
+      homeworkAll: parseOne(obj.homeworkAll ?? obj.homework_all),
+      footer: parseOne(obj.footer),
+    };
+  }
+  return {
+    contentToday: true,
+    homeworkToday: true,
+    homeworkAll: true,
+    footer: true,
+  };
+}
+
+function assembleDailySummary(parts: DailySummaryParts, flags: DailySummarySectionFlags = {}) {
+  const include = {
+    contentToday: flags.contentToday !== false,
+    homeworkToday: flags.homeworkToday !== false,
+    homeworkAll: flags.homeworkAll !== false,
+    footer: flags.footer !== false,
+  };
+  let message = parts.header;
+  if (include.contentToday && parts.contentToday) message += parts.contentToday;
+  if (include.homeworkToday && parts.homeworkToday) message += parts.homeworkToday;
+  if (include.homeworkAll && parts.homeworkAll) message += parts.homeworkAll;
+  if (include.footer && parts.footer) message += parts.footer;
+  return message.trimEnd() + (message ? '\n' : '');
+}
+
+function getClockGMT7(date?: Date) {
+  const d = date || new Date();
+  const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
+  return new Date(utc + (3600000 * 7));
+}
+
+async function generateDailySummaryParts(env: Bindings, targetDate?: string): Promise<DailySummaryParts> {
   const [homework, learningContent] = await Promise.all([
     getHomeworkList(env),
     getLearningContent(env)
@@ -1364,6 +1424,7 @@ async function generateDailySummary(env: Bindings, targetDate?: string) {
   
   const now = targetDate ? new Date(targetDate) : new Date();
   const gmt7Now = getMidnightGMT7(now);
+  const clockGmt7 = getClockGMT7();
   const tomorrow = new Date(gmt7Now.getTime() + 86400000);
   const oneWeekLater = new Date(gmt7Now.getTime() + 7 * 86400000);
 
@@ -1377,16 +1438,19 @@ async function generateDailySummary(env: Bindings, targetDate?: string) {
   const dStr = String(gmt7Now.getDate()).padStart(2, '0');
   const mStr = String(gmt7Now.getMonth() + 1).padStart(2, '0');
   const yearBE = (gmt7Now.getFullYear() + 543).toString().slice(-2);
+  const hStr = String(clockGmt7.getHours()).padStart(2, '0');
+  const minStr = String(clockGmt7.getMinutes()).padStart(2, '0');
   
-  let message = `# ${dStr}/${mStr}/${yearBE}\n`;
+  const header = `# ${dStr}/${mStr}/${yearBE} ณ ${hStr}:${minStr}\n`;
 
+  let contentToday = '';
   if (todayLC.length > 0) {
-    message += "\n## 📚 เนื้อหาวันนี้\n";
+    contentToday += "\n## 📚 เนื้อหาวันนี้\n";
     todayLC.forEach(item => {
       const label = `${item.subject} : ${item.title}`;
-      message += summaryLineWithLink(label, `${APP_BASE_URL}/content#/view?id=${item.id}`);
+      contentToday += summaryLineWithLink(label, `${APP_BASE_URL}/content#/view?id=${item.id}`);
     });
-    message += "\n> (AI สรุปเนื้อหา แต่มีรูปเนื้อหาและไฟล์เสียงในห้องนะ)\n";
+    contentToday += "\n> (AI สรุปเนื้อหา แต่มีรูปเนื้อหาและไฟล์เสียงในห้องนะ)\n";
   }
 
   const todayHomework = homework.filter(hw => {
@@ -1396,10 +1460,11 @@ async function generateDailySummary(env: Bindings, targetDate?: string) {
     return getMidnightGMT7(created).getTime() === gmt7Now.getTime();
   }).sort(sortHomeworkByDeadline);
 
+  let homeworkToday = '';
   if (todayHomework.length > 0) {
-    message += "\n## การบ้านวันนี้\n";
+    homeworkToday += "\n## การบ้านวันนี้\n";
     todayHomework.forEach(hw => {
-      message += homeworkSummaryLine(hw, hw.note ? ` ${hw.note}` : "");
+      homeworkToday += homeworkSummaryLine(hw, hw.note ? ` ${hw.note}` : "");
     });
   }
 
@@ -1423,32 +1488,39 @@ async function generateDailySummary(env: Bindings, targetDate?: string) {
     return getMidnightGMT7(new Date(hw.deadline)).getTime() > oneWeekLater.getTime();
   }).sort(sortHomeworkByDeadline);
 
+  let homeworkAll = '';
   const hasAllHomework = Object.keys(grouped).length > 0 || longTerm.length > 0;
   if (hasAllHomework) {
-    message += "\n## การบ้านทั้งหมด\n";
+    homeworkAll += "\n## การบ้านทั้งหมด\n";
 
     for (const key in grouped) {
-      message += `${key}\n`;
+      homeworkAll += `${key}\n`;
       grouped[key].forEach(hw => {
-        message += homeworkSummaryLine(hw, hw.note ? ` ${hw.note}` : "");
+        homeworkAll += homeworkSummaryLine(hw, hw.note ? ` ${hw.note}` : "");
       });
     }
 
     if (longTerm.length > 0) {
-      message += "## งานดองเค็ม\n";
+      homeworkAll += "## งานดองเค็ม\n";
       longTerm.forEach(hw => {
         let dateSuffix = "";
         if (hw.deadline) {
           const d = new Date(hw.deadline);
           dateSuffix = ` (${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')})`;
         }
-        message += homeworkSummaryLine(hw, dateSuffix);
+        homeworkAll += homeworkSummaryLine(hw, dateSuffix);
       });
     }
   }
 
-  message += `\nเนื้อหาทั้งหมดอยู่ใน link นี้\n<${APP_BASE_URL}/>\n\n> Have question **Reply** to this Bot. || <@&1162383289575817326> ||`;
-  return message;
+  const footer = `\nเนื้อหาทั้งหมดอยู่ใน link นี้\n<${APP_BASE_URL}/>\n\n> Have question **Reply** to this Bot. || <@&1162383289575817326> ||`;
+
+  return { header, contentToday, homeworkToday, homeworkAll, footer };
+}
+
+async function generateDailySummary(env: Bindings, targetDate?: string, flags?: DailySummarySectionFlags) {
+  const parts = await generateDailySummaryParts(env, targetDate);
+  return assembleDailySummary(parts, flags);
 }
 
 // --- POST ACTIONS ---
@@ -2035,13 +2107,20 @@ app.get('/', async (c) => {
       }
       case "dailySummary": {
         await requireAdmin(c);
-        const summary = await generateDailySummary(c.env, c.req.query('date'));
+        const sectionFlags = parseSummarySectionFlags({
+          contentToday: c.req.query('contentToday'),
+          homeworkToday: c.req.query('homeworkToday'),
+          homeworkAll: c.req.query('homeworkAll'),
+          footer: c.req.query('footer'),
+        });
+        const parts = await generateDailySummaryParts(c.env, c.req.query('date'));
+        const summary = assembleDailySummary(parts, sectionFlags);
         if (c.req.query('send') === 'true') {
           const summaryWebhookUrl = String(c.env.SUMMARY_WEBHOOK_URL || "").trim();
           if (!summaryWebhookUrl) throw new Error("SUMMARY_WEBHOOK_URL is missing");
           await postDiscordContent(summaryWebhookUrl, summary);
         }
-        result = { summary };
+        result = { summary, parts };
         break;
       }
 
@@ -2143,7 +2222,13 @@ app.post('/', async (c) => {
       case "deleteSubject": await requireAdmin(c); result = await deleteRowById(c.env, SHEETS.SUBJECTS, getVal('id')); break;
       case "sendSummary": {
         await requireAdmin(c);
-        const summaryText = await generateDailySummary(c.env, getVal('date'));
+        const sectionFlags = parseSummarySectionFlags({
+          contentToday: getVal('contentToday'),
+          homeworkToday: getVal('homeworkToday'),
+          homeworkAll: getVal('homeworkAll'),
+          footer: getVal('footer'),
+        });
+        const summaryText = await generateDailySummary(c.env, getVal('date'), sectionFlags);
         const summaryWebhookUrl = String(c.env.SUMMARY_WEBHOOK_URL || "").trim();
         if (!summaryWebhookUrl) throw new Error("SUMMARY_WEBHOOK_URL is missing");
         await postDiscordContent(summaryWebhookUrl, summaryText);

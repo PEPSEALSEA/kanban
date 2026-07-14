@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useData, GAS_WEB_APP_URL } from '@/components/DataProvider';
 import { authHeaders } from '@/lib/auth';
 import EditHomeworkModal from '@/components/EditHomeworkModal';
@@ -10,6 +10,41 @@ import AdminPagination from '@/components/admin/AdminPagination';
 import { fetchAdminJson, type AdminListResult, type AdminPageSize } from '@/lib/adminList';
 
 type SummaryPreviewMode = 'rendered' | 'raw';
+
+type SummaryParts = {
+  header: string;
+  contentToday: string;
+  homeworkToday: string;
+  homeworkAll: string;
+  footer: string;
+};
+
+type SummarySectionKey = 'contentToday' | 'homeworkToday' | 'homeworkAll' | 'footer';
+
+type SummarySections = Record<SummarySectionKey, boolean>;
+
+const DEFAULT_SUMMARY_SECTIONS: SummarySections = {
+  contentToday: true,
+  homeworkToday: true,
+  homeworkAll: true,
+  footer: true,
+};
+
+const SUMMARY_SECTION_OPTIONS: { key: SummarySectionKey; label: string }[] = [
+  { key: 'contentToday', label: 'เนื้อหาวันนี้' },
+  { key: 'homeworkToday', label: 'การบ้านวันนี้' },
+  { key: 'homeworkAll', label: 'การบ้านทั้งหมด' },
+  { key: 'footer', label: 'Bottom part' },
+];
+
+function assembleSummaryFromParts(parts: SummaryParts, sections: SummarySections): string {
+  let message = parts.header || '';
+  if (sections.contentToday && parts.contentToday) message += parts.contentToday;
+  if (sections.homeworkToday && parts.homeworkToday) message += parts.homeworkToday;
+  if (sections.homeworkAll && parts.homeworkAll) message += parts.homeworkAll;
+  if (sections.footer && parts.footer) message += parts.footer;
+  return message.trimEnd() + (message ? '\n' : '');
+}
 
 type HomeworkRow = {
   id: string;
@@ -33,7 +68,8 @@ export default function KanbanEditor() {
   const [editingHomework, setEditingHomework] = useState<any>(null);
   const [isSendingSummary, setIsSendingSummary] = useState(false);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
-  const [summaryPreview, setSummaryPreview] = useState<string | null>(null);
+  const [summaryParts, setSummaryParts] = useState<SummaryParts | null>(null);
+  const [summarySections, setSummarySections] = useState<SummarySections>(DEFAULT_SUMMARY_SECTIONS);
   const [summaryPreviewMode, setSummaryPreviewMode] = useState<SummaryPreviewMode>('rendered');
   const [summaryPreviewError, setSummaryPreviewError] = useState<string | null>(null);
   const [summaryLogs, setSummaryLogs] = useState<string | null>(null);
@@ -42,6 +78,18 @@ export default function KanbanEditor() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   });
   const { isMobile } = useDeviceDetection();
+
+  const summaryPreview = useMemo(
+    () => (summaryParts ? assembleSummaryFromParts(summaryParts, summarySections) : null),
+    [summaryParts, summarySections],
+  );
+
+  const closeSummaryPreview = () => {
+    setSummaryParts(null);
+    setSummaryPreviewError(null);
+    setSummaryPreviewMode('rendered');
+    setSummarySections(DEFAULT_SUMMARY_SECTIONS);
+  };
 
   useEffect(() => {
     const t = window.setTimeout(() => setDebouncedSearch(searchTerm.trim()), 300);
@@ -79,18 +127,30 @@ export default function KanbanEditor() {
   const handleOpenSummaryPreview = async () => {
     setIsLoadingPreview(true);
     setSummaryPreviewError(null);
+    setSummarySections(DEFAULT_SUMMARY_SECTIONS);
 
     try {
       const response = await fetch(`${GAS_WEB_APP_URL}?action=dailySummary&date=${summaryDate}`, { headers: authHeaders() });
       const data = (await response.json()) as any;
       if (data.success) {
-        const text = data.summary ?? data.data?.summary ?? '';
-        if (!text) {
+        const payload = data.data ?? data;
+        const parts = payload.parts as SummaryParts | undefined;
+        const text = payload.summary ?? '';
+        if (parts?.header) {
+          setSummaryPreviewMode('rendered');
+          setSummaryParts(parts);
+        } else if (text) {
+          setSummaryPreviewMode('rendered');
+          setSummaryParts({
+            header: text,
+            contentToday: '',
+            homeworkToday: '',
+            homeworkAll: '',
+            footer: '',
+          });
+        } else {
           setSummaryPreviewError('Preview is empty.');
-          return;
         }
-        setSummaryPreviewMode('rendered');
-        setSummaryPreview(text);
       } else {
         setSummaryPreviewError(data.error || 'Failed to load preview.');
       }
@@ -103,14 +163,26 @@ export default function KanbanEditor() {
   };
 
   const handleConfirmSendSummary = async () => {
+    const sectionsToSend = { ...summarySections };
     setIsSendingSummary(true);
     setSummaryLogs('Sending...');
-    setSummaryPreview(null);
+    closeSummaryPreview();
 
     try {
       const response = await fetch(`${GAS_WEB_APP_URL}?action=sendSummary&date=${summaryDate}`, {
         method: 'POST',
-        headers: authHeaders(),
+        headers: {
+          ...authHeaders(),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'sendSummary',
+          date: summaryDate,
+          contentToday: sectionsToSend.contentToday,
+          homeworkToday: sectionsToSend.homeworkToday,
+          homeworkAll: sectionsToSend.homeworkAll,
+          footer: sectionsToSend.footer,
+        }),
       });
 
       const data = (await response.json()) as any;
@@ -177,7 +249,7 @@ export default function KanbanEditor() {
         </div>
       </header>
 
-      {(summaryPreview || summaryPreviewError) && (
+      {(summaryParts || summaryPreviewError) && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
           <div className="admin-card" style={{ width: '100%', maxWidth: '720px', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--admin-border)', paddingBottom: '1rem' }}>
@@ -188,7 +260,7 @@ export default function KanbanEditor() {
                 </p>
               </div>
               <button
-                onClick={() => { setSummaryPreview(null); setSummaryPreviewError(null); setSummaryPreviewMode('rendered'); }}
+                onClick={closeSummaryPreview}
                 style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: 'var(--admin-text-muted)' }}
               >
                 ✕
@@ -199,6 +271,42 @@ export default function KanbanEditor() {
               <p style={{ color: '#f87171', margin: 0 }}>{summaryPreviewError}</p>
             ) : (
               <>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.65rem 1.1rem', marginBottom: '1rem', padding: '0.85rem 1rem', borderRadius: '0.75rem', border: '1px solid var(--admin-border)', background: 'rgba(255,255,255,0.03)' }}>
+                  {SUMMARY_SECTION_OPTIONS.map(({ key, label }) => {
+                    const hasContent = key === 'footer'
+                      ? !!(summaryParts?.footer)
+                      : !!(summaryParts?.[key]);
+                    return (
+                      <label
+                        key={key}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.45rem',
+                          fontSize: '0.88rem',
+                          fontWeight: 600,
+                          color: hasContent ? 'var(--admin-text-main)' : 'var(--admin-text-muted)',
+                          cursor: 'pointer',
+                          userSelect: 'none',
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={summarySections[key]}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            setSummarySections((prev) => ({ ...prev, [key]: checked }));
+                          }}
+                          style={{ width: 16, height: 16, accentColor: '#5865F2', cursor: 'pointer' }}
+                        />
+                        {label}
+                        {!hasContent && (
+                          <span style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--admin-text-muted)' }}>(ว่าง)</span>
+                        )}
+                      </label>
+                    );
+                  })}
+                </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', gap: '0.75rem', flexWrap: 'wrap' }}>
                   <span style={{ fontSize: '0.8rem', color: 'var(--admin-text-muted)', fontWeight: 600 }}>
                     {summaryPreview!.length} characters
@@ -268,7 +376,7 @@ export default function KanbanEditor() {
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid var(--admin-border)' }}>
               <button
-                onClick={() => { setSummaryPreview(null); setSummaryPreviewError(null); setSummaryPreviewMode('rendered'); }}
+                onClick={closeSummaryPreview}
                 disabled={isSendingSummary}
                 style={{
                   background: 'transparent',
@@ -286,17 +394,17 @@ export default function KanbanEditor() {
               {!summaryPreviewError && summaryPreview && (
                 <button
                   onClick={handleConfirmSendSummary}
-                  disabled={isSendingSummary}
+                  disabled={isSendingSummary || !summaryPreview.trim()}
                   style={{
                     background: '#5865F2',
                     color: 'white',
                     border: 'none',
                     padding: '10px 20px',
                     borderRadius: '0.75rem',
-                    cursor: isSendingSummary ? 'not-allowed' : 'pointer',
+                    cursor: isSendingSummary || !summaryPreview.trim() ? 'not-allowed' : 'pointer',
                     fontWeight: 700,
                     fontSize: '0.9rem',
-                    opacity: isSendingSummary ? 0.7 : 1
+                    opacity: isSendingSummary || !summaryPreview.trim() ? 0.7 : 1
                   }}
                 >
                   {isSendingSummary ? '⌛ Sending...' : 'ยืนยันส่งไป Discord'}
