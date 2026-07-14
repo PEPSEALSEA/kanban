@@ -423,7 +423,7 @@ export default function LearningContentPage() {
     const urls = searchResults
       .filter((c) => selectedBatchIds.has(c.id))
       .map((c) => getContentTxtUrl(c.id));
-    const text = `{${urls.join(',')}}`;
+    const text = `{${urls.join(',\n')}}`;
     try {
       await navigator.clipboard.writeText(text);
       setBatchCopied(true);
@@ -737,7 +737,7 @@ export default function LearningContentPage() {
                       </div>
                       {batchCopyMode && (
                         <p className="text-xs font-medium text-slate-400">
-                          Tick items to include, then copy as {'{url1,url2,…}'} for AI.
+                          Tick items to include, then copy as {'{url1,\nurl2,…}'} for AI.
                         </p>
                       )}
                     </div>
