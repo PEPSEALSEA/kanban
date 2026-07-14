@@ -74,6 +74,9 @@ export default function LearningContentPage() {
   const [mounted, setMounted] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [copiedAiLink, setCopiedAiLink] = useState(false);
+  const [batchCopyMode, setBatchCopyMode] = useState(false);
+  const [selectedBatchIds, setSelectedBatchIds] = useState<Set<string>>(() => new Set());
+  const [batchCopied, setBatchCopied] = useState(false);
   const [fetchedContent, setFetchedContent] = useState<LearningContent | null>(null);
   const [viewId, setViewId] = useState<string | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -392,6 +395,57 @@ export default function LearningContentPage() {
     }
   }, []);
 
+  const exitBatchCopyMode = useCallback(() => {
+    setBatchCopyMode(false);
+    setSelectedBatchIds(new Set());
+    setBatchCopied(false);
+  }, []);
+
+  const toggleBatchId = useCallback((id: string) => {
+    setSelectedBatchIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const selectAllBatchResults = useCallback(() => {
+    setSelectedBatchIds(new Set(searchResults.map((c) => c.id)));
+  }, [searchResults]);
+
+  const clearBatchSelection = useCallback(() => {
+    setSelectedBatchIds(new Set());
+  }, []);
+
+  const copyBatchAiLinks = useCallback(async () => {
+    if (selectedBatchIds.size === 0) return;
+    const urls = searchResults
+      .filter((c) => selectedBatchIds.has(c.id))
+      .map((c) => getContentTxtUrl(c.id));
+    const text = `{${urls.join(',')}}`;
+    try {
+      await navigator.clipboard.writeText(text);
+      setBatchCopied(true);
+      window.setTimeout(() => setBatchCopied(false), 2000);
+    } catch {
+      window.prompt('Copy these links for AI:', text);
+    }
+  }, [searchResults, selectedBatchIds]);
+
+  useEffect(() => {
+    if (!isSearching) exitBatchCopyMode();
+  }, [isSearching, exitBatchCopyMode]);
+
+  useEffect(() => {
+    setSelectedBatchIds((prev) => {
+      if (prev.size === 0) return prev;
+      const valid = new Set(searchResults.map((c) => c.id));
+      const next = new Set([...prev].filter((id) => valid.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [searchResults]);
+
   const handleContentLinkClick = useCallback((
     e: React.MouseEvent<HTMLAnchorElement>,
     id: string,
@@ -400,6 +454,10 @@ export default function LearningContentPage() {
     if (e.defaultPrevented) return;
     if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     e.preventDefault();
+    if (batchCopyMode) {
+      toggleBatchId(id);
+      return;
+    }
     window.location.hash = getContentHref(id);
     if (options?.clearFilters) {
       setSearchTerm('');
@@ -408,7 +466,7 @@ export default function LearningContentPage() {
     if (options?.closeDateModal) {
       setSelectedDate(null);
     }
-  }, [getContentHref]);
+  }, [getContentHref, batchCopyMode, toggleBatchId]);
 
   return (
     <ResizableContentPanel
@@ -620,9 +678,68 @@ export default function LearningContentPage() {
                   transition={{ duration: 0.2 }}
                 >
                   <div className="neo-card p-6 md:p-8">
-                    <div className="flex justify-between items-center mb-6">
-                      <h2 className="text-lg font-bold text-slate-800 uppercase tracking-wider">Search Results ({searchResults.length})</h2>
-                      <button onClick={() => { setSearchTerm(''); setSelectedSubject('All'); }} className="text-xs font-bold text-sky-600 hover:text-sky-700">CLEAR FILTERS</button>
+                    <div className="flex flex-col gap-4 mb-6">
+                      <div className="flex flex-wrap justify-between items-center gap-3">
+                        <h2 className="text-lg font-bold text-slate-800 uppercase tracking-wider">Search Results ({searchResults.length})</h2>
+                        <div className="flex flex-wrap items-center gap-2">
+                          {searchResults.length > 0 && (
+                            batchCopyMode ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={selectAllBatchResults}
+                                  className="text-xs font-bold text-slate-500 hover:text-slate-700"
+                                >
+                                  SELECT ALL
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={clearBatchSelection}
+                                  className="text-xs font-bold text-slate-500 hover:text-slate-700"
+                                  disabled={selectedBatchIds.size === 0}
+                                >
+                                  CLEAR
+                                </button>
+                                <motion.button
+                                  type="button"
+                                  onClick={() => void copyBatchAiLinks()}
+                                  className="neo-button px-4 py-2 text-xs"
+                                  disabled={selectedBatchIds.size === 0}
+                                  whileHover={selectedBatchIds.size > 0 ? { y: -1 } : undefined}
+                                  whileTap={selectedBatchIds.size > 0 ? { scale: 0.98 } : undefined}
+                                >
+                                  {batchCopied
+                                    ? 'Copied!'
+                                    : `Copy Selected (${selectedBatchIds.size})`}
+                                </motion.button>
+                                <button
+                                  type="button"
+                                  onClick={exitBatchCopyMode}
+                                  className="text-xs font-bold text-slate-500 hover:text-slate-700"
+                                >
+                                  CANCEL
+                                </button>
+                              </>
+                            ) : (
+                              <motion.button
+                                type="button"
+                                onClick={() => setBatchCopyMode(true)}
+                                className="neo-button px-4 py-2 text-xs"
+                                whileHover={{ y: -1 }}
+                                whileTap={{ scale: 0.98 }}
+                              >
+                                Copy Batch AI Link
+                              </motion.button>
+                            )
+                          )}
+                          <button onClick={() => { setSearchTerm(''); setSelectedSubject('All'); exitBatchCopyMode(); }} className="text-xs font-bold text-sky-600 hover:text-sky-700">CLEAR FILTERS</button>
+                        </div>
+                      </div>
+                      {batchCopyMode && (
+                        <p className="text-xs font-medium text-slate-400">
+                          Tick items to include, then copy as {'{url1,url2,…}'} for AI.
+                        </p>
+                      )}
                     </div>
 
                     <div className="space-y-3 max-h-[calc(100vh-22rem)] overflow-y-auto pr-1 -mr-1">
@@ -631,18 +748,31 @@ export default function LearningContentPage() {
                         Loading {selectedSubject}…
                       </div>
                     ) : searchResults.length > 0 ? (
-                      searchResults.map((c: LearningContent, idx) => (
+                      searchResults.map((c: LearningContent, idx) => {
+                        const isChecked = selectedBatchIds.has(c.id);
+                        return (
                         <motion.a
                           key={c.id}
-                          href={getContentHref(c.id)}
-                          onClick={(e) => handleContentLinkClick(e, c.id, { clearFilters: true })}
-                          className="card w-full p-5 md:p-6 text-left flex items-center gap-4 md:gap-6 group shrink-0"
+                          href={batchCopyMode ? undefined : getContentHref(c.id)}
+                          onClick={(e) => handleContentLinkClick(e, c.id, { clearFilters: !batchCopyMode })}
+                          className={`card w-full p-5 md:p-6 text-left flex items-center gap-4 md:gap-6 group shrink-0 ${batchCopyMode && isChecked ? 'ring-2 ring-sky-400 border-sky-300' : ''}`}
                           initial={{ opacity: 0, y: 12 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: idx * 0.04, duration: 0.25 }}
                           whileHover={{ y: -2, boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01)', borderColor: '#e2e8f0' }}
                           whileTap={{ scale: 0.98 }}
+                          aria-pressed={batchCopyMode ? isChecked : undefined}
                         >
+                          {batchCopyMode && (
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => toggleBatchId(c.id)}
+                              onClick={(e) => e.stopPropagation()}
+                              className="w-5 h-5 shrink-0 accent-sky-500 cursor-pointer"
+                              aria-label={`Select ${c.title}`}
+                            />
+                          )}
                           <div
                             className="w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg"
                             style={subjectBadgeStyle(dynamicSubjectColors[c.subject] || dynamicSubjectColors['Other'], '15')}
@@ -657,9 +787,12 @@ export default function LearningContentPage() {
                             <div className="text-base md:text-lg font-semibold text-slate-800 leading-snug">{c.title}</div>
                             <div className="text-[11px] font-medium text-slate-400 mt-1.5">{new Date(c.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
                           </div>
-                          <span className="text-slate-300 group-hover:text-sky-500 transition-colors">→</span>
+                          {!batchCopyMode && (
+                            <span className="text-slate-300 group-hover:text-sky-500 transition-colors">→</span>
+                          )}
                         </motion.a>
-                      ))
+                        );
+                      })
                     ) : (
                       <motion.div
                         className="neo-card p-20 text-center"
