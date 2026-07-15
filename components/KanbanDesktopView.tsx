@@ -75,7 +75,7 @@ export function KanbanDesktopView({
 
       {/* Timeline Navigation Controls */}
       {viewMode === 'timeline' && (
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '1.5rem', marginBottom: '2rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.75rem', marginBottom: '2rem' }}>
           <button
             onClick={() => {
               const d = new Date(focusDate);
@@ -85,7 +85,7 @@ export function KanbanDesktopView({
             className="glass"
             style={{ width: '40px', height: '40px', borderRadius: '50%', border: 'none', color: '#fff', cursor: 'pointer' }}
           >←</button>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 800, minWidth: '180px', textAlign: 'center' }}>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 800, minWidth: '10rem', textAlign: 'center' }}>
             {`Week of ${new Date(focusDate).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}`}
           </h2>
           <button
