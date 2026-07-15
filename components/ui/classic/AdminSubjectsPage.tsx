@@ -4,6 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { useData, GAS_WEB_APP_URL } from '@/components/DataProvider';
 import { authHeaders } from '@/lib/auth';
 import { useDeviceDetection } from '@/hooks/useDeviceDetection';
+import { IconSparkles, IconX } from '@/components/icons';
 
 export default function SubjectManagement() {
   const { subjects, refreshData } = useData();
@@ -86,8 +87,8 @@ export default function SubjectManagement() {
                 style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid var(--admin-border)', outline: 'none' }}
               />
             </div>
-            <p style={{ fontSize: '0.75rem', color: 'var(--admin-text-muted)', fontStyle: 'italic' }}>
-              ✨ A vibrant color will be auto-generated for this subject.
+            <p style={{ fontSize: '0.75rem', color: 'var(--admin-text-muted)', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <IconSparkles className="w-4 h-4" /> A vibrant color will be auto-generated for this subject.
             </p>
             <button 
               type="submit" 
@@ -122,7 +123,7 @@ export default function SubjectManagement() {
                   style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }}
                   title="Delete Subject"
                 >
-                  {deletingId === sub.id ? '...' : '✕'}
+                  {deletingId === sub.id ? '...' : <IconX className="w-4 h-4" />}
                 </button>
               </div>
             ))}

@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { IconEdit, IconBooks } from '@/components/icons';
 
 type QuickCreateProps = {
   onCreateHomework: () => void;
@@ -21,7 +22,7 @@ export default function AdminQuickCreate({ onCreateHomework, onCreateContent }: 
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: '2rem'
         }}>
-          📝
+          <IconEdit className="w-8 h-8" />
         </div>
         <div style={{ flex: 1 }}>
           <h3 style={{ fontSize: '1.1rem', marginBottom: '0.25rem', color: 'var(--admin-text-main)' }}>Create Homework</h3>
@@ -41,7 +42,7 @@ export default function AdminQuickCreate({ onCreateHomework, onCreateContent }: 
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: '2rem'
         }}>
-          📚
+          <IconBooks className="w-8 h-8" />
         </div>
         <div style={{ flex: 1 }}>
           <h3 style={{ fontSize: '1.1rem', marginBottom: '0.25rem', color: 'var(--admin-text-main)' }}>Create Learning Content</h3>

@@ -8,6 +8,7 @@ import AttachmentFileInput from '@/components/AttachmentFileInput';
 
 import { API_URL, UPLOAD_SERVICE_URL } from '@/lib/config';
 import { authHeaders } from '@/lib/auth';
+import { IconX, IconPaperclip, IconSparkles } from '@/components/icons';
 
 const GAS_WEB_APP_URL = API_URL;
 const UPLOAD_WEB_APP_URL = UPLOAD_SERVICE_URL;
@@ -118,7 +119,7 @@ export default function CreateHomeworkModal({ onClose, onRefresh }: { onClose: (
       <div className="admin-card" style={{ width: '100%', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid var(--admin-border)', paddingBottom: '1rem' }}>
           <h2 style={{ fontSize: '1.25rem', color: 'var(--admin-text-main)' }}>Create New Homework</h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: 'var(--admin-text-muted)' }}>✕</button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--admin-text-muted)' }}><IconX className="w-5 h-5" /></button>
         </div>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
@@ -192,7 +193,7 @@ export default function CreateHomeworkModal({ onClose, onRefresh }: { onClose: (
             <div style={{ marginTop: '0.5rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
               {formData.link_image.map((url, i) => (
                 <div key={i} style={{ background: 'var(--admin-bg-soft)', padding: '4px 8px', borderRadius: '4px', fontSize: '0.7rem', border: '1px solid var(--admin-border)' }}>
-                  📎 {decodeURIComponent(url.split('#')[1] || 'File')}
+                  <IconPaperclip className="w-3.5 h-3.5 inline" /> {decodeURIComponent(url.split('#')[1] || 'File')}
                 </div>
               ))}
             </div>
@@ -217,7 +218,7 @@ export default function CreateHomeworkModal({ onClose, onRefresh }: { onClose: (
             >
               {status === 'idle' && 'Publish Assignment'}
               {status === 'submitting' && 'Uploading...'}
-              {status === 'success' && 'Published! ✨'}
+              {status === 'success' && (<span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>Published! <IconSparkles className="w-4 h-4" /></span>)}
               {status === 'error' && 'Retry'}
             </button>
           </div>

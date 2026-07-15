@@ -23,6 +23,7 @@ import {
 import AnalyticsOverview from '@/components/AnalyticsOverview';
 import { fetchAdminJson } from '@/lib/adminList';
 import type { AnalyticsIpNoteRow } from '@/components/DataProvider';
+import { IconX, IconCheck, IconFile, IconClock, IconSearch } from '@/components/icons';
 
 export type AnalyticsRow = {
   id: string;
@@ -338,7 +339,7 @@ function IpDetailModal({ group, ipNotes, resourceLookups, onClose, onSaveNote }:
               <span style={chip('#64748b')}>{daysSince(group.firstSeen)}</span>
             </div>
           </div>
-          <button type="button" onClick={onClose} style={closeBtnStyle} aria-label="ปิด">✕</button>
+          <button type="button" onClick={onClose} style={closeBtnStyle} aria-label="ปิด"><IconX className="w-4 h-4" /></button>
         </div>
 
         {/* Note editor */}
@@ -367,7 +368,7 @@ function IpDetailModal({ group, ipNotes, resourceLookups, onClose, onSaveNote }:
               disabled={saving}
               style={{ ...saveBtnStyle, opacity: saving ? 0.7 : 1, flexShrink: 0 }}
             >
-              {saving ? 'กำลังบันทึก...' : saved ? '✓ บันทึกแล้ว' : 'บันทึก'}
+              {saving ? 'กำลังบันทึก...' : saved ? (<span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}><IconCheck className="w-3.5 h-3.5" /> บันทึกแล้ว</span>) : 'บันทึก'}
             </button>
           </div>
           {saveError && <div style={{ fontSize: '0.75rem', color: '#f87171', marginTop: '0.4rem' }}>{saveError}</div>}
@@ -570,13 +571,13 @@ function VisitorCard({
         </div>
 
         <div style={{ fontSize: '0.72rem', marginTop: '0.25rem', color: 'var(--admin-text-muted)', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-          <span style={{ color: 'var(--admin-text-main)', fontWeight: 600 }}>📄 {g.lastPage}</span>
+          <span style={{ color: 'var(--admin-text-main)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}><IconFile className="w-3.5 h-3.5" /> {g.lastPage}</span>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.4rem', flexWrap: 'wrap' }}>
           {g.totalDurationSec > 0 && (
             <span style={{ fontSize: '0.68rem', color: 'var(--admin-text-muted)' }}>
-              ⏱ ~{formatDuration(g.totalDurationSec)}
+              <IconClock className="w-3 h-3 inline" /> ~{formatDuration(g.totalDurationSec)}
             </span>
           )}
           <span style={{ fontSize: '0.68rem', color: 'var(--admin-text-muted)' }}>{g.eventCount} events</span>
@@ -823,8 +824,8 @@ export default function AdminAnalyticsPanel() {
         <div>
           {/* Search */}
           <div style={{ marginBottom: '1rem', position: 'relative' }}>
-            <span style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', fontSize: '0.9rem', pointerEvents: 'none', opacity: 0.4 }}>
-              🔍
+            <span style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', opacity: 0.4, display: 'flex' }}>
+              <IconSearch className="w-4 h-4" />
             </span>
             <input
               type="text"

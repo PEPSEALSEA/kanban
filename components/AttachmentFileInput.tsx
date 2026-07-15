@@ -2,6 +2,7 @@
 
 import React, { useRef } from 'react';
 import { useDeviceDetection } from '@/hooks/useDeviceDetection';
+import { IconImage, IconFile, IconCamera } from '@/components/icons';
 
 type AttachmentFileInputProps = {
   multiple?: boolean;
@@ -85,9 +86,9 @@ export default function AttachmentFileInput({
           style={compact ? undefined : MOBILE_BTN_STYLE}
           onClick={() => openPicker(galleryRef)}
         >
-          {compact ? '🖼️' : (
+          {compact ? <IconImage className="w-4 h-4" /> : (
             <>
-              <span style={{ fontSize: '1.1rem' }}>🖼️</span>
+              <IconImage className="w-4 h-4" />
               <span>Gallery</span>
             </>
           )}
@@ -99,9 +100,9 @@ export default function AttachmentFileInput({
           style={compact ? undefined : MOBILE_BTN_STYLE}
           onClick={() => openPicker(fileRef)}
         >
-          {compact ? '📄' : (
+          {compact ? <IconFile className="w-4 h-4" /> : (
             <>
-              <span style={{ fontSize: '1.1rem' }}>📄</span>
+              <IconFile className="w-4 h-4" />
               <span>PDF / Files</span>
             </>
           )}
@@ -114,9 +115,9 @@ export default function AttachmentFileInput({
             style={compact ? undefined : MOBILE_BTN_STYLE}
             onClick={() => openPicker(cameraRef)}
           >
-            {compact ? '📷' : (
+            {compact ? <IconCamera className="w-4 h-4" /> : (
               <>
-                <span style={{ fontSize: '1.1rem' }}>📷</span>
+                <IconCamera className="w-4 h-4" />
                 <span>Camera</span>
               </>
             )}

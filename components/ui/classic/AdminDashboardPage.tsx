@@ -10,6 +10,7 @@ import CreateContentModal from '@/components/CreateContentModal';
 import { useDeviceDetection } from '@/hooks/useDeviceDetection';
 import AdminAnalyticsPanel from '@/components/AdminAnalyticsPanel';
 import { fetchAdminJson } from '@/lib/adminList';
+import { IconUsers, IconKanban, IconBooks, IconHourglass } from '@/components/icons';
 
 type DashboardMetrics = {
   totalUsers: number;
@@ -86,10 +87,10 @@ export default function AdminDashboard() {
   };
 
   const cards = [
-    { title: 'Total Students', value: metrics.totalUsers, icon: '👥', color: '#2563eb' },
-    { title: 'Active Tasks', value: metrics.activeTasks, icon: '📋', color: '#0d9488' },
-    { title: 'Learning Materials', value: metrics.totalContent, icon: '📚', color: '#8b5cf6' },
-    { title: 'Upcoming Deadlines', value: metrics.upcomingDeadlines, icon: '⏳', color: '#f59e0b' },
+    { title: 'Total Students', value: metrics.totalUsers, icon: IconUsers, color: '#2563eb' },
+    { title: 'Active Tasks', value: metrics.activeTasks, icon: IconKanban, color: '#0d9488' },
+    { title: 'Learning Materials', value: metrics.totalContent, icon: IconBooks, color: '#8b5cf6' },
+    { title: 'Upcoming Deadlines', value: metrics.upcomingDeadlines, icon: IconHourglass, color: '#f59e0b' },
   ];
 
   return (
@@ -147,7 +148,7 @@ export default function AdminDashboard() {
                       {metricsLoading ? '…' : card.value}
                     </h2>
                   </div>
-                  <span style={{ fontSize: '1.5rem', opacity: 0.5 }}>{card.icon}</span>
+                  <card.icon className="w-6 h-6" style={{ opacity: 0.5 }} />
                 </div>
               </div>
             ))}

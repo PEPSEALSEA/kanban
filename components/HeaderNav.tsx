@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useData } from '@/components/DataProvider';
 import { isAdminEmail } from '@/lib/admin';
+import { IconAdmin, IconArchive, IconKanban } from '@/components/icons';
 
 export default function HeaderNav() {
   const pathname = usePathname();
@@ -21,25 +22,25 @@ export default function HeaderNav() {
       <nav className="header-nav">
         <Link 
           href="/" 
-          className={`nav-item uppercase tracking-tighter ${isActive('/') ? 'active' : ''}`}
+          className={`nav-item ${isActive('/') ? 'active' : ''}`}
         >
-          <span className="text-xl">📋</span>
-          KANBAN
+          <IconKanban className="nav-item-icon" />
+          <span className="nav-item-label">Kanban</span>
         </Link>
         <Link 
           href="/content" 
-          className={`nav-item uppercase tracking-tighter ${isActive('/content') ? 'active' : ''}`}
+          className={`nav-item ${isActive('/content') ? 'active' : ''}`}
         >
-          <span className="text-xl">📅</span>
-          ARCHIVE
+          <IconArchive className="nav-item-icon" />
+          <span className="nav-item-label">Archive</span>
         </Link>
         {showAdmin && (
           <Link
             href="/admin"
-            className={`nav-item nav-item-admin uppercase tracking-tighter ${isActive('/admin') ? 'active' : ''}`}
+            className={`nav-item nav-item-admin ${isActive('/admin') ? 'active' : ''}`}
           >
-            <span className="text-xl">⚙️</span>
-            ADMIN
+            <IconAdmin className="nav-item-icon" />
+            <span className="nav-item-label">Admin</span>
           </Link>
         )}
       </nav>

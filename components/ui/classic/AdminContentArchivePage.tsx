@@ -7,6 +7,7 @@ import EditContentModal from '@/components/EditContentModal';
 import { useDeviceDetection } from '@/hooks/useDeviceDetection';
 import AdminPagination from '@/components/admin/AdminPagination';
 import { fetchAdminJson, type AdminListResult, type AdminPageSize } from '@/lib/adminList';
+import { IconMusic, IconPaperclip, IconEdit, IconPlus, IconSearch, IconFolder } from '@/components/icons';
 
 type LearningContent = {
   id: string;
@@ -62,8 +63,8 @@ const ContentItem = React.memo(({ item, subjects, onEdit, isMobile }: { item: Le
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
           <div style={{ display: 'flex', gap: '12px' }}>
-            {item.audio_file_id && <span title="Has Audio" style={{ fontSize: '1.2rem' }}>🎵</span>}
-            {item.attachments && <span title="Has Attachments" style={{ fontSize: '1.2rem' }}>📎</span>}
+            {item.audio_file_id && <span title="Has Audio"><IconMusic className="w-4 h-4" /></span>}
+            {item.attachments && <span title="Has Attachments"><IconPaperclip className="w-4 h-4" /></span>}
           </div>
           <button 
             onClick={() => onEdit(item)}
@@ -107,8 +108,8 @@ const ContentItem = React.memo(({ item, subjects, onEdit, isMobile }: { item: Le
       </td>
       <td style={{ verticalAlign: 'top' }}>
         <div style={{ display: 'flex', gap: '8px' }}>
-          {item.audio_file_id && <span title="Has Audio" style={{ fontSize: '1.2rem' }}>🎵</span>}
-          {item.attachments && <span title="Has Attachments" style={{ fontSize: '1.2rem' }}>📎</span>}
+          {item.audio_file_id && <span title="Has Audio"><IconMusic className="w-4 h-4" /></span>}
+          {item.attachments && <span title="Has Attachments"><IconPaperclip className="w-4 h-4" /></span>}
           {!item.audio_file_id && !item.attachments && <span style={{ color: 'var(--admin-text-muted)', fontSize: '0.8rem' }}>None</span>}
         </div>
       </td>
@@ -118,7 +119,7 @@ const ContentItem = React.memo(({ item, subjects, onEdit, isMobile }: { item: Le
           style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem', padding: '0.5rem', borderRadius: '4px' }}
           className="admin-nav-item"
         >
-          ✏️
+          <IconEdit className="w-4 h-4" />
         </button>
       </td>
     </tr>
@@ -197,7 +198,7 @@ export default function ContentArchiveEditor() {
           className="admin-btn-primary"
           style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
         >
-          <span>➕</span> Add New Content
+          <IconPlus className="w-4 h-4" /> Add New Content
         </button>
       </header>
 
@@ -206,7 +207,7 @@ export default function ContentArchiveEditor() {
           <div style={{ flex: 1, minWidth: '250px' }}>
             <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--admin-text-muted)', marginBottom: '0.5rem', textTransform: 'uppercase' }}>Search Content</label>
             <div style={{ position: 'relative' }}>
-              <span style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', opacity: 0.4 }}>🔍</span>
+              <span style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', opacity: 0.4, display: 'flex' }}><IconSearch className="w-4 h-4" /></span>
               <input 
                 type="text" 
                 placeholder="Search by ID (LC-...), Subject, or Title..." 
@@ -277,7 +278,7 @@ export default function ContentArchiveEditor() {
               ) : (
                 <tr>
                   <td colSpan={5} style={{ padding: '4rem', textAlign: 'center', color: 'var(--admin-text-muted)' }}>
-                    <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📂</div>
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}><IconFolder className="w-10 h-10" /></div>
                     <div>No content found matching your filters.</div>
                   </td>
                 </tr>

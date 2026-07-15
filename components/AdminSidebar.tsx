@@ -3,6 +3,16 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import {
+  IconDashboard,
+  IconEdit,
+  IconFolder,
+  IconTag,
+  IconChat,
+  IconGraduation,
+  IconX,
+  IconExit,
+} from '@/components/icons';
 
 export default function AdminSidebar({
   collapsed,
@@ -32,11 +42,11 @@ export default function AdminSidebar({
   };
 
   const navItems = [
-    { name: 'Dashboard', icon: '📊', path: '/admin' },
-    { name: 'Kanban Editor', icon: '📝', path: '/admin/kanban' },
-    { name: 'Content Archive Editor', icon: '📁', path: '/admin/content-archive' },
-    { name: 'Subject Manager', icon: '🏷️', path: '/admin/subjects' },
-    { name: 'AI Chat Logs', icon: '💬', path: '/admin/ai-chat' },
+    { name: 'Dashboard', icon: IconDashboard, path: '/admin' },
+    { name: 'Kanban Editor', icon: IconEdit, path: '/admin/kanban' },
+    { name: 'Content Archive Editor', icon: IconFolder, path: '/admin/content-archive' },
+    { name: 'Subject Manager', icon: IconTag, path: '/admin/subjects' },
+    { name: 'AI Chat Logs', icon: IconChat, path: '/admin/ai-chat' },
   ];
 
   return (
@@ -44,7 +54,7 @@ export default function AdminSidebar({
       <div style={{ padding: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--admin-border)' }}>
         {(!collapsed || isMobile) && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <span style={{ fontSize: '1.5rem' }}>🎓</span>
+            <IconGraduation className="w-6 h-6" />
             <span style={{ fontWeight: 800, fontSize: '1.1rem', color: 'var(--admin-primary)' }}>StudyFlow</span>
           </div>
         )}
@@ -54,7 +64,7 @@ export default function AdminSidebar({
           aria-label={isMobile ? 'Close menu' : collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem', color: 'var(--admin-text-muted)' }}
         >
-          {isMobile ? '✕' : collapsed ? '→' : '←'}
+          {isMobile ? <IconX className="w-5 h-5" /> : collapsed ? '→' : '←'}
         </button>
       </div>
 
@@ -69,7 +79,7 @@ export default function AdminSidebar({
               title={!isMobile && collapsed ? item.name : ''}
               onClick={handleNavClick}
             >
-              <span style={{ fontSize: '1.2rem' }}>{item.icon}</span>
+              <item.icon className="w-5 h-5" />
               {(!collapsed || isMobile) && <span>{item.name}</span>}
             </Link>
           );
@@ -83,7 +93,7 @@ export default function AdminSidebar({
           style={{ margin: 0, paddingLeft: !isMobile && collapsed ? '1.2rem' : '0.8rem' }}
           onClick={handleNavClick}
         >
-          <span style={{ fontSize: '1.2rem' }}>🚪</span>
+          <IconExit className="w-5 h-5" />
           {(!collapsed || isMobile) && <span>Exit Admin</span>}
         </Link>
       </div>

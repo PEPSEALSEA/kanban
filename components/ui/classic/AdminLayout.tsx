@@ -7,6 +7,7 @@ import { useData } from '@/components/DataProvider';
 import Link from 'next/link';
 
 import { isAdminEmail } from '@/lib/admin';
+import { IconBan } from '@/components/icons';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -48,7 +49,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return (
       <div className="admin-theme" style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', padding: '2rem' }}>
         <div className="admin-card" style={{ maxWidth: '400px', textAlign: 'center' }}>
-          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🚫</div>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}><IconBan className="w-12 h-12" /></div>
           <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>Access Denied</h2>
           <p style={{ color: 'var(--admin-text-muted)', marginBottom: '2rem' }}>This area is reserved for administrators only.</p>
           <Link href="/" className="admin-btn-primary">Return Home</Link>

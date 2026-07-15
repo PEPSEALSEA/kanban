@@ -16,6 +16,7 @@ import { parseContentDescription } from '@/lib/parseContentDescription';
 import { subjectBadgeStyle } from '@/lib/colors';
 import { API_URL } from '@/lib/config';
 import { authHeaders } from '@/lib/auth';
+import { IconSearch, IconBooks, IconX, IconAlert } from '@/components/icons';
 
 const SUBJECT_COLORS: Record<string, string> = {
   'Math': '#6366f1',
@@ -635,7 +636,7 @@ export default function LearningContentPage() {
               transition={{ delay: 0.05, duration: 0.3 }}
             >
               <div className="flex-1 bg-white/60 backdrop-blur-md border border-slate-200/80 p-4 rounded-2xl shadow-sm flex items-center gap-4">
-                <span className="text-xl">🔍</span>
+                <IconSearch className="w-5 h-5 text-slate-400 shrink-0" />
                 <input
                   type="text"
                   placeholder="Search by ID, subject, or title..."
@@ -648,13 +649,13 @@ export default function LearningContentPage() {
                     onClick={() => setSearchTerm('')}
                     className="text-slate-300 hover:text-slate-500 transition-colors"
                   >
-                    ✕
+                    <IconX className="w-4 h-4" />
                   </button>
                 )}
               </div>
 
               <div className="bg-white/60 backdrop-blur-md border border-slate-200/80 p-4 rounded-2xl shadow-sm flex items-center gap-4 min-w-[240px]">
-                <span className="text-xl">📚</span>
+                <IconBooks className="w-5 h-5 text-slate-400 shrink-0" />
                 <select
                   value={selectedSubject}
                   onChange={(e) => setSelectedSubject(e.target.value)}
@@ -800,7 +801,7 @@ export default function LearningContentPage() {
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
                       >
-                        <div className="text-6xl mb-4">🔍</div>
+                        <div className="flex justify-center mb-4"><IconSearch className="w-12 h-12 text-slate-300" /></div>
                         <div className="text-xl font-black uppercase">ไม่พบข้อมูลที่ตรงกับการค้นหา</div>
                       </motion.div>
                     )}
@@ -931,7 +932,7 @@ export default function LearningContentPage() {
                   onClick={() => setSelectedDate(null)}
                   className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition-colors shrink-0"
                 >
-                  ✕
+                  <IconX className="w-4 h-4" />
                 </button>
               </div>
 
@@ -974,7 +975,7 @@ export default function LearningContentPage() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <p className="text-rose-500 font-black uppercase mb-6 tracking-widest">⚠️ {error}</p>
+          <p className="text-rose-500 font-black uppercase mb-6 tracking-widest flex items-center justify-center gap-2"><IconAlert className="w-5 h-5" /> {error}</p>
           <button onClick={refreshData} className="neo-button px-8 py-3">
             RETRY LOADING
           </button>

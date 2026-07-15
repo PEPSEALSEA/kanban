@@ -3,12 +3,13 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { IconDashboard, IconEdit, IconFolder, IconTag, IconMenu } from '@/components/icons';
 
 const NAV_ITEMS = [
-  { name: 'Dashboard', icon: '📊', path: '/admin' },
-  { name: 'Kanban', icon: '📝', path: '/admin/kanban' },
-  { name: 'Archive', icon: '📁', path: '/admin/content-archive' },
-  { name: 'Subjects', icon: '🏷️', path: '/admin/subjects' },
+  { name: 'Dashboard', icon: IconDashboard, path: '/admin' },
+  { name: 'Kanban', icon: IconEdit, path: '/admin/kanban' },
+  { name: 'Archive', icon: IconFolder, path: '/admin/content-archive' },
+  { name: 'Subjects', icon: IconTag, path: '/admin/subjects' },
 ];
 
 export default function AdminMobileNav({ onMore }: { onMore: () => void }) {
@@ -24,7 +25,7 @@ export default function AdminMobileNav({ onMore }: { onMore: () => void }) {
             href={item.path}
             className={`admin-mobile-nav-item ${isActive ? 'active' : ''}`}
           >
-            <span className="admin-mobile-nav-icon">{item.icon}</span>
+            <item.icon className="admin-mobile-nav-icon" />
             <span>{item.name}</span>
           </Link>
         );
@@ -34,7 +35,7 @@ export default function AdminMobileNav({ onMore }: { onMore: () => void }) {
         className="admin-mobile-nav-item admin-mobile-nav-more"
         onClick={onMore}
       >
-        <span className="admin-mobile-nav-icon">☰</span>
+        <IconMenu className="admin-mobile-nav-icon" />
         <span>More</span>
       </button>
     </nav>

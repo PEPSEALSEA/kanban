@@ -8,6 +8,7 @@ import AttachmentFileInput from '@/components/AttachmentFileInput';
 
 import { API_URL, UPLOAD_SERVICE_URL } from '@/lib/config';
 import { authHeaders } from '@/lib/auth';
+import { IconX, IconPaperclip, IconSparkles } from '@/components/icons';
 
 const GAS_WEB_APP_URL = API_URL;
 const UPLOAD_WEB_APP_URL = UPLOAD_SERVICE_URL;
@@ -166,7 +167,7 @@ export default function EditHomeworkModal({
       <div className="admin-card" style={{ width: '100%', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid var(--admin-border)', paddingBottom: '1rem' }}>
           <h2 style={{ fontSize: '1.25rem', color: 'var(--admin-text-main)' }}>Edit Task</h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: 'var(--admin-text-muted)' }}>✕</button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--admin-text-muted)' }}><IconX className="w-5 h-5" /></button>
         </div>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
@@ -240,13 +241,13 @@ export default function EditHomeworkModal({
             <div style={{ marginTop: '0.5rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
               {formData.link_image.map((url, i) => (
                 <div key={i} style={{ background: 'var(--admin-bg-soft)', padding: '4px 8px', borderRadius: '4px', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '0.5rem', border: '1px solid var(--admin-border)' }}>
-                  <span>📎 {decodeURIComponent(url.split('#')[1] || 'File')}</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><IconPaperclip className="w-3.5 h-3.5" /> {decodeURIComponent(url.split('#')[1] || 'File')}</span>
                   <button 
                     type="button" 
                     onClick={() => removeAttachment(url)}
-                    style={{ background: 'none', border: 'none', color: '#ef4444', fontWeight: 'bold', cursor: 'pointer' }}
+                    style={{ background: 'none', border: 'none', color: '#ef4444', fontWeight: 'bold', cursor: 'pointer', display: 'flex' }}
                   >
-                    ✕
+                    <IconX className="w-3.5 h-3.5" />
                   </button>
                 </div>
               ))}
@@ -280,7 +281,7 @@ export default function EditHomeworkModal({
             >
               {status === 'idle' && 'Save Changes'}
               {status === 'submitting' && 'Saving...'}
-              {status === 'success' && 'Saved! ✨'}
+              {status === 'success' && (<span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>Saved! <IconSparkles className="w-4 h-4" /></span>)}
               {status === 'error' && 'Retry'}
             </button>
           </div>

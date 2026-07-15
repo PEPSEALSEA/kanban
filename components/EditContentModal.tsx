@@ -11,8 +11,13 @@ import { API_URL, UPLOAD_SERVICE_URL } from '@/lib/config';
 import { authHeaders } from '@/lib/auth';
 import { audioItemsFromContent, makeAudioEntry } from '@/lib/audioItems';
 import { saveLearningContent } from '@/lib/contentSave';
+import { IconX, IconZap, IconScissors, IconTurtle, IconMusic, IconPaperclip, IconSparkles } from '@/components/icons';
 
 const GAS_WEB_APP_URL = API_URL;
+
+function isHighSpeedProgress(progress: string) {
+  return progress.includes('High-Speed');
+}
 const UPLOAD_WEB_APP_URL = UPLOAD_SERVICE_URL;
 
 export default function EditContentModal({ 
@@ -78,7 +83,7 @@ export default function EditContentModal({
     if (files.length === 0) return;
     setIsUploading(true);
     setActiveUploadType(type);
-    setUploadProgress('✂️ Checking file size...');
+    setUploadProgress('Optimizing: Checking file size...');
 
     try {
       for (const file of files) {
@@ -86,10 +91,10 @@ export default function EditContentModal({
         
         // Audio Compression Step (Only if over 45MB)
         if (type === 'audio' && file.size > 45 * 1024 * 1024) {
-          setUploadProgress('✂️ Very large file. Optimizing...');
+          setUploadProgress('Optimizing: Very large file...');
           try {
             const compressionResult = await compressAudioIfNeeded(file, (p) => {
-              setUploadProgress(`✂️ Compressing: ${p}%`);
+              setUploadProgress(`Optimizing: Compressing ${p}%`);
             });
             if (compressionResult.compressed) {
               fileToUpload = compressionResult.file;
@@ -99,7 +104,7 @@ export default function EditContentModal({
           }
         }
 
-        setUploadProgress('⚡ High-Speed Direct Uploading...');
+        setUploadProgress('High-Speed Direct Uploading...');
 
         // Try Direct Upload (High Speed)
         const result = await uploadToTelegramDirect(fileToUpload, type === 'audio' ? 'audio' : 'document');
@@ -129,7 +134,7 @@ export default function EditContentModal({
         } else {
           // Fallback to GAS (Slow)
           const errorMsg = result.error || 'Direct Upload Failed';
-          setUploadProgress(`🐢 Slow Fallback (${errorMsg})...`);
+          setUploadProgress(`Slow-Fallback: (${errorMsg})...`);
           
           const reader = new FileReader();
           const base64Promise = new Promise<string>((resolve) => {
@@ -160,7 +165,7 @@ export default function EditContentModal({
       }
     } catch (error) {
       console.error('Upload process failed:', error);
-      setUploadProgress('❌ Upload Failed');
+      setUploadProgress('Failed: Upload Failed');
     } finally {
       setIsUploading(false);
       setActiveUploadType(null);
@@ -224,7 +229,7 @@ export default function EditContentModal({
             <h2 style={{ fontSize: '1.25rem', color: 'var(--admin-text-main)' }}>Edit Learning Content</h2>
             <p style={{ fontSize: '0.8rem', color: 'var(--admin-text-muted)' }}>Mange audio lectures and study materials</p>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: 'var(--admin-text-muted)' }}>✕</button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--admin-text-muted)' }}><IconX className="w-5 h-5" /></button>
         </div>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
@@ -298,15 +303,16 @@ export default function EditContentModal({
                 disabled={isUploading}
               />
               {isUploading && uploadProgress && activeUploadType === 'audio' && (
-                <p style={{ fontSize: '0.7rem', color: uploadProgress.includes('⚡') ? '#10b981' : '#f59e0b', marginTop: '0.4rem', fontWeight: 600 }}>
+                <p style={{ fontSize: '0.7rem', color: isHighSpeedProgress(uploadProgress) ? '#10b981' : '#f59e0b', marginTop: '0.4rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  {isHighSpeedProgress(uploadProgress) ? <IconZap className="w-3.5 h-3.5" /> : uploadProgress.includes('Slow-Fallback') ? <IconTurtle className="w-3.5 h-3.5" /> : <IconScissors className="w-3.5 h-3.5" />}
                   {uploadProgress}
                 </p>
               )}
               <div style={{ marginTop: '0.5rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
                 {formData.audios.map((entry, i) => (
                   <div key={i} style={{ background: 'var(--admin-bg-soft)', padding: '4px 8px', borderRadius: '4px', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '0.4rem', border: '1px solid var(--admin-border)' }}>
-                    <span>🎵 {decodeURIComponent(entry.split('#')[1] || 'Audio')}</span>
-                    <button type="button" onClick={() => removeAudio(entry)} style={{ background: 'none', border: 'none', color: '#ef4444', fontWeight: 'bold', cursor: 'pointer' }}>✕</button>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><IconMusic className="w-3.5 h-3.5" /> {decodeURIComponent(entry.split('#')[1] || 'Audio')}</span>
+                    <button type="button" onClick={() => removeAudio(entry)} style={{ background: 'none', border: 'none', color: '#ef4444', fontWeight: 'bold', cursor: 'pointer', display: 'flex' }}><IconX className="w-3.5 h-3.5" /></button>
                   </div>
                 ))}
               </div>
@@ -319,15 +325,16 @@ export default function EditContentModal({
                 disabled={isUploading}
               />
               {isUploading && uploadProgress && activeUploadType === 'attachment' && (
-                <p style={{ fontSize: '0.7rem', color: uploadProgress.includes('⚡') ? '#10b981' : '#f59e0b', marginTop: '0.4rem', fontWeight: 600 }}>
+                <p style={{ fontSize: '0.7rem', color: isHighSpeedProgress(uploadProgress) ? '#10b981' : '#f59e0b', marginTop: '0.4rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  {isHighSpeedProgress(uploadProgress) ? <IconZap className="w-3.5 h-3.5" /> : uploadProgress.includes('Slow-Fallback') ? <IconTurtle className="w-3.5 h-3.5" /> : <IconScissors className="w-3.5 h-3.5" />}
                   {uploadProgress}
                 </p>
               )}
               <div style={{ marginTop: '0.5rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
                 {formData.attachments.map((url, i) => (
                   <div key={i} style={{ background: 'var(--admin-bg-soft)', padding: '4px 8px', borderRadius: '4px', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '0.4rem', border: '1px solid var(--admin-border)' }}>
-                    <span>📎 {decodeURIComponent(url.split('#')[1] || 'File')}</span>
-                    <button type="button" onClick={() => removeAttachment(url)} style={{ background: 'none', border: 'none', color: '#ef4444', fontWeight: 'bold', cursor: 'pointer' }}>✕</button>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><IconPaperclip className="w-3.5 h-3.5" /> {decodeURIComponent(url.split('#')[1] || 'File')}</span>
+                    <button type="button" onClick={() => removeAttachment(url)} style={{ background: 'none', border: 'none', color: '#ef4444', fontWeight: 'bold', cursor: 'pointer', display: 'flex' }}><IconX className="w-3.5 h-3.5" /></button>
                   </div>
                 ))}
               </div>
@@ -371,7 +378,7 @@ export default function EditContentModal({
             >
               {status === 'idle' && 'Save Changes'}
               {status === 'submitting' && 'Processing...'}
-              {status === 'success' && 'Saved! ✨'}
+              {status === 'success' && (<span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>Saved! <IconSparkles className="w-4 h-4" /></span>)}
               {status === 'error' && 'Retry'}
             </button>
           </div>

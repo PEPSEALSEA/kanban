@@ -10,8 +10,13 @@ import AttachmentFileInput from '@/components/AttachmentFileInput';
 import { UPLOAD_SERVICE_URL } from '@/lib/config';
 import { makeAudioEntry } from '@/lib/audioItems';
 import { saveLearningContent } from '@/lib/contentSave';
+import { IconX, IconZap, IconScissors, IconTurtle, IconMusic, IconPaperclip, IconCheck, IconSparkles } from '@/components/icons';
 
 const UPLOAD_WEB_APP_URL = UPLOAD_SERVICE_URL;
+
+function isHighSpeedProgress(progress: string) {
+  return progress.includes('High-Speed');
+}
 
 export default function CreateContentModal({ onClose, onRefresh }: { onClose: () => void; onRefresh: () => void }) {
   const { subjects } = useData();
@@ -65,7 +70,7 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
     if (files.length === 0) return;
     setIsUploading(true);
     setActiveUploadType(type);
-    setUploadProgress('⚡ High-Speed Direct Uploading...');
+    setUploadProgress('High-Speed Direct Uploading...');
 
     try {
       for (const file of files) {
@@ -73,10 +78,10 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
         
         // Audio Compression Step (Only if over 45MB - Telegram Bot Limit is 50MB)
         if (type === 'audio' && file.size > 45 * 1024 * 1024) {
-          setUploadProgress('✂️ Very large file. Optimizing...');
+          setUploadProgress('Optimizing: Very large file...');
           try {
             const compressionResult = await compressAudioIfNeeded(file, (p) => {
-              setUploadProgress(`✂️ Compressing: ${p}%`);
+              setUploadProgress(`Optimizing: Compressing ${p}%`);
             });
             if (compressionResult.compressed) {
               fileToUpload = compressionResult.file;
@@ -86,7 +91,7 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
           }
         }
 
-        setUploadProgress('⚡ High-Speed Direct Uploading...');
+        setUploadProgress('High-Speed Direct Uploading...');
 
         // Try Direct Upload (High Speed)
         const result = await uploadToTelegramDirect(fileToUpload, type === 'audio' ? 'audio' : 'document');
@@ -117,7 +122,7 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
         } else {
           // Fallback to GAS (Slow)
           const errorMsg = result.error || 'Direct Upload Failed';
-          setUploadProgress(`🐢 Slow Fallback (${errorMsg})...`);
+          setUploadProgress(`Slow-Fallback: (${errorMsg})...`);
           
           const reader = new FileReader();
           const base64Promise = new Promise<string>((resolve) => {
@@ -149,7 +154,7 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
       }
     } catch (error) {
       console.error('Upload process failed:', error);
-      setUploadProgress('❌ Upload Failed');
+      setUploadProgress('Failed: Upload Failed');
     } finally {
       setIsUploading(false);
       setActiveUploadType(null);
@@ -185,7 +190,7 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
             <h2 style={{ fontSize: '1.25rem', color: 'var(--admin-text-main)' }}>Create Learning Content</h2>
             <p style={{ fontSize: '0.8rem', color: 'var(--admin-text-muted)' }}>Audio lectures, notes, and study materials</p>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: 'var(--admin-text-muted)' }}>✕</button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--admin-text-muted)' }}><IconX className="w-5 h-5" /></button>
         </div>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
@@ -260,19 +265,20 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
                 style={{ fontSize: '0.8rem' }}
               />
               {isUploading && uploadProgress && activeUploadType === 'audio' && (
-                <p style={{ fontSize: '0.7rem', color: uploadProgress.includes('⚡') ? '#10b981' : '#f59e0b', marginTop: '0.4rem', fontWeight: 600 }}>
+                <p style={{ fontSize: '0.7rem', color: isHighSpeedProgress(uploadProgress) ? '#10b981' : '#f59e0b', marginTop: '0.4rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  {isHighSpeedProgress(uploadProgress) ? <IconZap className="w-3.5 h-3.5" /> : uploadProgress.includes('Slow-Fallback') ? <IconTurtle className="w-3.5 h-3.5" /> : <IconScissors className="w-3.5 h-3.5" />}
                   {uploadProgress}
                 </p>
               )}
               <div style={{ marginTop: '0.5rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
                 {formData.audios.map((entry, i) => (
                   <div key={i} style={{ background: 'var(--admin-bg-soft)', padding: '4px 8px', borderRadius: '4px', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '0.4rem', border: '1px solid var(--admin-border)' }}>
-                    <span>🎵 {decodeURIComponent(entry.split('#')[1] || 'Audio')}</span>
-                    <button type="button" onClick={() => removeAudio(entry)} style={{ background: 'none', border: 'none', color: '#ef4444', fontWeight: 'bold', cursor: 'pointer' }}>✕</button>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><IconMusic className="w-3.5 h-3.5" /> {decodeURIComponent(entry.split('#')[1] || 'Audio')}</span>
+                    <button type="button" onClick={() => removeAudio(entry)} style={{ background: 'none', border: 'none', color: '#ef4444', fontWeight: 'bold', cursor: 'pointer', display: 'flex' }}><IconX className="w-3.5 h-3.5" /></button>
                   </div>
                 ))}
               </div>
-              {savedContentId && !isUploading && <p style={{ fontSize: '0.65rem', color: '#10b981', marginTop: '0.4rem' }}>✓ Auto-saved</p>}
+              {savedContentId && !isUploading && <p style={{ fontSize: '0.65rem', color: '#10b981', marginTop: '0.4rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}><IconCheck className="w-3.5 h-3.5" /> Auto-saved</p>}
             </div>
             <div>
               <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.4rem', color: 'var(--admin-text-muted)' }}>PDF / Attachments</label>
@@ -282,14 +288,15 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
                 disabled={isUploading}
               />
               {isUploading && uploadProgress && activeUploadType === 'attachment' && (
-                <p style={{ fontSize: '0.7rem', color: uploadProgress.includes('⚡') ? '#10b981' : '#f59e0b', marginTop: '0.4rem', fontWeight: 600 }}>
+                <p style={{ fontSize: '0.7rem', color: isHighSpeedProgress(uploadProgress) ? '#10b981' : '#f59e0b', marginTop: '0.4rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  {isHighSpeedProgress(uploadProgress) ? <IconZap className="w-3.5 h-3.5" /> : uploadProgress.includes('Slow-Fallback') ? <IconTurtle className="w-3.5 h-3.5" /> : <IconScissors className="w-3.5 h-3.5" />}
                   {uploadProgress}
                 </p>
               )}
               <div style={{ marginTop: '0.5rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
                 {formData.attachments.map((url, i) => (
-                  <div key={i} style={{ background: 'var(--admin-bg-soft)', padding: '4px 8px', borderRadius: '4px', fontSize: '0.7rem', border: '1px solid var(--admin-border)' }}>
-                    📎 {decodeURIComponent(url.split('#')[1] || 'File')}
+                  <div key={i} style={{ background: 'var(--admin-bg-soft)', padding: '4px 8px', borderRadius: '4px', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '0.3rem', border: '1px solid var(--admin-border)' }}>
+                    <IconPaperclip className="w-3.5 h-3.5" /> {decodeURIComponent(url.split('#')[1] || 'File')}
                   </div>
                 ))}
               </div>
@@ -324,7 +331,7 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
             >
               {status === 'idle' && 'Save Learning Content'}
               {status === 'submitting' && 'Processing...'}
-              {status === 'success' && 'Saved! ✨'}
+              {status === 'success' && (<span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>Saved! <IconSparkles className="w-4 h-4" /></span>)}
               {status === 'error' && 'Retry'}
             </button>
           </div>

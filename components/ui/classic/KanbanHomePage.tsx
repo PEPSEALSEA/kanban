@@ -15,6 +15,16 @@ const UPLOAD_WEB_APP_URL = UPLOAD_SERVICE_URL;
 import { isAdminEmail } from '@/lib/admin';
 import { formatThaiRelativeDayLabel } from '@/lib/thaiDate';
 import { subjectBadgeStyle } from '@/lib/colors';
+import {
+  IconCalendar,
+  IconCheck,
+  IconGraduation,
+  IconHourglass,
+  IconImage,
+  IconKanban,
+  IconTimeline,
+  IconX,
+} from '@/components/icons';
 
 function getSubjectColor(subjectName: string, subjects: any[]): string {
   if (!subjectName) return '#94a3b8';
@@ -469,7 +479,9 @@ export default function StudyFlow() {
               {uploadQueue.map(f => (
                 <div key={f.id} className="flex justify-between items-center bg-gray-100 border-2 border-black p-3 font-bold">
                   <span className="truncate mr-2 uppercase text-xs">{f.name}</span>
-                  <span className="text-xl">{f.status === 'uploading' ? '⌛' : (f.status === 'done' ? '✅' : '❌')}</span>
+                  <span className="text-xl">
+                    {f.status === 'uploading' ? <IconHourglass className="w-5 h-5" /> : (f.status === 'done' ? <IconCheck className="w-5 h-5 text-emerald-500" /> : <IconX className="w-5 h-5 text-rose-500" />)}
+                  </span>
                 </div>
               ))}
             </div>
@@ -484,7 +496,7 @@ export default function StudyFlow() {
 
       <header className="sticky top-0 z-[100] px-4 md:px-8 py-4 md:py-5 flex justify-between items-center bg-white/80 backdrop-blur-md border-b border-slate-200/80">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-sky-100 rounded-xl flex items-center justify-center text-xl">🎓</div>
+          <div className="w-10 h-10 bg-sky-100 rounded-xl flex items-center justify-center text-xl"><IconGraduation className="w-5 h-5" /></div>
           <h1 className="text-xl font-bold tracking-tight text-slate-800">Kanban603BPK</h1>
         </div>
       </header>
@@ -509,9 +521,9 @@ export default function StudyFlow() {
                   transition={{ type: "spring", stiffness: 400, damping: 30 }}
                 />
               )}
-              {mode === 'kanban' && '📋'}
-              {mode === 'calendar' && '📅'}
-              {mode === 'timeline' && '⏳'}
+              {mode === 'kanban' && <IconKanban className="w-4 h-4" />}
+              {mode === 'calendar' && <IconCalendar className="w-4 h-4" />}
+              {mode === 'timeline' && <IconTimeline className="w-4 h-4" />}
               {mode}
             </button>
           ))}
@@ -610,7 +622,7 @@ export default function StudyFlow() {
                               onClick={(e) => { e.stopPropagation(); toggleComplete(e, hw.id, hw.my_status); }} 
                               className={`w-6 h-6 rounded-full border flex items-center justify-center transition-all shrink-0 mt-1 ${isDone ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-200 bg-white hover:border-sky-300 hover:bg-sky-50'}`}
                             >
-                              {isDone && <span className="text-[10px] font-bold">✓</span>}
+                              {isDone && <IconCheck className="w-3 h-3" />}
                             </button>
                           )}
                         </div>
@@ -836,7 +848,7 @@ export default function StudyFlow() {
               <h3 className="text-xl font-bold uppercase tracking-tight text-slate-800">
                 {new Date(selectedDate).toLocaleDateString('th-TH', { day: 'numeric', month: 'long' })}
               </h3>
-              <button onClick={() => setSelectedDate(null)} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition-colors">✕</button>
+              <button onClick={() => setSelectedDate(null)} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition-colors"><IconX className="w-4 h-4" /></button>
             </div>
             <div className="flex flex-col gap-4 max-h-[60vh] overflow-y-auto pr-2">
               {homeworkWithStatus
@@ -900,7 +912,7 @@ export default function StudyFlow() {
             <button 
               onClick={() => closeHomework()}
               className="absolute top-4 right-4 md:top-8 md:right-8 w-10 h-10 flex items-center justify-center rounded-full bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-all"
-            >✕</button>
+            ><IconX className="w-4 h-4" /></button>
 
             <div className="mb-12">
               <span 
@@ -911,7 +923,7 @@ export default function StudyFlow() {
               </span>
               <h2 className="text-3xl md:text-4xl font-bold mb-4 tracking-tight text-slate-800 leading-tight">{activeHomework.title}</h2>
               <div className="flex gap-6 text-xs font-semibold text-slate-400 uppercase tracking-widest">
-                <span className="flex items-center gap-2"><span className="text-lg">📅</span> {new Date(activeHomework.deadline).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+                <span className="flex items-center gap-2"><IconCalendar className="w-4 h-4" /> {new Date(activeHomework.deadline).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
               </div>
             </div>
 
@@ -950,7 +962,7 @@ export default function StudyFlow() {
                         />
                         <div className="flex justify-between items-center mt-6">
                           <button onClick={(e) => uploadOrReplaceProof(e, activeHomework.id)} className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-slate-600 transition-colors">
-                            <span className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-sm">🖼️</span> PHOTO
+                            <span className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-sm"><IconImage className="w-4 h-4" /></span> PHOTO
                           </button>
                           <div className="flex items-center gap-2">
                             <button 

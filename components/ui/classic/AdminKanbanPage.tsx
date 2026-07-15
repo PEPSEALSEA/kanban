@@ -8,6 +8,7 @@ import DiscordSummaryPreview from '@/components/DiscordSummaryPreview';
 import { useDeviceDetection } from '@/hooks/useDeviceDetection';
 import AdminPagination from '@/components/admin/AdminPagination';
 import { fetchAdminJson, type AdminListResult, type AdminPageSize } from '@/lib/adminList';
+import { IconHourglass, IconMegaphone, IconX } from '@/components/icons';
 
 type SummaryPreviewMode = 'rendered' | 'raw';
 
@@ -243,7 +244,7 @@ export default function KanbanEditor() {
                 transition: 'all 0.2s ease'
               }}
             >
-              {isLoadingPreview ? '⌛ Loading preview...' : isSendingSummary ? '⌛ Sending...' : '📢 Send Daily Summary to Discord'}
+              {isLoadingPreview ? (<><IconHourglass className="w-4 h-4" /> Loading preview...</>) : isSendingSummary ? (<><IconHourglass className="w-4 h-4" /> Sending...</>) : (<><IconMegaphone className="w-4 h-4" /> Send Daily Summary to Discord</>)}
             </button>
           </div>
         </div>
@@ -263,7 +264,7 @@ export default function KanbanEditor() {
                 onClick={closeSummaryPreview}
                 style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: 'var(--admin-text-muted)' }}
               >
-                ✕
+                <IconX className="w-5 h-5" />
               </button>
             </div>
 
@@ -407,7 +408,14 @@ export default function KanbanEditor() {
                     opacity: isSendingSummary || !summaryPreview.trim() ? 0.7 : 1
                   }}
                 >
-                  {isSendingSummary ? '⌛ Sending...' : 'ยืนยันส่งไป Discord'}
+                  {isSendingSummary ? (
+                    <span className="inline-flex items-center gap-2">
+                      <IconHourglass className="w-4 h-4" />
+                      Sending...
+                    </span>
+                  ) : (
+                    'ยืนยันส่งไป Discord'
+                  )}
                 </button>
               )}
             </div>

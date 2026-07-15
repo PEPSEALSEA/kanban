@@ -2,6 +2,7 @@
 
 import React, { useMemo } from 'react';
 import { Homework, UserInfo, ProgressItem } from '@/types';
+import { IconKanban, IconCalendar, IconTimeline, IconFlame, IconShell, IconCheck } from '@/components/icons';
 
 interface Props {
   user: UserInfo | null;
@@ -63,9 +64,9 @@ export function KanbanDesktopView({
               onClick={() => setViewMode(mode)}
               className={`view-switcher-btn ${viewMode === mode ? 'active' : ''}`}
             >
-              {mode === 'kanban' && '📋'}
-              {mode === 'calendar' && '📅'}
-              {mode === 'timeline' && '⏳'}
+              {mode === 'kanban' && <IconKanban className="w-4 h-4" />}
+              {mode === 'calendar' && <IconCalendar className="w-4 h-4" />}
+              {mode === 'timeline' && <IconTimeline className="w-4 h-4" />}
               {mode}
             </button>
           ))}
@@ -108,13 +109,16 @@ export function KanbanDesktopView({
         {viewMode === 'kanban' && (
           <div className="kanban-container" style={{ padding: '1rem 2.5rem 2.5rem', display: 'flex', flexDirection: 'row', gap: '2rem', overflowX: 'auto' }}>
             {[
-              { key: 'soon', title: '🔥 3 วันก่อนส่ง', items: columns.soon, color: '#f43f5e' },
-              { key: 'week', title: '📅 7 วันก่อนส่ง', items: columns.week, color: '#f59e0b' },
-              { key: 'backlog', title: '🐚 งานดองเค็ม', items: columns.backlog, color: '#6366f1' }
+              { key: 'soon', icon: IconFlame, title: '3 วันก่อนส่ง', items: columns.soon, color: '#f43f5e' },
+              { key: 'week', icon: IconCalendar, title: '7 วันก่อนส่ง', items: columns.week, color: '#f59e0b' },
+              { key: 'backlog', icon: IconShell, title: 'งานดองเค็ม', items: columns.backlog, color: '#6366f1' }
             ].map(col => (
               <div key={col.key} className="column glass" style={{ minWidth: '360px', borderTop: `4px solid ${col.color}`, padding: '1.5rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                  <h3 style={{ fontSize: '1.2rem', fontWeight: 800 }}>{col.title}</h3>
+                  <h3 style={{ fontSize: '1.2rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <col.icon className="w-5 h-5" />
+                    {col.title}
+                  </h3>
                   <span className="badge">{col.items.length}</span>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -129,7 +133,7 @@ export function KanbanDesktopView({
                           </div>
                           {user && (
                             <div onClick={(e) => { e.stopPropagation(); toggleComplete(e, hw.id, hw.my_status); }} style={{ width: '24px', height: '24px', borderRadius: '4px', border: '2px solid var(--primary)', background: isDone ? 'var(--primary)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                              {isDone && <span style={{ color: '#fff', fontWeight: 900 }}>✓</span>}
+                              {isDone && <IconCheck className="w-4 h-4" style={{ color: '#fff' }} />}
                             </div>
                           )}
                         </div>
