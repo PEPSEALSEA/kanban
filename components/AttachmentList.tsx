@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { getFreshTelegramUrl } from '@/lib/telegram';
 import { useData } from '@/components/DataProvider';
 import { getOrCreateSessionId } from '@/lib/analytics';
+import { API_URL, UPLOAD_SERVICE_URL } from '@/lib/config';
 
 export type Attachment = {
   type: 'link_image' | 'link_work';
@@ -12,7 +13,30 @@ export type Attachment = {
   fileId?: string;
 };
 
-import { UPLOAD_SERVICE_URL } from '@/lib/config';
+function decodeDisplayName(raw?: string): string {
+  let name = String(raw || '').trim();
+  if (!name) return 'File Viewer';
+  try {
+    while (/%[0-9A-Fa-f]{2}/.test(name)) {
+      const decoded = decodeURIComponent(name);
+      if (decoded === name) break;
+      name = decoded;
+    }
+  } catch {
+    /* keep current */
+  }
+  return name;
+}
+
+function ensureFilenameExtension(filename: string, url: string, isImage: boolean): string {
+  let name = decodeDisplayName(filename) || 'download';
+  name = name.replace(/[/\\?%*:|"<>]/g, '_').trim();
+  if (/\.[a-zA-Z0-9]{1,8}$/.test(name)) return name;
+
+  const urlExt = url.match(/\.([a-zA-Z0-9]{1,8})(?:$|\?)/)?.[1];
+  if (urlExt) return `${name}.${urlExt.toLowerCase()}`;
+  return `${name}.${isImage ? 'jpg' : 'bin'}`;
+}
 
 export default function AttachmentList({ 
   attachments, 
@@ -29,8 +53,8 @@ export default function AttachmentList({
   const [isPreviewLoading, setIsPreviewLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState<Record<string, boolean>>({});
   const [refreshAttempted, setRefreshAttempted] = useState<Record<string, boolean>>({});
+  const [isDownloading, setIsDownloading] = useState(false);
 
-  // Sync local state when props change and sort A-Z
   React.useEffect(() => {
     const sorted = [...attachments].sort((a, b) => 
       (a.title || '').localeCompare(b.title || '', undefined, { numeric: true, sensitivity: 'base' })
@@ -39,7 +63,6 @@ export default function AttachmentList({
   }, [attachments]);
 
   const handleImageError = async (targetImg: Attachment, force: boolean = false) => {
-    // 1. Resolve which ID to use (real ID or filename fallback)
     let fileId = targetImg.fileId;
     if (!fileId && targetImg.url.includes('api.telegram.org')) {
       fileId = targetImg.title;
@@ -63,10 +86,8 @@ export default function AttachmentList({
       setRefreshAttempted(prev => ({ ...prev, [uniqueKey]: true }));
       
       try {
-        // 1. Direct Client-Side Fetch (Bypasses GAS - Instant)
         let freshUrl = await getFreshTelegramUrl(fileId);
 
-        // 2. Fallback to GAS if direct fetch fails (usually for legacy filename-based IDs)
         if (!freshUrl) {
           console.log(`[Heal] Direct fetch failed for ${targetImg.title}, using GAS recovery...`);
           const refreshUrl = `${UPLOAD_SERVICE_URL}?action=getFreshLink&fileId=${encodeURIComponent(fileId)}&refresh=true&contentId=${encodeURIComponent(contentId || '')}&contentType=${encodeURIComponent(contentType || '')}`;
@@ -77,7 +98,6 @@ export default function AttachmentList({
             if (data.fileId) fileId = data.fileId;
           }
         } else {
-          // Notify GAS in background to update spreadsheet
           fetch(`${UPLOAD_SERVICE_URL}?action=getFreshLink&fileId=${encodeURIComponent(fileId)}&refresh=true&contentId=${encodeURIComponent(contentId || '')}&contentType=${encodeURIComponent(contentType || '')}`).catch(() => {});
         }
         
@@ -95,7 +115,7 @@ export default function AttachmentList({
               const updated = { 
                 ...newArr[currentIdx], 
                 url: freshUrl!,
-                fileId: fileId // Update with real ID if we have it
+                fileId: fileId
               };
               newArr[currentIdx] = updated;
               
@@ -125,6 +145,60 @@ export default function AttachmentList({
       setIsPreviewLoading(false);
     }
   };
+
+  const downloadAttachment = async (file: Attachment) => {
+    if (isDownloading) return;
+    setIsDownloading(true);
+    try {
+      const filename = ensureFilenameExtension(
+        file.title,
+        file.url,
+        file.type === 'link_image'
+      );
+      let fileId = file.fileId;
+
+      if (!fileId && file.url.includes('api.telegram.org')) {
+        fileId = file.title;
+      }
+
+      if (fileId) {
+        const proxyUrl =
+          `${API_URL}/api/file-download?fileId=${encodeURIComponent(fileId)}` +
+          `&filename=${encodeURIComponent(filename)}`;
+        const res = await fetch(proxyUrl);
+        if (!res.ok) {
+          throw new Error(`Download failed (${res.status})`);
+        }
+        const blob = await res.blob();
+        const objectUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = objectUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(objectUrl);
+        return;
+      }
+
+      const res = await fetch(file.url);
+      if (!res.ok) throw new Error(`Download failed (${res.status})`);
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch (err) {
+      console.error('Download error:', err);
+      window.open(file.url, '_blank', 'noopener,noreferrer');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
   const [zoomLevel, setZoomLevel] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
@@ -134,7 +208,7 @@ export default function AttachmentList({
   const handleZoomIn = () => setZoomLevel((prev) => Math.min(prev + 0.5, 4));
   const handleZoomOut = () => setZoomLevel((prev) => {
     const newZoom = Math.max(prev - 0.5, 1);
-    if (newZoom === 1) setPosition({ x: 0, y: 0 }); // reset pan on full zoom out
+    if (newZoom === 1) setPosition({ x: 0, y: 0 });
     return newZoom;
   });
   
@@ -164,7 +238,6 @@ export default function AttachmentList({
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (zoomLevel <= 1) return;
-    // We only drag with the left mouse button
     if (e.button !== 0) return;
     
     e.preventDefault();
@@ -191,12 +264,10 @@ export default function AttachmentList({
   const images = localAttachments.filter((a) => a.type === 'link_image');
   const files = localAttachments.filter((a) => a.type === 'link_work');
 
-  // Placeholder to prevent infinite onError loops during refresh
   const TRANSPARENT_PIXEL = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 
   return (
     <div className="w-full flex flex-col gap-6">
-      {/* File Documents Section */}
       {files.length > 0 && (
         <div className="flex flex-col gap-4">
           <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Documents & Files</h4>
@@ -206,12 +277,12 @@ export default function AttachmentList({
                 key={idx} 
                 className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-white border border-slate-100 rounded-2xl shadow-sm hover:shadow-md transition-all gap-4"
               >
-                <div className="flex items-center gap-3 w-full overflow-hidden">
+                <div className="flex items-center gap-3 w-full overflow-hidden min-w-0">
                   <div className="w-10 h-10 bg-sky-50 rounded-xl flex items-center justify-center text-sky-500 shrink-0">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                   </div>
-                  <span className="font-semibold text-slate-700 text-sm truncate uppercase tracking-tight" title={file.title}>
-                    {file.title || 'Untitled Document'}
+                  <span className="font-semibold text-slate-700 text-sm truncate uppercase tracking-tight" title={decodeDisplayName(file.title)}>
+                    {decodeDisplayName(file.title) || 'Untitled Document'}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
@@ -223,13 +294,14 @@ export default function AttachmentList({
                   >
                     VIEW
                   </a>
-                  <a
-                    href={file.url}
-                    download
-                    className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-[10px] font-bold text-white rounded-lg transition-colors"
+                  <button
+                    type="button"
+                    onClick={() => downloadAttachment(file)}
+                    disabled={isDownloading}
+                    className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-[10px] font-bold text-white rounded-lg transition-colors disabled:opacity-50"
                   >
                     DL
-                  </a>
+                  </button>
                 </div>
               </div>
             ))}
@@ -237,7 +309,6 @@ export default function AttachmentList({
         </div>
       )}
 
-      {/* Images Section */}
       {images.length > 0 && (
         <div className="flex flex-col gap-4">
           <div className="flex items-center justify-between">
@@ -272,17 +343,16 @@ export default function AttachmentList({
               >
                 <img 
                   src={isRefreshing[`${img.fileId}_${img.url}`] ? TRANSPARENT_PIXEL : img.url} 
-                  alt={img.title || 'Preview'} 
+                  alt={decodeDisplayName(img.title) || 'Preview'} 
                   className="w-full h-full object-cover transition-all"
                   onError={() => handleImageError(img)}
                 />
                 <div className="absolute inset-x-0 bottom-0 bg-white/90 backdrop-blur-md border-t border-slate-100 p-3 transform translate-y-full group-hover:translate-y-0 transition-transform">
                   <p className="text-[9px] font-bold text-slate-600 uppercase truncate">
-                    {img.title || `Image ${idx + 1}`}
+                    {decodeDisplayName(img.title) || `Image ${idx + 1}`}
                   </p>
                 </div>
                 
-                {/* Manual Refresh Overlay for failed items */}
                 {refreshAttempted[`${img.fileId}_${img.url}`] && !isRefreshing[`${img.fileId}_${img.url}`] && (
                   <div className="absolute inset-0 bg-white/95 flex flex-col items-center justify-center p-3 gap-2 z-20">
                     <button 
@@ -303,7 +373,6 @@ export default function AttachmentList({
         </div>
       )}
 
-      {/* Fullscreen Image Modal - Using Portal to ensure it's not clipped by parent containers */}
       {selectedPreview && typeof document !== 'undefined' && require('react-dom').createPortal(
         <div 
           className="fixed inset-0 z-[100000] flex items-center justify-center bg-slate-950/90 backdrop-blur-3xl transition-opacity duration-300 animate-in fade-in"
@@ -311,40 +380,37 @@ export default function AttachmentList({
             background: `radial-gradient(circle at center, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.95) 100%)`
           }}
         >
-          {/* Loading Spinner */}
           {isPreviewLoading && (
-            <div className="absolute inset-0 flex items-center justify-center z-[100001]">
+            <div className="absolute inset-0 flex items-center justify-center z-[100001] pointer-events-none">
               <div className="w-12 h-12 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin"></div>
             </div>
           )}
-          {/* Top Navbar for Modal */}
-          <div className="absolute top-0 inset-x-0 p-6 flex justify-between items-center bg-gradient-to-b from-black/80 via-black/40 to-transparent z-[100002]">
-            <div className="flex flex-col">
-              <h3 className="text-white text-xl font-bold tracking-tight truncate pr-4 drop-shadow-lg">
-                {selectedPreview.title || 'File Viewer'}
+          <div className="absolute top-0 inset-x-0 p-3 sm:p-6 flex gap-2 sm:gap-3 items-start sm:items-center bg-gradient-to-b from-black/80 via-black/40 to-transparent z-[100002]">
+            <div className="flex flex-col min-w-0 flex-1 overflow-hidden pr-2">
+              <h3 className="text-white text-base sm:text-xl font-bold tracking-tight truncate drop-shadow-lg" title={decodeDisplayName(selectedPreview.title)}>
+                {decodeDisplayName(selectedPreview.title) || 'File Viewer'}
               </h3>
-              <p className="text-slate-400 text-xs font-medium uppercase tracking-widest mt-0.5 opacity-80">
+              <p className="text-slate-400 text-[10px] sm:text-xs font-medium uppercase tracking-widest mt-0.5 opacity-80">
                 {selectedPreview.type === 'link_image' ? 'Image Preview' : 'Document Preview'}
               </p>
             </div>
             
-            <div className="flex items-center gap-3">
-              {/* Zoom Controls (Images Only) */}
+            <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
               {selectedPreview.type === 'link_image' && (
-                <div className="flex items-center bg-slate-800/40 rounded-xl backdrop-blur-xl border border-white/10 mr-4 shadow-xl overflow-hidden">
+                <div className="hidden sm:flex items-center bg-slate-800/40 rounded-xl backdrop-blur-xl border border-white/10 shadow-xl overflow-hidden">
                   <button 
                     onClick={handleZoomOut} 
-                    className="p-2.5 text-slate-300 hover:text-white hover:bg-white/10 transition-all disabled:opacity-30 disabled:cursor-not-allowed" 
+                    className="p-2 sm:p-2.5 text-slate-300 hover:text-white hover:bg-white/10 transition-all disabled:opacity-30 disabled:cursor-not-allowed" 
                     disabled={zoomLevel <= 1}
                   >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M20 12H4" /></svg>
+                    <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M20 12H4" /></svg>
                   </button>
-                  <div className="px-4 text-white text-sm font-bold w-20 text-center border-x border-white/5 select-none tabular-nums">
+                  <div className="px-2 sm:px-4 text-white text-xs sm:text-sm font-bold w-14 sm:w-20 text-center border-x border-white/5 select-none tabular-nums">
                     {Math.round(zoomLevel * 100)}%
                   </div>
                   <button 
                     onClick={handleResetZoom} 
-                    className="px-3 py-2 text-white hover:bg-white/10 transition-all text-xs font-black disabled:opacity-30 disabled:cursor-not-allowed border-r border-white/5" 
+                    className="px-2 sm:px-3 py-2 text-white hover:bg-white/10 transition-all text-[10px] sm:text-xs font-black disabled:opacity-30 disabled:cursor-not-allowed border-r border-white/5" 
                     title="Reset Zoom" 
                     disabled={zoomLevel === 1}
                   >
@@ -352,43 +418,59 @@ export default function AttachmentList({
                   </button>
                   <button 
                     onClick={handleZoomIn} 
-                    className="p-2.5 text-slate-300 hover:text-white hover:bg-white/10 transition-all disabled:opacity-30 disabled:cursor-not-allowed" 
+                    className="p-2 sm:p-2.5 text-slate-300 hover:text-white hover:bg-white/10 transition-all disabled:opacity-30 disabled:cursor-not-allowed" 
                     disabled={zoomLevel >= 4}
                   >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>
+                    <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>
                   </button>
                 </div>
               )}
+
+              <button
+                type="button"
+                onClick={() => downloadAttachment(selectedPreview)}
+                disabled={isDownloading}
+                className="p-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl transition-all backdrop-blur-xl border border-white/20 shrink-0 disabled:opacity-50"
+                title="Download"
+              >
+                <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V4" /></svg>
+              </button>
     
-              {/* Close Button */}
               <button 
+                type="button"
                 onClick={closeModal} 
-                className="p-2.5 bg-red-500/10 hover:bg-red-500/80 text-red-500 hover:text-white rounded-xl transition-all backdrop-blur-xl border border-red-500/20"
+                className="p-2.5 bg-red-500/10 hover:bg-red-500/80 text-red-500 hover:text-white rounded-xl transition-all backdrop-blur-xl border border-red-500/20 shrink-0"
                 title="Close (Esc)"
               >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
+                <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
           </div>
     
-          {/* Interactive Container */}
           <div 
             className="absolute inset-0 w-full h-full flex items-center justify-center overflow-hidden pt-20" 
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
             onMouseMove={handleMouseMove}
           >
-            {/* Clickable bounding box for closing modal */}
-            <div className="absolute inset-0 z-0" onMouseUp={closeModal} />
+            <div
+              className="absolute inset-0 z-0"
+              onClick={closeModal}
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                closeModal();
+              }}
+            />
             
             {selectedPreview.type === 'link_image' ? (
               <img 
                 src={isRefreshing[`${selectedPreview.fileId}_${selectedPreview.url}`] ? TRANSPARENT_PIXEL : selectedPreview.url} 
-                alt={selectedPreview.title} 
+                alt={decodeDisplayName(selectedPreview.title)} 
                 onMouseDown={handleMouseDown}
+                onClick={(e) => e.stopPropagation()}
                 onLoad={() => setIsPreviewLoading(false)}
                 onError={() => handleImageError(selectedPreview)}
-                className={`w-full h-full object-contain drop-shadow-[0_0_50px_rgba(0,0,0,0.5)] relative z-10 animate-in zoom-in-95 duration-300 ease-out transition-opacity ${isPreviewLoading ? 'opacity-0' : 'opacity-100'}`}
+                className={`max-w-full max-h-full w-auto h-auto object-contain drop-shadow-[0_0_50px_rgba(0,0,0,0.5)] relative z-10 animate-in zoom-in-95 duration-300 ease-out transition-opacity ${isPreviewLoading ? 'opacity-0' : 'opacity-100'}`}
                 style={{ 
                   transform: `translate(${position.x}px, ${position.y}px) scale(${zoomLevel})`,
                   cursor: zoomLevel > 1 ? (isDragging ? 'grabbing' : 'grab') : 'auto',
@@ -397,17 +479,16 @@ export default function AttachmentList({
                 draggable={false}
               />
             ) : (
-              <div className="relative z-10 w-[95%] h-[90%] bg-white rounded-2xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
+              <div className="relative z-10 w-[95%] h-[90%] bg-white rounded-2xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300" onClick={(e) => e.stopPropagation()}>
                 <iframe 
                   src={`https://docs.google.com/viewer?url=${encodeURIComponent(selectedPreview.url)}&embedded=true`}
                   className="w-full h-full border-none"
                   onLoad={() => setIsPreviewLoading(false)}
-                  title={selectedPreview.title}
+                  title={decodeDisplayName(selectedPreview.title)}
                 />
               </div>
             )}
 
-            {/* Manual Refresh Button for Modal */}
             {refreshAttempted[`${selectedPreview.fileId}_${selectedPreview.url}`] && !isRefreshing[`${selectedPreview.fileId}_${selectedPreview.url}`] && (
               <div className="absolute inset-0 flex items-center justify-center z-[100003] pointer-events-none">
                 <div className="bg-slate-900/80 backdrop-blur-md p-6 rounded-2xl border border-white/10 flex flex-col items-center gap-4 pointer-events-auto shadow-2xl">

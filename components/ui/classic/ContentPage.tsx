@@ -475,7 +475,7 @@ export default function LearningContentPage() {
       minWidth={view === 'detail' ? 400 : 480}
       maxWidth={view === 'detail' ? 1200 : 1600}
       enabled={!isMobile}
-      className="p-4 md:p-10"
+      className="p-2 md:p-10"
     >
       <AnimatePresence mode="wait">
         {view === 'detail' && activeContent ? (
@@ -810,13 +810,13 @@ export default function LearningContentPage() {
               ) : (
                 <motion.div
                   key="calendar"
-                  className="neo-card p-6 md:p-10"
+                  className="neo-card p-3 md:p-10"
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -8 }}
                   transition={{ duration: 0.2 }}
                 >
-                  <div className="flex justify-between items-center mb-10">
+                  <div className="flex justify-between items-center mb-4 md:mb-10">
                     <h2 className="text-xl md:text-2xl font-bold tracking-tight text-slate-700">
                       {mounted && currentMonth.toLocaleDateString('th-TH', { month: 'long', year: 'numeric' })}
                     </h2>
@@ -853,7 +853,7 @@ export default function LearningContentPage() {
 
                   <div className="calendar-grid calendar-grid--archive">
                     {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map(d => (
-                      <div key={d} className="p-4 text-center text-xs font-black bg-sky-100 border-b-2 border-black">{d}</div>
+                      <div key={d} className="calendar-weekday p-1.5 md:p-4 text-center text-xs font-black bg-sky-100 border-b-2 border-black">{d}</div>
                     ))}
                     {daysInMonth.map((d, i) => {
                       const dateContents = getContentsForDate(d.day, d.month, d.year);
@@ -870,18 +870,24 @@ export default function LearningContentPage() {
                           transition={{ duration: 0.15 }}
                         >
                           <div className="text-sm font-black">{d.day}</div>
-                          <div className="flex flex-wrap gap-1">
-                            {dateContents.map((c: LearningContent, ci: number) => (
-                              <motion.span
-                                key={ci}
-                                className="w-2.5 h-2.5 rounded-full"
-                                style={{ background: dynamicSubjectColors[c.subject] || dynamicSubjectColors['Other'] }}
-                                title={c.title}
-                                initial={{ scale: 0 }}
-                                animate={{ scale: 1 }}
-                                transition={{ delay: ci * 0.05, type: 'spring', stiffness: 400, damping: 15 }}
-                              />
-                            ))}
+                          <div className="flex flex-wrap gap-1 items-center">
+                            {dateContents.length > 3 ? (
+                              <span className="text-[10px] font-black text-slate-600 tabular-nums leading-none">
+                                {dateContents.length}
+                              </span>
+                            ) : (
+                              dateContents.map((c: LearningContent, ci: number) => (
+                                <motion.span
+                                  key={ci}
+                                  className="w-2.5 h-2.5 rounded-full"
+                                  style={{ background: dynamicSubjectColors[c.subject] || dynamicSubjectColors['Other'] }}
+                                  title={c.title}
+                                  initial={{ scale: 0 }}
+                                  animate={{ scale: 1 }}
+                                  transition={{ delay: ci * 0.05, type: 'spring', stiffness: 400, damping: 15 }}
+                                />
+                              ))
+                            )}
                           </div>
                         </motion.div>
                       );

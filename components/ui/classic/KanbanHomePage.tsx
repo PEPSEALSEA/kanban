@@ -630,10 +630,10 @@ export default function StudyFlow() {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 10 }}
             transition={{ duration: 0.2 }}
-            className="px-4 md:px-6 pb-8 w-full max-w-5xl mx-auto"
+            className="px-2 md:px-6 pb-8 w-full max-w-5xl mx-auto"
           >
-            <div className="neo-card p-6 md:p-10">
-              <div className="flex justify-between items-center mb-6 md:mb-8">
+            <div className="neo-card p-3 md:p-10">
+              <div className="flex justify-between items-center mb-4 md:mb-8">
                 <h2 className="text-xl md:text-2xl font-bold tracking-tight text-slate-700">
                   {focusDate.toLocaleDateString('th-TH', { month: 'long', year: 'numeric' })}
                 </h2>
@@ -655,7 +655,7 @@ export default function StudyFlow() {
 
               <div className="calendar-grid">
                 {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map(d => (
-                  <div key={d} className="p-3 md:p-4 text-center text-xs font-black bg-sky-100 border-b-2 border-black">{d}</div>
+                  <div key={d} className="calendar-weekday p-3 md:p-4 text-center text-xs font-black bg-sky-100 border-b-2 border-black">{d}</div>
                 ))}
                 {(() => {
                   const year = focusDate.getFullYear();
@@ -692,18 +692,24 @@ export default function StudyFlow() {
                         transition={{ duration: 0.15 }}
                       >
                         <div className="text-sm font-black">{d.day}</div>
-                        <div className="flex flex-wrap gap-1">
-                          {dayTasks.map(task => (
-                            <span 
-                              key={task.id}
-                              className="w-2.5 h-2.5 rounded-full shrink-0" 
-                              style={{ 
-                                background: getSubjectColor(task.subject, subjects),
-                                opacity: task.my_status === 'done' ? 0.3 : 1
-                              }} 
-                              title={task.title} 
-                            />
-                          ))}
+                        <div className="flex flex-wrap gap-1 items-center">
+                          {dayTasks.length > 3 ? (
+                            <span className="text-[10px] font-black text-slate-600 tabular-nums leading-none">
+                              {dayTasks.length}
+                            </span>
+                          ) : (
+                            dayTasks.map(task => (
+                              <span 
+                                key={task.id}
+                                className="w-2.5 h-2.5 rounded-full shrink-0" 
+                                style={{ 
+                                  background: getSubjectColor(task.subject, subjects),
+                                  opacity: task.my_status === 'done' ? 0.3 : 1
+                                }} 
+                                title={task.title} 
+                              />
+                            ))
+                          )}
                         </div>
                       </motion.div>
                     );
@@ -721,9 +727,9 @@ export default function StudyFlow() {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 10 }}
             transition={{ duration: 0.2 }}
-            className="px-4 md:px-6 pb-12 w-full overflow-x-auto"
+            className="px-4 md:px-6 pb-12 w-full"
           >
-            <div className="min-w-[600px] md:min-w-0">
+            <div>
               <div className="timeline-v-container">
               {Array.from({ length: 30 }).map((_, i) => {
                 const d = new Date(focusDate);

@@ -1744,6 +1744,102 @@ async function sendSubmissionNotification(env: Bindings, studentName: string | a
 
 app.get('/health', (c) => c.text('ok'));
 
+function sanitizeDownloadFilename(raw: string, filePath?: string): string {
+  let name = String(raw || '').trim();
+  try {
+    while (/%[0-9A-Fa-f]{2}/.test(name)) {
+      const decoded = decodeURIComponent(name);
+      if (decoded === name) break;
+      name = decoded;
+    }
+  } catch {
+    /* keep current */
+  }
+  name = name.replace(/[/\\?%*:|"<>]/g, '_').replace(/\s+/g, ' ').trim();
+  if (!name || name === 'file' || name === 'Document') name = 'download';
+
+  const hasExt = /\.[a-zA-Z0-9]{1,8}$/.test(name);
+  if (!hasExt && filePath) {
+    const pathExt = filePath.match(/\.([a-zA-Z0-9]{1,8})(?:$|\?)/)?.[1];
+    if (pathExt) name = `${name}.${pathExt.toLowerCase()}`;
+  }
+  if (!/\.[a-zA-Z0-9]{1,8}$/.test(name)) {
+    name = `${name}.bin`;
+  }
+  return name.slice(0, 180);
+}
+
+function mimeFromFilename(filename: string): string {
+  const ext = filename.split('.').pop()?.toLowerCase() || '';
+  const map: Record<string, string> = {
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    png: 'image/png',
+    gif: 'image/gif',
+    webp: 'image/webp',
+    svg: 'image/svg+xml',
+    pdf: 'application/pdf',
+    mp3: 'audio/mpeg',
+    m4a: 'audio/mp4',
+    wav: 'audio/wav',
+    txt: 'text/plain',
+    doc: 'application/msword',
+    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    xls: 'application/vnd.ms-excel',
+    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    zip: 'application/zip',
+  };
+  return map[ext] || 'application/octet-stream';
+}
+
+app.get('/api/file-download', async (c) => {
+  try {
+    const fileId = c.req.query('fileId');
+    if (!fileId) return c.json({ error: 'fileId is required' }, 400);
+
+    const botToken = c.env.TELEGRAM_BOT_TOKEN;
+    if (!botToken) return c.json({ error: 'TELEGRAM_BOT_TOKEN is not configured' }, 500);
+
+    const getFileRes = await fetch(
+      `https://api.telegram.org/bot${botToken}/getFile?file_id=${encodeURIComponent(fileId)}`
+    );
+    const getFileJson = (await getFileRes.json()) as any;
+    if (!getFileJson.ok || !getFileJson.result?.file_path) {
+      return c.json({ error: getFileJson.description || 'Telegram getFile failed' }, 502);
+    }
+
+    const filePath = String(getFileJson.result.file_path);
+    const telegramUrl = `https://api.telegram.org/file/bot${botToken}/${filePath}`;
+    const fileRes = await fetch(telegramUrl);
+    if (!fileRes.ok) {
+      return c.json({ error: `Failed to fetch file (${fileRes.status})` }, 502);
+    }
+
+    const filename = sanitizeDownloadFilename(
+      c.req.query('filename') || '',
+      filePath
+    );
+    const contentType =
+      fileRes.headers.get('content-type') || mimeFromFilename(filename);
+
+    const asciiFallback = filename.replace(/[^\x20-\x7E]/g, '_') || 'download.bin';
+    const disposition = `attachment; filename="${asciiFallback.replace(/"/g, '')}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
+
+    return new Response(fileRes.body, {
+      status: 200,
+      headers: {
+        'Content-Type': contentType,
+        'Content-Disposition': disposition,
+        'Cache-Control': 'private, max-age=60',
+        'Access-Control-Allow-Origin': '*',
+      },
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Download failed';
+    return c.json({ error: message }, 500);
+  }
+});
+
 app.post('/api/chat', async (c) => {
   try {
     const authUser = await requireAuth(c);
