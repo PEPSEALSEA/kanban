@@ -577,10 +577,6 @@ h4 {
   color: #0f172a;
 }
 
-.header-nav-logout .header-nav-avatar {
-  display: none;
-}
-
 .header-nav-dock {
   display: contents;
 }
@@ -707,10 +703,6 @@ h4 {
     display: inline-flex;
     padding: 0;
     gap: 0;
-  }
-
-  .header-nav-logout .header-nav-avatar {
-    display: block;
   }
 
   .header-nav-logout-text {
