@@ -217,7 +217,7 @@ export default function KanbanEditor() {
                   padding: '10px 14px',
                   borderRadius: '0.75rem',
                   border: '1px solid var(--admin-border)',
-                  background: 'rgba(255, 255, 255, 0.05)',
+                  background: '#ffffff',
                   color: 'var(--admin-text-main)',
                   fontSize: '0.9rem',
                   outline: 'none',
@@ -272,7 +272,7 @@ export default function KanbanEditor() {
               <p style={{ color: '#f87171', margin: 0 }}>{summaryPreviewError}</p>
             ) : (
               <>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.65rem 1.1rem', marginBottom: '1rem', padding: '0.85rem 1rem', borderRadius: '0.75rem', border: '1px solid var(--admin-border)', background: 'rgba(255,255,255,0.03)' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.65rem 1.1rem', marginBottom: '1rem', padding: '0.85rem 1rem', borderRadius: '0.75rem', border: '1px solid var(--admin-border)', background: 'var(--admin-bg-soft)' }}>
                   {SUMMARY_SECTION_OPTIONS.map(({ key, label }) => {
                     const hasContent = key === 'footer'
                       ? !!(summaryParts?.footer)
@@ -477,7 +477,7 @@ export default function KanbanEditor() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               {homework.map((hw) => (
                 <div key={hw.id} style={{ 
-                  background: 'rgba(255, 255, 255, 0.03)', 
+                  background: 'var(--admin-bg-soft)', 
                   border: '1px solid var(--admin-border)', 
                   borderRadius: '1rem', 
                   padding: '1.25rem',

@@ -281,22 +281,22 @@ export default function AnalyticsOverview({
   return (
     <div style={{ marginBottom: '2rem' }}>
       <div className="metric-grid" style={{ marginBottom: '1.5rem' }}>
-        <div className="admin-card" style={{ borderLeft: '4px solid #06b6d4' }}>
+        <div className="admin-card" style={{ borderLeft: '4px solid #0ea5e9' }}>
           <p style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--admin-text-muted)', marginBottom: '0.35rem' }}>ผู้เข้าวันนี้</p>
           <h2 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--admin-text-main)', margin: 0 }}>{today.uniqueVisitors}</h2>
           <p style={{ fontSize: '0.7rem', color: 'var(--admin-text-muted)', marginTop: '0.35rem' }}>{today.visits} page views</p>
         </div>
-        <div className="admin-card" style={{ borderLeft: '4px solid #8b5cf6' }}>
+        <div className="admin-card" style={{ borderLeft: '4px solid #0284c7' }}>
           <p style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--admin-text-muted)', marginBottom: '0.35rem' }}>เซสชันเฉลี่ยวันนี้</p>
           <h2 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--admin-text-main)', margin: 0 }}>
             {today.avgSessionSec > 0 ? formatDuration(today.avgSessionSec) : '—'}
           </h2>
         </div>
-        <div className="admin-card" style={{ borderLeft: '4px solid #0d9488' }}>
+        <div className="admin-card" style={{ borderLeft: '4px solid #38bdf8' }}>
           <p style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--admin-text-muted)', marginBottom: '0.35rem' }}>เลื่อนอ่าน 50%+ วันนี้</p>
           <h2 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--admin-text-main)', margin: 0 }}>{today.scrollReaders}</h2>
         </div>
-        <div className="admin-card" style={{ borderLeft: '4px solid #10b981' }}>
+        <div className="admin-card" style={{ borderLeft: '4px solid #7dd3fc' }}>
           <p style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--admin-text-muted)', marginBottom: '0.35rem' }}>เปิดเนื้อหา/การบ้าน วันนี้</p>
           <h2 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--admin-text-main)', margin: 0 }}>
             {today.contentOpens + today.homeworkOpens}
@@ -337,7 +337,7 @@ export default function AnalyticsOverview({
           <SectionTitle>Peak Hours ({rangeLabel})</SectionTitle>
           <BarChart
             data={peakHours.filter((h) => h.hour % 2 === 0)}
-            color="#6366f1"
+            color="#0ea5e9"
           />
         </div>
         <div className="admin-card">
@@ -368,7 +368,7 @@ export default function AnalyticsOverview({
             items={topHomework.map((h) => ({
               label: h.title.length > 40 ? `${h.title.slice(0, 40)}…` : h.title,
               count: h.count,
-              color: '#f59e0b',
+              color: '#0284c7',
             }))}
           />
         </div>
@@ -404,8 +404,8 @@ export default function AnalyticsOverview({
                     borderRadius: '4px',
                     fontWeight: 700,
                     fontSize: '0.68rem',
-                    background: 'rgba(99,102,241,0.15)',
-                    color: '#a5b4fc',
+                    background: 'rgba(14,165,233,0.12)',
+                    color: '#0284c7',
                   }}
                 >
                   {item.label}

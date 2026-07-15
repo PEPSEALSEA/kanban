@@ -39,7 +39,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (isAuthChecking) {
     return (
-      <div className="admin-theme" style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc' }}>
+      <div className="admin-theme" style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--admin-bg)' }}>
         <div className="loader"></div>
       </div>
     );
@@ -47,7 +47,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (!isAdmin) {
     return (
-      <div className="admin-theme" style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', padding: '2rem' }}>
+      <div className="admin-theme" style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--admin-bg)', padding: '2rem' }}>
         <div className="admin-card" style={{ maxWidth: '400px', textAlign: 'center' }}>
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}><IconBan className="w-12 h-12" /></div>
           <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>Access Denied</h2>

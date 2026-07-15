@@ -18,7 +18,7 @@ export default function AdminQuickCreate({ onCreateHomework, onCreateContent }: 
       >
         <div style={{ 
           width: '64px', height: '64px', borderRadius: '1rem', 
-          background: 'rgba(37, 99, 235, 0.1)', color: 'var(--admin-primary)',
+          background: 'rgba(14, 165, 233, 0.12)', color: 'var(--admin-primary)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: '2rem'
         }}>
@@ -38,7 +38,7 @@ export default function AdminQuickCreate({ onCreateHomework, onCreateContent }: 
       >
         <div style={{ 
           width: '64px', height: '64px', borderRadius: '1rem', 
-          background: 'rgba(13, 148, 136, 0.1)', color: 'var(--admin-accent)',
+          background: 'rgba(14, 165, 233, 0.08)', color: 'var(--admin-accent)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: '2rem'
         }}>

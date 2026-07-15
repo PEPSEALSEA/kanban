@@ -87,10 +87,10 @@ export default function AdminDashboard() {
   };
 
   const cards = [
-    { title: 'Total Students', value: metrics.totalUsers, icon: IconUsers, color: '#2563eb' },
-    { title: 'Active Tasks', value: metrics.activeTasks, icon: IconKanban, color: '#0d9488' },
-    { title: 'Learning Materials', value: metrics.totalContent, icon: IconBooks, color: '#8b5cf6' },
-    { title: 'Upcoming Deadlines', value: metrics.upcomingDeadlines, icon: IconHourglass, color: '#f59e0b' },
+    { title: 'Total Students', value: metrics.totalUsers, icon: IconUsers, color: '#0284c7' },
+    { title: 'Active Tasks', value: metrics.activeTasks, icon: IconKanban, color: '#0ea5e9' },
+    { title: 'Learning Materials', value: metrics.totalContent, icon: IconBooks, color: '#38bdf8' },
+    { title: 'Upcoming Deadlines', value: metrics.upcomingDeadlines, icon: IconHourglass, color: '#7dd3fc' },
   ];
 
   return (

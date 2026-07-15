@@ -64,7 +64,7 @@ function shortVisitorId(visitorId: string, isLegacy: boolean): string {
 }
 
 function visitorColor(visitorId: string): string {
-  const palette = ['#6366f1', '#8b5cf6', '#ec4899', '#0d9488', '#2563eb', '#f59e0b', '#10b981', '#06b6d4'];
+  const palette = ['#0284c7', '#0ea5e9', '#38bdf8', '#06b6d4', '#0891b2', '#22d3ee', '#7dd3fc', '#67e8f9'];
   let h = 0;
   for (const c of visitorId) h = ((h << 5) - h + c.charCodeAt(0)) | 0;
   return palette[Math.abs(h) % palette.length];
@@ -173,7 +173,7 @@ function daysSince(iso: string): string {
 const timelineLinkStyle: React.CSSProperties = {
   color: 'var(--admin-text-main)',
   textDecoration: 'none',
-  borderBottom: '1px solid rgba(99,102,241,0.45)',
+  borderBottom: '1px solid rgba(14,165,233,0.45)',
   transition: 'color 0.15s, border-color 0.15s',
 };
 
@@ -187,12 +187,12 @@ function TimelinePageLabel({ entry }: { entry: TimelineEntry }) {
           rel="noopener noreferrer"
           style={timelineLinkStyle}
           onMouseEnter={(e) => {
-            e.currentTarget.style.color = '#a5b4fc';
-            e.currentTarget.style.borderBottomColor = '#a5b4fc';
+            e.currentTarget.style.color = '#0284c7';
+            e.currentTarget.style.borderBottomColor = '#0284c7';
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.color = 'var(--admin-text-main)';
-            e.currentTarget.style.borderBottomColor = 'rgba(99,102,241,0.45)';
+            e.currentTarget.style.borderBottomColor = 'rgba(14,165,233,0.45)';
           }}
         >
           {entry.pageLabel}
@@ -334,7 +334,7 @@ function IpDetailModal({ group, ipNotes, resourceLookups, onClose, onSaveNote }:
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.65rem' }}>
               <span style={chip('#10b981')}>ล่าสุด {formatRelativeTime(group.lastSeen)}</span>
-              {group.totalDurationSec > 0 && <span style={chip('#6366f1')}>อยู่รวม ~{formatDuration(group.totalDurationSec)}</span>}
+              {group.totalDurationSec > 0 && <span style={chip('#0284c7')}>อยู่รวม ~{formatDuration(group.totalDurationSec)}</span>}
               <span style={chip('#94a3b8')}>{group.eventCount} events</span>
               <span style={chip('#64748b')}>{daysSince(group.firstSeen)}</span>
             </div>
@@ -424,7 +424,7 @@ function IpDetailModal({ group, ipNotes, resourceLookups, onClose, onSaveNote }:
                 >
                   <div style={{
                     padding: '0.6rem 1rem',
-                    background: 'rgba(99,102,241,0.08)',
+                    background: 'rgba(14,165,233,0.08)',
                     borderBottom: '1px solid var(--admin-border)',
                     fontSize: '0.75rem',
                     fontWeight: 700,
@@ -435,7 +435,7 @@ function IpDetailModal({ group, ipNotes, resourceLookups, onClose, onSaveNote }:
                     gap: '0.5rem',
                   }}>
                     <span>เซสชัน · {formatTime(session.startedAt)}</span>
-                    <span style={{ color: '#a5b4fc' }}>รวม {formatDuration(session.totalDurationSec)}</span>
+                    <span style={{ color: '#0284c7' }}>รวม {formatDuration(session.totalDurationSec)}</span>
                   </div>
                   <div style={{ padding: '0.75rem 1rem' }}>
                     {session.entries.map((entry, idx) => {
@@ -584,7 +584,7 @@ function VisitorCard({
           {g.maxScrollPercent > 0 && (
             <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
               <span style={{ fontSize: '0.65rem', color: 'var(--admin-text-muted)' }}>อ่าน {g.maxScrollPercent}%</span>
-              <span style={{ display: 'inline-flex', width: '40px', height: '4px', background: 'rgba(255,255,255,0.08)', borderRadius: '2px', overflow: 'hidden' }}>
+              <span style={{ display: 'inline-flex', width: '40px', height: '4px', background: 'var(--admin-border)', borderRadius: '2px', overflow: 'hidden' }}>
                 <span style={{ height: '100%', width: `${g.maxScrollPercent}%`, background: '#10b981', borderRadius: '2px' }} />
               </span>
             </span>
@@ -618,7 +618,7 @@ const chip = (color: string): React.CSSProperties => ({
 });
 
 const closeBtnStyle: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.06)',
+  background: 'var(--admin-bg-soft)',
   border: '1px solid var(--admin-border)',
   color: 'var(--admin-text-muted)',
   width: '32px',
@@ -633,7 +633,7 @@ const inputStyle: React.CSSProperties = {
   padding: '0.5rem 0.75rem',
   borderRadius: '0.5rem',
   border: '1px solid var(--admin-border)',
-  background: 'rgba(255,255,255,0.06)',
+  background: '#ffffff',
   color: 'var(--admin-text-main)',
   fontSize: '0.82rem',
   outline: 'none',
@@ -796,8 +796,8 @@ export default function AdminAnalyticsPanel() {
                   cursor: 'pointer',
                   fontSize: '0.75rem',
                   fontWeight: 700,
-                  background: range === opt.value ? 'rgba(99,102,241,0.3)' : 'transparent',
-                  color: range === opt.value ? '#a5b4fc' : 'var(--admin-text-muted)',
+                  background: range === opt.value ? 'rgba(14,165,233,0.18)' : 'transparent',
+                  color: range === opt.value ? '#0284c7' : 'var(--admin-text-muted)',
                   transition: 'background 0.15s',
                 }}
               >
@@ -848,7 +848,7 @@ export default function AdminAnalyticsPanel() {
 
           {/* Stats bar */}
           <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-            <span style={chip('#6366f1')}>{visitorGroups.length} visitors ทั้งหมด</span>
+            <span style={chip('#0284c7')}>{visitorGroups.length} visitors ทั้งหมด</span>
             {onlineCount > 0 && <span style={chip('#10b981')}>{onlineCount} ออนไลน์อยู่</span>}
             {search && <span style={chip('#f59e0b')}>พบ {filteredVisitors.length} รายการ</span>}
           </div>

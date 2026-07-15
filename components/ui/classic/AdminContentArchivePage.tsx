@@ -30,7 +30,7 @@ const ContentItem = React.memo(({ item, subjects, onEdit, isMobile }: { item: Le
   if (isMobile) {
     return (
       <div style={{ 
-        background: 'rgba(255, 255, 255, 0.03)', 
+        background: 'var(--admin-bg-soft)', 
         border: '1px solid var(--admin-border)', 
         borderRadius: '1rem', 
         padding: '1.25rem',
