@@ -9,20 +9,22 @@ export default function SyncToast() {
   if (!isSyncing && !error) return null;
 
   return (
-    <div className="sync-toast" style={{ 
-      background: error ? '#fecaca' : '#fde047',
-      borderColor: '#000'
-    }}>
+    <div
+      className={`sync-toast ${error ? 'sync-toast--error' : 'sync-toast--syncing'}`}
+      role="status"
+      aria-live="polite"
+    >
       {isSyncing ? (
         <>
-          <div className="sync-spinner"></div>
-          <span className="font-black uppercase text-xs">Updating data...</span>
+          <span className="sync-spinner" aria-hidden />
+          <span className="sync-toast-text">Syncing</span>
         </>
-      ) : error ? (
+      ) : (
         <>
-          <span className="font-black uppercase text-xs">⚠️ Sync Error</span>
+          <span className="sync-toast-dot" aria-hidden />
+          <span className="sync-toast-text">Sync error</span>
         </>
-      ) : null}
+      )}
     </div>
   );
 }

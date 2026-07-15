@@ -104,14 +104,9 @@ export default function HeaderNav() {
 
         <div className="header-nav-auth">
           {!user ? (
-            <>
-              <span className="header-nav-auth-desktop">
-                <GoogleSignInButton size="medium" />
-              </span>
-              <span className="header-nav-auth-mobile">
-                <GoogleSignInButton size="large" type="icon" shape="circle" theme="outline" />
-              </span>
-            </>
+            <span className="header-nav-auth-mobile">
+              <GoogleSignInButton size="large" type="icon" shape="circle" theme="outline" />
+            </span>
           ) : (
             <div className="header-nav-user">
               <button type="button" onClick={handleLogout} className="header-nav-logout" title="Logout">
