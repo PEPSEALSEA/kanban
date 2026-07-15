@@ -16,7 +16,7 @@ import { parseContentDescription } from '@/lib/parseContentDescription';
 import { subjectBadgeStyle } from '@/lib/colors';
 import { API_URL } from '@/lib/config';
 import { authHeaders } from '@/lib/auth';
-import { IconSearch, IconBooks, IconX, IconAlert } from '@/components/icons';
+import { IconSearch, IconBooks, IconX, IconAlert, IconChevronLeft, IconChevronRight } from '@/components/icons';
 
 const SUBJECT_COLORS: Record<string, string> = {
   'Math': '#6366f1',
@@ -494,7 +494,7 @@ export default function LearningContentPage() {
                 whileHover={{ x: -4 }}
                 transition={{ duration: 0.15 }}
               >
-                ← BACK TO ARCHIVE
+                <IconChevronLeft className="w-4 h-4" /> BACK TO ARCHIVE
               </motion.button>
               <div className="flex items-center gap-2 flex-wrap">
                 <motion.button
@@ -789,7 +789,7 @@ export default function LearningContentPage() {
                             <div className="text-[11px] font-medium text-slate-400 mt-1.5">{new Date(c.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
                           </div>
                           {!batchCopyMode && (
-                            <span className="text-slate-300 group-hover:text-sky-500 transition-colors">→</span>
+                            <IconChevronRight className="w-4 h-4 text-slate-300 group-hover:text-sky-500 transition-colors shrink-0" />
                           )}
                         </motion.a>
                         );
@@ -825,9 +825,10 @@ export default function LearningContentPage() {
                       <button
                         type="button"
                         onClick={() => shiftArchiveMonth(-1)}
-                        className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-slate-800 transition-colors text-lg"
+                        className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-slate-800 transition-colors"
+                        aria-label="Previous month"
                       >
-                        ←
+                        <IconChevronLeft className="w-5 h-5" />
                       </button>
                       <button
                         type="button"
@@ -839,9 +840,10 @@ export default function LearningContentPage() {
                       <button
                         type="button"
                         onClick={() => shiftArchiveMonth(1)}
-                        className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-slate-800 transition-colors text-lg"
+                        className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-slate-800 transition-colors"
+                        aria-label="Next month"
                       >
-                        →
+                        <IconChevronRight className="w-5 h-5" />
                       </button>
                     </div>
                   </div>
@@ -956,7 +958,7 @@ export default function LearningContentPage() {
                       <div className="text-[10px] font-bold uppercase text-slate-400 mb-0.5 tracking-wider">{c.subject}</div>
                       <div className="font-semibold text-sm text-slate-800 leading-tight truncate">{c.title}</div>
                     </div>
-                    <span className="text-slate-300 group-hover:text-sky-500 shrink-0">→</span>
+                    <IconChevronRight className="w-4 h-4 text-slate-300 group-hover:text-sky-500 shrink-0" />
                   </motion.a>
                 ))}
               </div>

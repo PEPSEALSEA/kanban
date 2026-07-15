@@ -18,6 +18,8 @@ import { subjectBadgeStyle } from '@/lib/colors';
 import {
   IconCalendar,
   IconCheck,
+  IconChevronLeft,
+  IconChevronRight,
   IconGraduation,
   IconHourglass,
   IconImage,
@@ -539,8 +541,9 @@ export default function StudyFlow() {
               d.setDate(d.getDate() - 7);
               setFocusDate(d);
             }}
-            className="neo-button w-9 h-9 sm:w-11 sm:h-11 shrink-0 flex items-center justify-center text-lg sm:text-xl"
-          >←</button>
+            className="neo-button w-9 h-9 sm:w-11 sm:h-11 shrink-0 flex items-center justify-center"
+            aria-label="Previous week"
+          ><IconChevronLeft className="w-5 h-5" /></button>
           <h2 className="text-sm sm:text-lg font-bold min-w-0 max-w-[12rem] sm:max-w-none text-center text-slate-700 truncate px-1">
             {`Week of ${new Date(focusDate).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}`}
           </h2>
@@ -550,8 +553,9 @@ export default function StudyFlow() {
               d.setDate(d.getDate() + 7);
               setFocusDate(d);
             }}
-            className="neo-button w-9 h-9 sm:w-11 sm:h-11 shrink-0 flex items-center justify-center text-lg sm:text-xl"
-          >→</button>
+            className="neo-button w-9 h-9 sm:w-11 sm:h-11 shrink-0 flex items-center justify-center"
+            aria-label="Next week"
+          ><IconChevronRight className="w-5 h-5" /></button>
           <button 
             onClick={() => setFocusDate(new Date())}
             className="text-[10px] sm:text-xs font-bold text-sky-600 hover:text-sky-700 px-2 sm:px-3 py-2 shrink-0 whitespace-nowrap"
@@ -652,16 +656,18 @@ export default function StudyFlow() {
                 <div className="flex gap-2 bg-white/50 p-1 rounded-xl border border-slate-200/60 shadow-sm">
                   <button
                     onClick={() => setFocusDate(new Date(focusDate.getFullYear(), focusDate.getMonth() - 1, 1))}
-                    className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-slate-800 transition-colors text-lg"
-                  >←</button>
+                    className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-slate-800 transition-colors"
+                    aria-label="Previous month"
+                  ><IconChevronLeft className="w-5 h-5" /></button>
                   <button
                     onClick={() => setFocusDate(new Date())}
                     className="px-4 text-[10px] font-bold uppercase tracking-widest text-sky-600 hover:text-sky-700"
                   >Today</button>
                   <button
                     onClick={() => setFocusDate(new Date(focusDate.getFullYear(), focusDate.getMonth() + 1, 1))}
-                    className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-slate-800 transition-colors text-lg"
-                  >→</button>
+                    className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-slate-800 transition-colors"
+                    aria-label="Next month"
+                  ><IconChevronRight className="w-5 h-5" /></button>
                 </div>
               </div>
 
@@ -880,7 +886,7 @@ export default function StudyFlow() {
                         <div className="text-[10px] font-bold uppercase text-slate-400 mb-0.5 tracking-wider">{task.subject}</div>
                         <div className={`font-semibold text-sm text-slate-800 leading-tight ${isDone ? 'line-through text-slate-400' : ''}`}>{task.title}</div>
                       </div>
-                      <span className="text-slate-300 group-hover:text-sky-500">→</span>
+                      <IconChevronRight className="w-4 h-4 text-slate-300 group-hover:text-sky-500 shrink-0" />
                     </button>
                   );
                 })}

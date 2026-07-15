@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { IconEdit, IconBooks } from '@/components/icons';
+import { IconEdit, IconBooks, IconChevronRight } from '@/components/icons';
 
 type QuickCreateProps = {
   onCreateHomework: () => void;
@@ -28,7 +28,7 @@ export default function AdminQuickCreate({ onCreateHomework, onCreateContent }: 
           <h3 style={{ fontSize: '1.1rem', marginBottom: '0.25rem', color: 'var(--admin-text-main)' }}>Create Homework</h3>
           <p style={{ color: 'var(--admin-text-muted)', fontSize: '0.85rem' }}>Post a new assignment to the Kanban board.</p>
         </div>
-        <div style={{ fontSize: '1.5rem', color: 'var(--admin-border)' }}>→</div>
+        <div style={{ fontSize: '1.5rem', color: 'var(--admin-border)', display: 'flex', alignItems: 'center' }}><IconChevronRight className="w-5 h-5" /></div>
       </div>
 
       <div 
@@ -48,7 +48,7 @@ export default function AdminQuickCreate({ onCreateHomework, onCreateContent }: 
           <h3 style={{ fontSize: '1.1rem', marginBottom: '0.25rem', color: 'var(--admin-text-main)' }}>Create Learning Content</h3>
           <p style={{ color: 'var(--admin-text-muted)', fontSize: '0.85rem' }}>Add new study materials to the archive.</p>
         </div>
-        <div style={{ fontSize: '1.5rem', color: 'var(--admin-border)' }}>→</div>
+        <div style={{ fontSize: '1.5rem', color: 'var(--admin-border)', display: 'flex', alignItems: 'center' }}><IconChevronRight className="w-5 h-5" /></div>
       </div>
     </div>
   );

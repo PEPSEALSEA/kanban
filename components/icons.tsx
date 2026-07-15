@@ -345,6 +345,22 @@ export function IconMenu(p: IconProps) {
   );
 }
 
+export function IconChevronLeft(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M14.5 6.5 9 12l5.5 5.5" />
+    </Svg>
+  );
+}
+
+export function IconChevronRight(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M9.5 6.5 15 12l-5.5 5.5" />
+    </Svg>
+  );
+}
+
 export function IconHourglass(p: IconProps) {
   return (
     <Svg {...p}>

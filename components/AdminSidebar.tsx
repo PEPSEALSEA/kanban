@@ -12,6 +12,8 @@ import {
   IconGraduation,
   IconX,
   IconExit,
+  IconChevronLeft,
+  IconChevronRight,
 } from '@/components/icons';
 
 export default function AdminSidebar({
@@ -64,7 +66,7 @@ export default function AdminSidebar({
           aria-label={isMobile ? 'Close menu' : collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem', color: 'var(--admin-text-muted)' }}
         >
-          {isMobile ? <IconX className="w-5 h-5" /> : collapsed ? '→' : '←'}
+          {isMobile ? <IconX className="w-5 h-5" /> : collapsed ? <IconChevronRight className="w-5 h-5" /> : <IconChevronLeft className="w-5 h-5" />}
         </button>
       </div>
 

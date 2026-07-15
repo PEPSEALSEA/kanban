@@ -2,7 +2,7 @@
 
 import React, { useMemo } from 'react';
 import { Homework, UserInfo, ProgressItem } from '@/types';
-import { IconKanban, IconCalendar, IconTimeline, IconFlame, IconShell, IconCheck } from '@/components/icons';
+import { IconKanban, IconCalendar, IconTimeline, IconFlame, IconShell, IconCheck, IconChevronLeft, IconChevronRight } from '@/components/icons';
 
 interface Props {
   user: UserInfo | null;
@@ -83,8 +83,9 @@ export function KanbanDesktopView({
               setFocusDate(d);
             }}
             className="glass"
-            style={{ width: '40px', height: '40px', borderRadius: '50%', border: 'none', color: '#fff', cursor: 'pointer' }}
-          >←</button>
+            style={{ width: '40px', height: '40px', borderRadius: '50%', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            aria-label="Previous week"
+          ><IconChevronLeft className="w-5 h-5" /></button>
           <h2 style={{ fontSize: '1.25rem', fontWeight: 800, minWidth: '10rem', textAlign: 'center' }}>
             {`Week of ${new Date(focusDate).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}`}
           </h2>
@@ -95,8 +96,9 @@ export function KanbanDesktopView({
               setFocusDate(d);
             }}
             className="glass"
-            style={{ width: '40px', height: '40px', borderRadius: '50%', border: 'none', color: '#fff', cursor: 'pointer' }}
-          >→</button>
+            style={{ width: '40px', height: '40px', borderRadius: '50%', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            aria-label="Next week"
+          ><IconChevronRight className="w-5 h-5" /></button>
           <button
             onClick={() => setFocusDate(new Date())}
             className="glass"
@@ -157,8 +159,9 @@ export function KanbanDesktopView({
                   <button
                     onClick={() => setFocusDate(new Date(focusDate.getFullYear(), focusDate.getMonth() - 1, 1))}
                     className="glass"
-                    style={{ width: '36px', height: '36px', borderRadius: '8px', border: 'none', color: '#fff', cursor: 'pointer' }}
-                  >←</button>
+                    style={{ width: '36px', height: '36px', borderRadius: '8px', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    aria-label="Previous month"
+                  ><IconChevronLeft className="w-5 h-5" /></button>
                   <button
                     onClick={() => setFocusDate(new Date())}
                     className="glass"
@@ -167,8 +170,9 @@ export function KanbanDesktopView({
                   <button
                     onClick={() => setFocusDate(new Date(focusDate.getFullYear(), focusDate.getMonth() + 1, 1))}
                     className="glass"
-                    style={{ width: '36px', height: '36px', borderRadius: '8px', border: 'none', color: '#fff', cursor: 'pointer' }}
-                  >→</button>
+                    style={{ width: '36px', height: '36px', borderRadius: '8px', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    aria-label="Next month"
+                  ><IconChevronRight className="w-5 h-5" /></button>
                 </div>
               </div>
 
