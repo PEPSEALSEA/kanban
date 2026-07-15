@@ -520,16 +520,16 @@ export default function StudyFlow() {
 
       {/* Timeline Navigation Controls */}
       {viewMode === 'timeline' && (
-        <div className="flex justify-center items-center gap-6 mb-8 px-4">
+        <div className="flex items-center gap-1.5 sm:gap-4 mb-6 sm:mb-8 px-3 sm:px-4 w-full max-w-full box-border">
           <button 
             onClick={() => {
               const d = new Date(focusDate);
               d.setDate(d.getDate() - 7);
               setFocusDate(d);
             }}
-            className="neo-button w-12 h-12 flex items-center justify-center text-xl"
+            className="neo-button w-9 h-9 sm:w-12 sm:h-12 shrink-0 flex items-center justify-center text-lg sm:text-xl"
           >←</button>
-          <h2 className="text-lg font-bold min-w-[200px] text-center text-slate-700">
+          <h2 className="text-sm sm:text-lg font-bold flex-1 min-w-0 text-center text-slate-700 truncate">
             {`Week of ${new Date(focusDate).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}`}
           </h2>
           <button 
@@ -538,11 +538,11 @@ export default function StudyFlow() {
               d.setDate(d.getDate() + 7);
               setFocusDate(d);
             }}
-            className="neo-button w-12 h-12 flex items-center justify-center text-xl"
+            className="neo-button w-9 h-9 sm:w-12 sm:h-12 shrink-0 flex items-center justify-center text-lg sm:text-xl"
           >→</button>
           <button 
             onClick={() => setFocusDate(new Date())}
-            className="text-xs font-bold text-sky-600 hover:text-sky-700 px-4 py-2"
+            className="text-[10px] sm:text-xs font-bold text-sky-600 hover:text-sky-700 px-2 sm:px-4 py-2 shrink-0 whitespace-nowrap"
           >TODAY</button>
         </div>
       )}
