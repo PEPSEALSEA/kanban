@@ -66,52 +66,61 @@ export default function HeaderNav() {
 
   return (
     <div className="header-nav-container">
-      <nav className="header-nav" aria-label="Primary">
-        <Link 
-          href="/" 
-          className={`nav-item ${isActive('/') ? 'active' : ''}`}
-        >
-          <IconKanban className="nav-item-icon" />
-          <span className="nav-item-label">Kanban</span>
-        </Link>
-        <Link 
-          href="/content" 
-          className={`nav-item ${isActive('/content') ? 'active' : ''}`}
-        >
-          <IconArchive className="nav-item-icon" />
-          <span className="nav-item-label">Archive</span>
-        </Link>
-        {user && (
-          <Link
-            href="/chat"
-            className={`nav-item ${isActive('/chat') ? 'active' : ''}`}
+      <div className="header-nav-dock">
+        <nav className="header-nav" aria-label="Primary">
+          <Link 
+            href="/" 
+            className={`nav-item ${isActive('/') ? 'active' : ''}`}
           >
-            <IconChat className="nav-item-icon" />
-            <span className="nav-item-label">Chat</span>
+            <IconKanban className="nav-item-icon" />
+            <span className="nav-item-label">Kanban</span>
           </Link>
-        )}
-        {showAdmin && (
-          <Link
-            href="/admin"
-            className={`nav-item nav-item-admin ${isActive('/admin') ? 'active' : ''}`}
+          <Link 
+            href="/content" 
+            className={`nav-item ${isActive('/content') ? 'active' : ''}`}
           >
-            <IconAdmin className="nav-item-icon" />
-            <span className="nav-item-label">Admin</span>
+            <IconArchive className="nav-item-icon" />
+            <span className="nav-item-label">Archive</span>
           </Link>
-        )}
-      </nav>
+          {user && (
+            <Link
+              href="/chat"
+              className={`nav-item ${isActive('/chat') ? 'active' : ''}`}
+            >
+              <IconChat className="nav-item-icon" />
+              <span className="nav-item-label">Chat</span>
+            </Link>
+          )}
+          {showAdmin && (
+            <Link
+              href="/admin"
+              className={`nav-item nav-item-admin ${isActive('/admin') ? 'active' : ''}`}
+            >
+              <IconAdmin className="nav-item-icon" />
+              <span className="nav-item-label">Admin</span>
+            </Link>
+          )}
+        </nav>
 
-      <div className="header-nav-auth">
-        {!user ? (
-          <GoogleSignInButton />
-        ) : (
-          <div className="header-nav-user">
-            <img src={user.picture} alt="" className="header-nav-avatar" />
-            <button type="button" onClick={handleLogout} className="header-nav-logout">
-              Logout
-            </button>
-          </div>
-        )}
+        <div className="header-nav-auth">
+          {!user ? (
+            <>
+              <span className="header-nav-auth-desktop">
+                <GoogleSignInButton size="medium" />
+              </span>
+              <span className="header-nav-auth-mobile">
+                <GoogleSignInButton size="small" shape="pill" theme="outline" width="220" />
+              </span>
+            </>
+          ) : (
+            <div className="header-nav-user">
+              <img src={user.picture} alt="" className="header-nav-avatar" />
+              <button type="button" onClick={handleLogout} className="header-nav-logout">
+                Logout
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
