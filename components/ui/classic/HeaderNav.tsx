@@ -109,7 +109,7 @@ export default function HeaderNav() {
                 <GoogleSignInButton size="medium" />
               </span>
               <span className="header-nav-auth-mobile">
-                <GoogleSignInButton size="small" type="icon" shape="circle" theme="outline" />
+                <GoogleSignInButton size="large" type="icon" shape="circle" theme="outline" />
               </span>
             </>
           ) : (

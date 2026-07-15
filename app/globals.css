@@ -588,7 +588,7 @@ h4 {
 /* Mobile: floating liquid-glass dock */
 @media (max-width: 768px) {
   body:has(.header-nav-container) {
-    padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(5.75rem + env(safe-area-inset-bottom, 0px));
   }
 
   .header-nav-container {
@@ -599,7 +599,7 @@ h4 {
     right: 0;
     width: 100%;
     margin: 0;
-    padding: 0 0.75rem;
+    padding: 0 0.65rem;
     gap: 0;
     background: transparent;
     border: none;
@@ -616,22 +616,23 @@ h4 {
   .header-nav-dock {
     display: flex;
     flex-direction: row;
-    align-items: center;
+    align-items: stretch;
     justify-content: center;
-    gap: 0.4rem;
+    gap: 0.45rem;
     pointer-events: none;
-    max-width: calc(100vw - 1.5rem);
+    width: min(28rem, calc(100vw - 1.3rem));
   }
 
   .header-nav {
     pointer-events: auto;
+    flex: 1 1 auto;
     width: auto;
-    flex: 0 1 auto;
-    max-width: calc(100% - 2.75rem);
-    justify-content: center;
-    align-items: center;
-    gap: 0.15rem;
-    padding: 0.32rem;
+    min-width: 0;
+    min-height: 3.35rem;
+    justify-content: space-evenly;
+    align-items: stretch;
+    gap: 0.2rem;
+    padding: 0.28rem;
     background:
       linear-gradient(
         160deg,
@@ -654,10 +655,13 @@ h4 {
     position: static;
     pointer-events: auto;
     flex: 0 0 auto;
+    align-self: stretch;
+    aspect-ratio: 1 / 1;
+    height: auto;
+    width: auto;
+    min-width: 3.35rem;
     z-index: auto;
     padding: 0.2rem;
-    width: 2.35rem;
-    height: 2.35rem;
     border: 1px solid rgba(255, 255, 255, 0.65);
     border-radius: 9999px;
     background:
@@ -675,7 +679,6 @@ h4 {
     align-items: center;
     justify-content: center;
     overflow: hidden;
-    opacity: 0.92;
   }
 
   .header-nav-auth-desktop {
@@ -687,22 +690,34 @@ h4 {
     align-items: center;
     justify-content: center;
     line-height: 0;
-    transform: scale(0.85);
-    transform-origin: center;
+    width: 100%;
+    height: 100%;
   }
 
-  .header-nav-auth-mobile > div {
+  .header-nav-auth-mobile > div,
+  .header-nav-auth-mobile iframe {
     display: flex !important;
+    transform: scale(1.05);
+    transform-origin: center;
   }
 
   .header-nav-user {
     gap: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .header-nav-logout {
     display: inline-flex;
     padding: 0;
     gap: 0;
+    width: 100%;
+    height: 100%;
+    align-items: center;
+    justify-content: center;
   }
 
   .header-nav-logout-text {
@@ -710,23 +725,23 @@ h4 {
   }
 
   .header-nav-avatar {
-    width: 1.55rem;
-    height: 1.55rem;
+    width: 1.85rem;
+    height: 1.85rem;
     border: 1.5px solid rgba(14, 165, 233, 0.3);
   }
 
   .nav-item {
-    flex: 0 0 auto;
+    flex: 1 1 0;
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    gap: 0.14rem;
-    min-width: 3.35rem;
-    padding: 0.45rem 0.72rem;
+    gap: 0.16rem;
+    min-width: 0;
+    padding: 0.4rem 0.55rem;
     border: none;
     border-radius: 9999px;
-    font-size: 0.55rem;
-    font-weight: 650;
+    font-size: 0.58rem;
+    font-weight: 700;
     letter-spacing: 0.03em;
     text-transform: none;
     text-align: center;
@@ -736,13 +751,13 @@ h4 {
   }
 
   .nav-item-icon {
-    width: 1.15rem;
-    height: 1.15rem;
+    width: 1.25rem;
+    height: 1.25rem;
     opacity: 0.9;
   }
 
   .nav-item-label {
-    font-size: 0.58rem;
+    font-size: 0.6rem;
     font-weight: 700;
     letter-spacing: 0.02em;
   }
