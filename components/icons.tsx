@@ -353,11 +353,3 @@ export function IconHourglass(p: IconProps) {
     </Svg>
   );
 }
-
-export function IconMenu(p: IconProps) {
-  return (
-    <Svg {...p}>
-      <path d="M5 7h14M5 12h14M5 17h14" />
-    </Svg>
-  );
-}
