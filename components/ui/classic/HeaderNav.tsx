@@ -109,14 +109,14 @@ export default function HeaderNav() {
                 <GoogleSignInButton size="medium" />
               </span>
               <span className="header-nav-auth-mobile">
-                <GoogleSignInButton size="small" shape="pill" theme="outline" width="220" />
+                <GoogleSignInButton size="small" type="icon" shape="circle" theme="outline" />
               </span>
             </>
           ) : (
             <div className="header-nav-user">
-              <img src={user.picture} alt="" className="header-nav-avatar" />
-              <button type="button" onClick={handleLogout} className="header-nav-logout">
-                Logout
+              <button type="button" onClick={handleLogout} className="header-nav-logout" title="Logout">
+                <img src={user.picture} alt="" className="header-nav-avatar" />
+                <span className="header-nav-logout-text">Logout</span>
               </button>
             </div>
           )}
