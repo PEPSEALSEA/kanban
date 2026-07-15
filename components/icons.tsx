@@ -347,17 +347,19 @@ export function IconMenu(p: IconProps) {
 
 export function IconChevronLeft(p: IconProps) {
   return (
-    <Svg {...p}>
+    <svg className={p.className} style={p.style} viewBox="0 0 24 24" {...base} strokeWidth={2.35}>
+      {p.title ? <title>{p.title}</title> : null}
       <path d="M14.5 6.5 9 12l5.5 5.5" />
-    </Svg>
+    </svg>
   );
 }
 
 export function IconChevronRight(p: IconProps) {
   return (
-    <Svg {...p}>
+    <svg className={p.className} style={p.style} viewBox="0 0 24 24" {...base} strokeWidth={2.35}>
+      {p.title ? <title>{p.title}</title> : null}
       <path d="M9.5 6.5 15 12l-5.5 5.5" />
-    </Svg>
+    </svg>
   );
 }
 

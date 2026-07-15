@@ -828,7 +828,7 @@ export default function LearningContentPage() {
                         className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-slate-800 transition-colors"
                         aria-label="Previous month"
                       >
-                        <IconChevronLeft className="w-5 h-5" />
+                        <IconChevronLeft className="w-6 h-6" />
                       </button>
                       <button
                         type="button"
@@ -843,7 +843,7 @@ export default function LearningContentPage() {
                         className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-slate-800 transition-colors"
                         aria-label="Next month"
                       >
-                        <IconChevronRight className="w-5 h-5" />
+                        <IconChevronRight className="w-6 h-6" />
                       </button>
                     </div>
                   </div>

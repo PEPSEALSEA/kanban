@@ -85,7 +85,7 @@ export function KanbanDesktopView({
             className="glass"
             style={{ width: '40px', height: '40px', borderRadius: '50%', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             aria-label="Previous week"
-          ><IconChevronLeft className="w-5 h-5" /></button>
+          ><IconChevronLeft className="w-6 h-6" /></button>
           <h2 style={{ fontSize: '1.25rem', fontWeight: 800, minWidth: '10rem', textAlign: 'center' }}>
             {`Week of ${new Date(focusDate).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}`}
           </h2>
@@ -98,7 +98,7 @@ export function KanbanDesktopView({
             className="glass"
             style={{ width: '40px', height: '40px', borderRadius: '50%', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             aria-label="Next week"
-          ><IconChevronRight className="w-5 h-5" /></button>
+          ><IconChevronRight className="w-6 h-6" /></button>
           <button
             onClick={() => setFocusDate(new Date())}
             className="glass"
@@ -161,7 +161,7 @@ export function KanbanDesktopView({
                     className="glass"
                     style={{ width: '36px', height: '36px', borderRadius: '8px', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                     aria-label="Previous month"
-                  ><IconChevronLeft className="w-5 h-5" /></button>
+                  ><IconChevronLeft className="w-6 h-6" /></button>
                   <button
                     onClick={() => setFocusDate(new Date())}
                     className="glass"
@@ -172,7 +172,7 @@ export function KanbanDesktopView({
                     className="glass"
                     style={{ width: '36px', height: '36px', borderRadius: '8px', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                     aria-label="Next month"
-                  ><IconChevronRight className="w-5 h-5" /></button>
+                  ><IconChevronRight className="w-6 h-6" /></button>
                 </div>
               </div>
 
