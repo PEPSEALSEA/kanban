@@ -227,6 +227,7 @@ function IpDetailModal({ group, ipNotes, resourceLookups, onClose, onSaveNote }:
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [showAllPages, setShowAllPages] = useState(false);
   const color = visitorColor(group.visitorId);
 
   const sessions = useMemo(
@@ -234,6 +235,8 @@ function IpDetailModal({ group, ipNotes, resourceLookups, onClose, onSaveNote }:
     [group.events, resourceLookups]
   );
   const pageSummary = useMemo(() => buildPageSummary(sessions), [sessions]);
+  const pageSummaryVisible = showAllPages ? pageSummary : pageSummary.slice(0, 8);
+  const pageSummaryMaxSec = pageSummary[0]?.totalSec || 1;
 
   const handleSave = async () => {
     setSaving(true);
@@ -379,36 +382,88 @@ function IpDetailModal({ group, ipNotes, resourceLookups, onClose, onSaveNote }:
           )}
         </div>
 
-        {/* Page summary */}
-        {pageSummary.length > 0 && (
-          <div style={{ padding: '0.75rem 1.5rem', borderBottom: '1px solid var(--admin-border)', flexShrink: 0 }}>
-            <div style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--admin-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>
-              เวลาต่อหน้า (ประมาณ)
-            </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
-              {pageSummary.map((p) => (
-                <span key={p.pageLabel} style={chip('#2563eb')}>
-                  {p.resourceHref ? (
-                    <a
-                      href={p.resourceHref}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ color: 'inherit', textDecoration: 'underline', textUnderlineOffset: '2px' }}
+        {/* Scrollable body: page ranking + timeline */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '1rem 1.5rem 1.5rem', minHeight: 0, WebkitOverflowScrolling: 'touch' }}>
+          {pageSummary.length > 0 && (
+            <div style={{ marginBottom: '1.5rem' }}>
+              <div style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--admin-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.35rem' }}>
+                หน้าที่ใช้อ่านนานสุด
+              </div>
+              <p style={{ fontSize: '0.75rem', color: 'var(--admin-text-muted)', margin: '0 0 0.75rem', lineHeight: 1.45 }}>
+                ประมาณจากเวลาอยู่ในแต่ละหน้า เรียงจากนาน → สั้น ({pageSummary.length} หน้า)
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+                {pageSummaryVisible.map((p, idx) => {
+                  const pct = Math.max(4, Math.round((p.totalSec / pageSummaryMaxSec) * 100));
+                  return (
+                    <div
+                      key={p.pageLabel}
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: '1.5rem 1fr auto',
+                        gap: '0.55rem',
+                        alignItems: 'center',
+                        padding: '0.45rem 0.6rem',
+                        borderRadius: '0.55rem',
+                        border: '1px solid var(--admin-border)',
+                        background: 'var(--admin-bg-soft)',
+                      }}
                     >
-                      {p.pageLabel}
-                    </a>
-                  ) : (
-                    p.pageLabel
-                  )}
-                  : {formatDuration(p.totalSec)} ({p.visits}×)
-                </span>
-              ))}
+                      <span style={{ fontSize: '0.72rem', fontWeight: 800, color: 'var(--admin-text-muted)', textAlign: 'right' }}>
+                        {idx + 1}
+                      </span>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--admin-text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {p.resourceHref ? (
+                            <a
+                              href={p.resourceHref}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{ color: 'inherit', textDecoration: 'underline', textUnderlineOffset: '2px' }}
+                            >
+                              {p.pageLabel}
+                            </a>
+                          ) : (
+                            p.pageLabel
+                          )}
+                        </div>
+                        <div style={{ marginTop: '0.3rem', height: '4px', borderRadius: '999px', background: 'var(--admin-border)', overflow: 'hidden' }}>
+                          <div style={{ width: `${pct}%`, height: '100%', borderRadius: '999px', background: 'var(--admin-primary)' }} />
+                        </div>
+                      </div>
+                      <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                        <div style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--admin-primary)', whiteSpace: 'nowrap' }}>
+                          {formatDuration(p.totalSec)}
+                        </div>
+                        <div style={{ fontSize: '0.65rem', color: 'var(--admin-text-muted)', whiteSpace: 'nowrap' }}>
+                          {p.visits} ครั้ง
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              {pageSummary.length > 8 && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllPages((v) => !v)}
+                  style={{
+                    marginTop: '0.65rem',
+                    background: 'none',
+                    border: 'none',
+                    padding: 0,
+                    cursor: 'pointer',
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    color: 'var(--admin-primary)',
+                  }}
+                >
+                  {showAllPages ? 'ย่อเหลือ 8 อันดับแรก' : `แสดงทั้งหมด ${pageSummary.length} หน้า`}
+                </button>
+              )}
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Timeline */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '1rem 1.5rem 1.5rem', minHeight: 0 }}>
           <div style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--admin-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '1rem' }}>
             Timeline — ใหม่ → เก่า
           </div>
