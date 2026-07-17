@@ -16,6 +16,7 @@ import { parseContentDescription } from '@/lib/parseContentDescription';
 import { subjectBadgeStyle } from '@/lib/colors';
 import { API_URL } from '@/lib/config';
 import { authHeaders } from '@/lib/auth';
+import { buildZipStore, downloadBlob } from '@/lib/zipStore';
 import { IconSearch, IconBooks, IconX, IconAlert, IconChevronLeft, IconChevronRight } from '@/components/icons';
 
 const SUBJECT_COLORS: Record<string, string> = {
@@ -78,6 +79,8 @@ export default function LearningContentPage() {
   const [batchCopyMode, setBatchCopyMode] = useState(false);
   const [selectedBatchIds, setSelectedBatchIds] = useState<Set<string>>(() => new Set());
   const [batchCopied, setBatchCopied] = useState(false);
+  const [batchZipBusy, setBatchZipBusy] = useState(false);
+  const [batchZipError, setBatchZipError] = useState<string | null>(null);
   const [fetchedContent, setFetchedContent] = useState<LearningContent | null>(null);
   const [viewId, setViewId] = useState<string | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -400,6 +403,8 @@ export default function LearningContentPage() {
     setBatchCopyMode(false);
     setSelectedBatchIds(new Set());
     setBatchCopied(false);
+    setBatchZipBusy(false);
+    setBatchZipError(null);
   }, []);
 
   const toggleBatchId = useCallback((id: string) => {
@@ -433,6 +438,89 @@ export default function LearningContentPage() {
       window.prompt('Copy these links for AI:', text);
     }
   }, [searchResults, selectedBatchIds]);
+
+  const downloadBatchZipTxt = useCallback(async () => {
+    if (selectedBatchIds.size === 0 || batchZipBusy) return;
+    const selected = searchResults.filter((c) => selectedBatchIds.has(c.id));
+    if (selected.length === 0) return;
+
+    setBatchZipBusy(true);
+    setBatchZipError(null);
+    try {
+      const entries: { name: string; data: string }[] = [];
+      const manifestItems: {
+        id: string;
+        title: string;
+        subject: string;
+        date: string;
+        file: string;
+        url: string;
+      }[] = [];
+
+      for (const c of selected) {
+        const file = `${c.id}.txt`;
+        const url = getContentTxtUrl(c.id);
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`โหลดไม่สำเร็จ: ${c.id} (${res.status})`);
+        const text = await res.text();
+        entries.push({ name: file, data: text });
+        manifestItems.push({
+          id: c.id,
+          title: c.title || c.id,
+          subject: c.subject || '',
+          date: c.date || '',
+          file,
+          url,
+        });
+      }
+
+      const subjects = [...new Set(manifestItems.map((i) => i.subject).filter(Boolean))];
+      const suggestedTitle = subjects.length === 1
+        ? `${subjects[0]} ติวสอบกลางภาค`
+        : 'NotebookLM Import';
+
+      const manifest = {
+        version: 1,
+        createdAt: new Date().toISOString(),
+        suggestedTitle,
+        count: manifestItems.length,
+        items: manifestItems,
+        importHint: 'Extract this zip, then run: .\\scripts\\nlm-import.ps1 -Title "ชื่อวิชา" -Dir ".\\extracted-folder"',
+      };
+
+      entries.push({
+        name: 'manifest.json',
+        data: JSON.stringify(manifest, null, 2),
+      });
+      entries.push({
+        name: 'README-IMPORT.txt',
+        data: [
+          'NotebookLM batch import',
+          '',
+          '1) Extract this zip to a folder',
+          '2) Run from the kanban repo:',
+          `   .\\scripts\\nlm-import.ps1 -Title "${suggestedTitle}" -Dir "<path-to-extracted-folder>"`,
+          '',
+          'Optional extra notes:',
+          '   .\\scripts\\nlm-import.ps1 -Title "..." -Dir "..." -ExtraTextFile ".\\outline.txt"',
+          '',
+        ].join('\n'),
+      });
+
+      const stamp = new Date().toISOString().slice(0, 10);
+      const subjectSlug = (subjects[0] || 'batch')
+        .replace(/[^\w\u0E00-\u0E7F-]+/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '')
+        .slice(0, 40) || 'batch';
+      const zip = buildZipStore(entries);
+      downloadBlob(zip, `nlm-${subjectSlug}-${stamp}-${selected.length}files.zip`);
+    } catch (err) {
+      setBatchZipError(err instanceof Error ? err.message : 'ดาวน์โหลด ZIP ไม่สำเร็จ');
+    } finally {
+      setBatchZipBusy(false);
+    }
+  }, [searchResults, selectedBatchIds, batchZipBusy]);
 
   useEffect(() => {
     if (!isSearching) exitBatchCopyMode();
@@ -705,13 +793,25 @@ export default function LearningContentPage() {
                                   type="button"
                                   onClick={() => void copyBatchAiLinks()}
                                   className="neo-button px-4 py-2 text-xs"
-                                  disabled={selectedBatchIds.size === 0}
-                                  whileHover={selectedBatchIds.size > 0 ? { y: -1 } : undefined}
-                                  whileTap={selectedBatchIds.size > 0 ? { scale: 0.98 } : undefined}
+                                  disabled={selectedBatchIds.size === 0 || batchZipBusy}
+                                  whileHover={selectedBatchIds.size > 0 && !batchZipBusy ? { y: -1 } : undefined}
+                                  whileTap={selectedBatchIds.size > 0 && !batchZipBusy ? { scale: 0.98 } : undefined}
                                 >
                                   {batchCopied
                                     ? 'Copied!'
                                     : `Copy Selected (${selectedBatchIds.size})`}
+                                </motion.button>
+                                <motion.button
+                                  type="button"
+                                  onClick={() => void downloadBatchZipTxt()}
+                                  className="neo-button px-4 py-2 text-xs"
+                                  disabled={selectedBatchIds.size === 0 || batchZipBusy}
+                                  whileHover={selectedBatchIds.size > 0 && !batchZipBusy ? { y: -1 } : undefined}
+                                  whileTap={selectedBatchIds.size > 0 && !batchZipBusy ? { scale: 0.98 } : undefined}
+                                >
+                                  {batchZipBusy
+                                    ? 'Zipping…'
+                                    : `Download ZIP TXT (${selectedBatchIds.size})`}
                                 </motion.button>
                                 <button
                                   type="button"
@@ -737,9 +837,14 @@ export default function LearningContentPage() {
                         </div>
                       </div>
                       {batchCopyMode && (
-                        <p className="text-xs font-medium text-slate-400">
-                          Tick items to include, then copy as {'{url1,\nurl2,…}'} for AI.
-                        </p>
+                        <div className="space-y-1">
+                          <p className="text-xs font-medium text-slate-400">
+                            Tick items, then Copy links {'{url1,\nurl2,…}'} or Download ZIP TXT for NotebookLM import.
+                          </p>
+                          {batchZipError && (
+                            <p className="text-xs font-semibold text-rose-500">{batchZipError}</p>
+                          )}
+                        </div>
                       )}
                     </div>
 

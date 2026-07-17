@@ -2,11 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import AdminSidebar from '@/components/AdminSidebar';
-import AdminMobileNav from '@/components/AdminMobileNav';
 import { useData } from '@/components/DataProvider';
 import Link from 'next/link';
 
 import { isAdminEmail } from '@/lib/admin';
+import { ADMIN_NAV_MORE_EVENT } from '@/lib/adminNav';
 import { IconBan } from '@/components/icons';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -36,6 +36,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }
     setIsAuthChecking(false);
   }, [user]);
+
+  useEffect(() => {
+    const openMore = () => setMobileSidebarOpen(true);
+    window.addEventListener(ADMIN_NAV_MORE_EVENT, openMore);
+    return () => window.removeEventListener(ADMIN_NAV_MORE_EVENT, openMore);
+  }, []);
 
   if (isAuthChecking) {
     return (
@@ -78,9 +84,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <main className="admin-main">
         {children}
       </main>
-      {isMobileViewport && (
-        <AdminMobileNav onMore={() => setMobileSidebarOpen(true)} />
-      )}
     </div>
   );
 }
