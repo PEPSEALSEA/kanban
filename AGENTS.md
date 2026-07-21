@@ -24,6 +24,18 @@ When you edit application code, finish the change with this loop — do not stop
 
 Skip auto commit/push only when the user explicitly says not to commit or not to push. Pure docs/notes still get committed/pushed if they are part of the same change set as code, or when the user asked for the docs update.
 
+## Local-only files — auto `.gitignore` (mandatory)
+
+Before staging or pushing, if something appears that **must not go to the remote**, add it to `.gitignore` immediately (prefer a durable pattern over a one-off filename), then leave it untracked.
+
+Typical local-only categories:
+- Secrets / credentials (`.env*`, service-account JSON, `worker/.dev.vars`, wrangler local config already covered)
+- Local drafts and scratch exports (`content-drafts/`, one-off analysis notes)
+- Agent skill lockfiles and local skill copies under `.agents/skills/` that are not meant for the repo
+- Machine-specific or generated junk (IDE caches, `skills-lock.json`, build artifacts already covered)
+
+Do **not** commit secrets “just this once”. Prefer directory/globs (`content-drafts/`, `.agents/skills/`) over listing every file. After updating `.gitignore`, include that `.gitignore` change in the same commit/push loop when you next ship code (or commit it alone if the user asked for ignore rules).
+
 ## Deploy commands
 
 ```powershell

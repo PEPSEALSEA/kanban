@@ -47,3 +47,8 @@ Linear-design-analysis.md
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local agent / drafts (do not push)
+skills-lock.json
+content-drafts/
+.agents/skills/
