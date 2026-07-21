@@ -8,6 +8,13 @@ export type ParsedContentDescription = {
   cards: ContentCard[];
 };
 
+export function extractH1Title(markdown: string): string | null {
+  const match = markdown.match(/^#\s+(.+)$/m);
+  if (!match) return null;
+  const title = match[1].trim();
+  return title || null;
+}
+
 export function parseContentDescription(desc?: string): ParsedContentDescription {
   const source = desc ?? '';
   const regex = /\[Card\s*(\d+):\s*([\s\S]*?)\]/g;

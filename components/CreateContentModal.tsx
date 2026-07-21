@@ -10,6 +10,7 @@ import AttachmentFileInput from '@/components/AttachmentFileInput';
 import { UPLOAD_SERVICE_URL } from '@/lib/config';
 import { makeAudioEntry } from '@/lib/audioItems';
 import { saveLearningContent } from '@/lib/contentSave';
+import { extractH1Title } from '@/lib/parseContentDescription';
 import { IconX, IconZap, IconScissors, IconTurtle, IconMusic, IconPaperclip, IconCheck, IconSparkles } from '@/components/icons';
 
 const UPLOAD_WEB_APP_URL = UPLOAD_SERVICE_URL;
@@ -248,7 +249,17 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
               rows={5}
               placeholder="Enter lesson notes..."
               value={formData.description}
-              onChange={e => setFormData({ ...formData, description: e.target.value })}
+              onChange={e => {
+                const description = e.target.value;
+                setFormData(prev => {
+                  const next = { ...prev, description };
+                  if (!prev.title.trim()) {
+                    const h1 = extractH1Title(description);
+                    if (h1) next.title = h1;
+                  }
+                  return next;
+                });
+              }}
               style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid var(--admin-border)', outline: 'none', resize: 'none', fontSize: '0.9rem' }}
             />
           </div>

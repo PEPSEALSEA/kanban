@@ -9,6 +9,21 @@ Read **`docs/DEPLOY.md`** before any deploy, hosting, or CI change.
 - **API host:** Cloudflare Worker `kanban-worker` → `lib/config.ts` `API_URL`
 - **AI chat:** UI in `components/ai-chat/`, streaming API in `worker/src/aiChat.ts` (`POST /api/chat`)
 
+## After code changes (mandatory)
+
+When you edit application code, finish the change with this loop — do not stop at “code looks done”:
+
+1. **Build check**
+   - Frontend / shared app code → `npm run build` from repo root
+   - Worker-only changes → also typecheck/build under `worker/` if available; at minimum ensure `npx wrangler deploy` would succeed
+2. **If build fails** → fix errors, then rebuild until clean
+3. **If build succeeds** → **always** `git add`, `git commit`, and `git push` to the current branch (`origin main` or the active feature branch). Do this automatically — do not wait for the user to ask for commit/push.
+4. **Side effects** (run when relevant, after a clean build):
+   - Changed Google Sheet schema (`EXPECTED_HEADERS` / sheet columns in `worker/src/index.ts`) → deploy Worker first, then sync headers via Admin **Fix Sheets** (`POST` `{ "action": "fixSheetHeaders" }` to `API_URL`, admin auth required)
+   - Changed Worker code under `worker/` → `cd worker; npx wrangler deploy`
+
+Skip auto commit/push only when the user explicitly says not to commit or not to push. Pure docs/notes still get committed/pushed if they are part of the same change set as code, or when the user asked for the docs update.
+
 ## Deploy commands
 
 ```powershell
@@ -18,7 +33,7 @@ git push origin main
 # Frontend fallback if Actions runner queue is stuck
 npm run deploy:pages
 
-# Backend
+# Backend (required after any worker/ change)
 cd worker; npx wrangler deploy
 ```
 
@@ -27,6 +42,8 @@ cd worker; npx wrangler deploy
 - Adding `app/api/*` breaks static Pages deploy (no server on GitHub Pages)
 - Pointing chat to `/kanban/api/chat` on Pages — must use Worker URL via `lib/chatApi.ts`
 - Forgetting `wrangler deploy` after worker changes while only pushing frontend
+- Changing sheet columns in code but not running **Fix Sheets** / `fixSheetHeaders`
+- Skipping `npm run build` before commit/push
 
 ## NotebookLM import (when user asks to create a new LM notebook)
 
