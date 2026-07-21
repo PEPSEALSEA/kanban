@@ -65,7 +65,7 @@ export default function AdminDashboard() {
   }, [loadDashboard]);
 
   const handleFixSheets = async () => {
-    if (!window.confirm("This will synchronize Google Sheets headers with the database schema. Continue?")) return;
+    if (!window.confirm("Sync sheet headers for every tab. If LearningContent row 1 is data, a header row is inserted (not overwritten). Also repairs rows shifted to the right. Continue?")) return;
     setIsFixingSheets(true);
     try {
       const res = await fetch(API_URL, {

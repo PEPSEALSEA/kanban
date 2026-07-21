@@ -71,7 +71,7 @@ export async function getSheetValues(env: SheetBindings, range: string) {
 
 export async function appendSheetRow(env: SheetBindings, range: string, values: unknown[]) {
   const token = await getAuthToken(env);
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${env.SPREADSHEET_ID}/values/${encodeURIComponent(range)}:append?valueInputOption=USER_ENTERED`;
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${env.SPREADSHEET_ID}/values/${encodeURIComponent(range)}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
   const res = await fetch(url, {
     method: 'POST',
     headers: {

@@ -217,9 +217,20 @@ async function getSheetValues(env: Bindings, range: string) {
   return data.values || [];
 }
 
+function columnLetter(index1Based: number): string {
+  let n = index1Based;
+  let s = '';
+  while (n > 0) {
+    const rem = (n - 1) % 26;
+    s = String.fromCharCode(65 + rem) + s;
+    n = Math.floor((n - 1) / 26);
+  }
+  return s;
+}
+
 async function appendSheetRow(env: Bindings, range: string, values: any[]) {
   const token = await getAuthToken(env);
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${env.SPREADSHEET_ID}/values/${encodeURIComponent(range)}:append?valueInputOption=USER_ENTERED`;
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${env.SPREADSHEET_ID}/values/${encodeURIComponent(range)}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
   const res = await fetch(url, {
     method: 'POST',
     headers: {
@@ -230,6 +241,31 @@ async function appendSheetRow(env: Bindings, range: string, values: any[]) {
   });
   if (!res.ok) throw new Error(`Sheets API error: ${res.statusText}`);
   return await res.json();
+}
+
+async function writeRowStartingAtA(env: Bindings, sheetName: string, values: any[]) {
+  const used = await getSheetValues(env, `${sheetName}!A:Z`);
+  const nextRow = used.length + 1;
+  const endCol = columnLetter(values.length);
+  await updateSheetRow(env, `${sheetName}!A${nextRow}:${endCol}${nextRow}`, values);
+  return nextRow;
+}
+
+async function getSheetIdByTitle(env: Bindings, sheetName: string): Promise<number | null> {
+  const token = await getAuthToken(env);
+  const ssRes = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${env.SPREADSHEET_ID}?fields=sheets.properties`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  if (!ssRes.ok) throw new Error(`Sheets API error: ${ssRes.statusText}`);
+  const spreadsheet = await ssRes.json() as any;
+  const sheet = spreadsheet.sheets?.find((s: any) => s.properties?.title === sheetName);
+  return sheet ? sheet.properties.sheetId : null;
+}
+
+function looksLikeExpectedHeader(row: any[] | undefined, headers: string[]): boolean {
+  if (!row || row.length === 0) return false;
+  return String(row[0] || '').trim().toLowerCase() === String(headers[0] || '').trim().toLowerCase();
 }
 
 async function updateSheetRow(env: Bindings, range: string, values: any[]) {
@@ -275,7 +311,11 @@ function toObjects(rows: any[][], headers: string[]) {
 
 async function findRowIndexById(env: Bindings, sheetName: string, id: string) {
   const rows = await getSheetValues(env, `${sheetName}!A:A`);
-  return rows.findIndex((r: any) => String(r[0]) === String(id));
+  const direct = rows.findIndex((r: any) => String(r[0]) === String(id));
+  if (direct !== -1) return direct;
+  if (sheetName !== SHEETS.LEARNING_CONTENT) return -1;
+  const wide = await getSheetValues(env, `${sheetName}!A:Z`);
+  return wide.findIndex((r: any) => (r || []).some((c: any) => String(c) === String(id)));
 }
 
 function getMidnightGMT7(date?: Date) {
@@ -1544,7 +1584,7 @@ async function editHomework(env: Bindings, data: any) {
 async function addLearningContent(env: Bindings, data: any) {
   const id = "LC-" + Date.now().toString();
   const row = [id, data.date || new Date().toISOString().split('T')[0], data.subject || "", data.title || "", data.description || "", data.audio_file_id || "", data.audio_url || "", data.attachments || "", data.links || "", isSheetTruthy(data.is_private) ? '1' : '', new Date().toISOString()];
-  await appendSheetRow(env, `${SHEETS.LEARNING_CONTENT}!A:K`, row);
+  await writeRowStartingAtA(env, SHEETS.LEARNING_CONTENT, row);
   return id;
 }
 
@@ -1552,8 +1592,29 @@ async function editLearningContent(env: Bindings, data: any) {
   const rowIndex = await findRowIndexById(env, SHEETS.LEARNING_CONTENT, data.id);
   if (rowIndex === -1) throw new Error("Content not found");
   const rowNum = rowIndex + 1;
-  const row = [data.id, data.date, data.subject, data.title, data.description, data.audio_file_id, data.audio_url, data.attachments, data.links, isSheetTruthy(data.is_private) ? '1' : ''];
-  await updateSheetRow(env, `${SHEETS.LEARNING_CONTENT}!A${rowNum}:J${rowNum}`, row);
+  const existing = await getSheetValues(env, `${SHEETS.LEARNING_CONTENT}!A${rowNum}:Z${rowNum}`);
+  const prev = existing[0] || [];
+  let createdAt = '';
+  const idAt = prev.findIndex((c: any) => String(c || '').trim().startsWith('LC-'));
+  if (idAt >= 0) {
+    createdAt = String(prev[idAt + 10] || prev[10] || '');
+  }
+  const row = [
+    data.id,
+    data.date,
+    data.subject,
+    data.title,
+    data.description,
+    data.audio_file_id || '',
+    data.audio_url || '',
+    data.attachments || '',
+    data.links || '',
+    isSheetTruthy(data.is_private) ? '1' : '',
+    createdAt,
+  ];
+  const clearWidth = 26;
+  const padded = Array.from({ length: clearWidth }, (_, i) => (i < row.length ? row[i] : ''));
+  await updateSheetRow(env, `${SHEETS.LEARNING_CONTENT}!A${rowNum}:${columnLetter(clearWidth)}${rowNum}`, padded);
   return "ok";
 }
 
@@ -1647,30 +1708,85 @@ async function getComments(env: Bindings, homeworkId?: string, ownerEmail?: stri
   });
 }
 
+async function repairLearningContentShiftedRows(env: Bindings): Promise<number> {
+  const headers = EXPECTED_HEADERS[SHEETS.LEARNING_CONTENT];
+  const wideEnd = columnLetter(26);
+  const rows = await getSheetValues(env, `${SHEETS.LEARNING_CONTENT}!A2:${wideEnd}`);
+  let repaired = 0;
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i] || [];
+    const sheetRow = i + 2;
+    const colA = String(row[0] || '').trim();
+    if (colA.startsWith('LC-')) continue;
+
+    let idCol = -1;
+    for (let c = 1; c < row.length; c++) {
+      if (String(row[c] || '').trim().startsWith('LC-')) {
+        idCol = c;
+        break;
+      }
+    }
+    if (idCol < 0) continue;
+
+    const shifted = row.slice(idCol);
+    const clearWidth = Math.max(row.length, headers.length + idCol, 26);
+    const fixed = Array.from({ length: clearWidth }, (_, idx) =>
+      idx < headers.length && shifted[idx] !== undefined ? shifted[idx] : ''
+    );
+    await updateSheetRow(
+      env,
+      `${SHEETS.LEARNING_CONTENT}!A${sheetRow}:${columnLetter(clearWidth)}${sheetRow}`,
+      fixed
+    );
+    repaired++;
+  }
+
+  return repaired;
+}
+
 async function fixSheetHeaders(env: Bindings) {
   const results = [];
   for (const [sheetName, headers] of Object.entries(EXPECTED_HEADERS)) {
-    const endCol = String.fromCharCode(64 + headers.length);
+    const endCol = columnLetter(headers.length);
     const range = `${sheetName}!A1:${endCol}1`;
     try {
-      await updateSheetRow(env, range, headers);
-      results.push(`${sheetName}: Headers fixed`);
-    } catch (e: any) {
-      if (e.message.includes('Bad Request')) {
-        try {
-          await batchUpdateSheet(env, [
-            { addSheet: { properties: { title: sheetName } } }
-          ]);
-          await updateSheetRow(env, range, headers);
-          results.push(`${sheetName}: Sheet created and headers fixed`);
-        } catch (err: any) {
-          results.push(`${sheetName}: Failed to create - ${err.message}`);
-        }
-      } else {
-        results.push(`${sheetName}: Failed - ${e.message}`);
+      let sheetId = await getSheetIdByTitle(env, sheetName);
+      if (sheetId == null) {
+        await batchUpdateSheet(env, [{ addSheet: { properties: { title: sheetName } } }]);
+        sheetId = await getSheetIdByTitle(env, sheetName);
+        results.push(`${sheetName}: Sheet created`);
       }
+
+      const firstRows = await getSheetValues(env, `${sheetName}!A1:${endCol}1`);
+      const first = firstRows[0];
+      if (!looksLikeExpectedHeader(first, headers)) {
+        const hasData = Array.isArray(first) && first.some((c: any) => String(c || '').trim() !== '');
+        if (hasData && sheetId != null) {
+          await batchUpdateSheet(env, [{
+            insertDimension: {
+              range: { sheetId, dimension: 'ROWS', startIndex: 0, endIndex: 1 },
+              inheritFromBefore: false,
+            },
+          }]);
+          results.push(`${sheetName}: Inserted header row (row 1 was data)`);
+        }
+      }
+
+      await updateSheetRow(env, range, headers);
+      results.push(`${sheetName}: Headers OK (${headers.join(', ')})`);
+    } catch (e: any) {
+      results.push(`${sheetName}: Failed - ${e.message}`);
     }
   }
+
+  try {
+    const repaired = await repairLearningContentShiftedRows(env);
+    results.push(`LearningContent: Repaired ${repaired} shifted row(s)`);
+  } catch (e: any) {
+    results.push(`LearningContent repair failed: ${e.message}`);
+  }
+
   return results;
 }
 

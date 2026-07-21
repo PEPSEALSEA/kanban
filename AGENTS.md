@@ -19,7 +19,7 @@ When you edit application code, finish the change with this loop — do not stop
 2. **If build fails** → fix errors, then rebuild until clean
 3. **If build succeeds** → **always** `git add`, `git commit`, and `git push` to the current branch (`origin main` or the active feature branch). Do this automatically — do not wait for the user to ask for commit/push.
 4. **Side effects** (run when relevant, after a clean build):
-   - Changed Google Sheet schema (`EXPECTED_HEADERS` / sheet columns in `worker/src/index.ts`) → deploy Worker first, then sync headers via Admin **Fix Sheets** (`POST` `{ "action": "fixSheetHeaders" }` to `API_URL`, admin auth required)
+   - Changed Google Sheet schema (`EXPECTED_HEADERS` / sheet columns in `worker/src/index.ts`) → deploy Worker first, then sync headers via Admin **Fix Sheets** (`POST` `{ "action": "fixSheetHeaders" }` to `API_URL`, admin auth required). Fix Sheets inserts a header row when row 1 is data (does not overwrite), and repairs LearningContent rows shifted to the right. Emergency CLI: `node worker/scripts/fix-learning-content-sheet.mjs`
    - Changed Worker code under `worker/` → `cd worker; npx wrangler deploy`
 
 Skip auto commit/push only when the user explicitly says not to commit or not to push. Pure docs/notes still get committed/pushed if they are part of the same change set as code, or when the user asked for the docs update.
