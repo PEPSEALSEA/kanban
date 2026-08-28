@@ -5,6 +5,7 @@ import { getFreshTelegramUrl } from '@/lib/telegram';
 import { useData } from '@/components/DataProvider';
 import { getOrCreateSessionId } from '@/lib/analytics';
 import { API_URL, UPLOAD_SERVICE_URL } from '@/lib/config';
+import { authHeaders } from '@/lib/auth';
 
 export type Attachment = {
   type: 'link_image' | 'link_work';
@@ -165,7 +166,7 @@ export default function AttachmentList({
         const proxyUrl =
           `${API_URL}/api/file-download?fileId=${encodeURIComponent(fileId)}` +
           `&filename=${encodeURIComponent(filename)}`;
-        const res = await fetch(proxyUrl);
+        const res = await fetch(proxyUrl, { headers: authHeaders() });
         if (!res.ok) {
           throw new Error(`Download failed (${res.status})`);
         }

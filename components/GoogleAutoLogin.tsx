@@ -2,17 +2,16 @@
 
 import { useGoogleOneTapLogin } from '@react-oauth/google';
 import { useData } from '@/components/DataProvider';
-import { completeGoogleLogin } from '@/lib/googleLogin';
 
 export default function GoogleAutoLogin() {
-  const { user, setUser, refreshData, readyForAutoLogin } = useData();
+  const { user, loginWithGoogle, readyForAutoLogin, loginError } = useData();
 
   useGoogleOneTapLogin({
-    disabled: Boolean(user) || !readyForAutoLogin,
-    auto_select: true,
+    disabled: Boolean(user) || !readyForAutoLogin || Boolean(loginError),
+    auto_select: !loginError,
     onSuccess: (credentialResponse) => {
       if (!credentialResponse.credential) return;
-      void completeGoogleLogin(credentialResponse.credential, setUser, refreshData);
+      void loginWithGoogle(credentialResponse.credential);
     },
     onError: () => {},
   });

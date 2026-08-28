@@ -1558,3 +1558,72 @@ h4 {
   border-color: var(--primary-hover);
   box-shadow: 0 0 0 2px rgba(125, 211, 252, 0.35);
 }
+
+.login-gate {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(255, 255, 255, 0.7), transparent 60%),
+    var(--bg-canvas);
+}
+
+.login-gate-card {
+  width: 100%;
+  max-width: 400px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 24px;
+  box-shadow: 0 16px 40px rgba(14, 116, 144, 0.12);
+  padding: 2.25rem 1.75rem 2rem;
+  text-align: center;
+}
+
+.login-gate-icon {
+  width: 88px;
+  height: 88px;
+  border-radius: 22px;
+  margin: 0 auto 1.1rem;
+  display: block;
+}
+
+.login-gate-title {
+  font-size: 1.85rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  margin-bottom: 0.35rem;
+}
+
+.login-gate-subtitle {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text-main);
+  margin-bottom: 0.4rem;
+}
+
+.login-gate-hint {
+  font-size: 0.92rem;
+  color: var(--text-muted);
+  margin-bottom: 1.5rem;
+}
+
+.login-gate-button {
+  display: flex;
+  justify-content: center;
+  min-height: 44px;
+}
+
+.login-gate-error {
+  margin-top: 1.1rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 12px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.45;
+}

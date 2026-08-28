@@ -4,7 +4,10 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 
 import { API_URL } from '@/lib/config';
 import { isAdminEmail } from '@/lib/admin';
-import { authHeaders, getIdToken } from '@/lib/auth';
+import { isAllowedAppEmail } from '@/lib/allowedEmail';
+import { authHeaders, clearIdToken, getIdToken } from '@/lib/auth';
+import { completeGoogleLogin } from '@/lib/googleLogin';
+import { googleLogout } from '@react-oauth/google';
 import type { AiChatLog } from '@/lib/geminiChat';
 
 export const GAS_WEB_APP_URL = API_URL;
@@ -53,10 +56,6 @@ function isSheetTruthy(v?: string) {
   return v === '1' || String(v || '').toLowerCase() === 'true';
 }
 
-function stripCachedAudioFields(content: LearningContent[]): LearningContent[] {
-  return content.map((item) => ({ ...item, audio_url: '', audio_file_id: '' }));
-}
-
 function stripPrivateContent(content: LearningContent[], userEmail?: string | null): LearningContent[] {
   if (userEmail && isAdminEmail(userEmail)) return content;
   return content.filter((item) => !isSheetTruthy(item.is_private));
@@ -92,6 +91,10 @@ type DataContextType = {
   isLoading: boolean;
   isSyncing: boolean;
   readyForAutoLogin: boolean;
+  authReady: boolean;
+  loginError: string | null;
+  loginWithGoogle: (credential: string) => Promise<void>;
+  logout: () => void;
   refreshData: () => Promise<void>;
   saveAnalyticsIpNote: (ip: string, name: string, note: string) => Promise<void>;
   logEvent: (eventType: string, extraData?: {
@@ -120,6 +123,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [readyForAutoLogin, setReadyForAutoLogin] = useState(false);
+  const [authReady, setAuthReady] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const refreshInFlightRef = useRef<Promise<void> | null>(null);
 
@@ -130,7 +135,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const savedUser = localStorage.getItem('homework_user');
 
     if (savedUser && token) {
-      setUser(JSON.parse(savedUser));
+      try {
+        const parsed = JSON.parse(savedUser) as UserInfo;
+        if (isAllowedAppEmail(parsed.email)) {
+          setUser(parsed);
+        } else {
+          localStorage.removeItem('homework_user');
+          clearIdToken();
+        }
+      } catch {
+        localStorage.removeItem('homework_user');
+        clearIdToken();
+      }
     } else if (savedUser && !token) {
       localStorage.removeItem('homework_user');
     }
@@ -139,24 +155,47 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (cachedData) {
       try {
         const parsed = JSON.parse(cachedData);
-        const hasAuth = Boolean(token);
-        const cachedUser = savedUser && token ? JSON.parse(savedUser) : null;
-        const cachedContent = hasAuth ? (parsed.learningContent || []) : stripCachedAudioFields(parsed.learningContent || []);
-        setAllHomework(parsed.homework || []);
-        setAllUsers(parsed.users || []);
-        setAllProgress(parsed.progress || []);
-        setLearningContent(stripPrivateContent(cachedContent, cachedUser?.email));
-        setSubjects(parsed.subjects || []);
-        setAnalytics([]);
-        setAnalyticsIpNotes([]);
-        setAiChatLogs(parsed.aiChatLogs || []);
-        setAudioPermissions(hasAuth ? (parsed.audioPermissions || []) : []);
-        setAudioAccessGranted(hasAuth && Boolean(parsed.audioAccessGranted));
+        const cachedUser = savedUser && token ? JSON.parse(savedUser) as UserInfo : null;
+        const hasAuth = Boolean(token) && isAllowedAppEmail(cachedUser?.email);
+        if (hasAuth) {
+          const cachedContent = parsed.learningContent || [];
+          setAllHomework(parsed.homework || []);
+          setAllUsers(parsed.users || []);
+          setAllProgress(parsed.progress || []);
+          setLearningContent(stripPrivateContent(cachedContent, cachedUser?.email));
+          setSubjects(parsed.subjects || []);
+          setAnalytics([]);
+          setAnalyticsIpNotes([]);
+          setAiChatLogs(parsed.aiChatLogs || []);
+          setAudioPermissions(parsed.audioPermissions || []);
+          setAudioAccessGranted(Boolean(parsed.audioAccessGranted));
+        }
       } catch (e) {
         console.error("Cache parsing failed", e);
       }
     }
     setIsLoading(false);
+    setAuthReady(true);
+    setReadyForAutoLogin(true);
+  }, []);
+
+  const logout = useCallback(() => {
+    googleLogout();
+    clearIdToken();
+    setUser(null);
+    setLoginError(null);
+    localStorage.removeItem('homework_user');
+    localStorage.removeItem('studyflow_cache');
+    setAllHomework([]);
+    setAllUsers([]);
+    setAllProgress([]);
+    setLearningContent([]);
+    setSubjects([]);
+    setAnalytics([]);
+    setAnalyticsIpNotes([]);
+    setAiChatLogs([]);
+    setAudioPermissions([]);
+    setAudioAccessGranted(false);
   }, []);
 
   const refreshData = useCallback(async () => {
@@ -167,6 +206,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setError(null);
       try {
         const res = await fetch(`${GAS_WEB_APP_URL}?action=batchData`, { headers: authHeaders() });
+        if (res.status === 401 || res.status === 403) {
+          logout();
+          throw new Error("Authentication required");
+        }
         if (!res.ok) throw new Error("Cloud synchronization failed");
         const data = (await res.json()) as any;
 
@@ -207,7 +250,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
     refreshInFlightRef.current = run;
     return run;
-  }, []);
+  }, [logout]);
 
   const saveAnalyticsIpNote = useCallback(async (ip: string, name: string, note: string) => {
     const res = await fetch(GAS_WEB_APP_URL, {
@@ -336,11 +379,25 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const loginWithGoogle = useCallback(async (credential: string) => {
+    setLoginError(null);
+    try {
+      await completeGoogleLogin(credential, setUser, refreshData);
+    } catch (e) {
+      clearIdToken();
+      setUser(null);
+      localStorage.removeItem('homework_user');
+      const message = e instanceof Error ? e.message : 'เข้าสู่ระบบไม่สำเร็จ';
+      setLoginError(message);
+    }
+  }, [refreshData]);
+
   useEffect(() => {
+    if (!user) return;
     refreshData();
     const interval = setInterval(refreshData, 5 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [refreshData]);
+  }, [refreshData, user]);
 
   const userCanAccessAudio = audioAccessGranted;
 
@@ -361,6 +418,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       isLoading,
       isSyncing,
       readyForAutoLogin,
+      authReady,
+      loginError,
+      loginWithGoogle,
+      logout,
       refreshData,
       saveAnalyticsIpNote,
       logEvent,

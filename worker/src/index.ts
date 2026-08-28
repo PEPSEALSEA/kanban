@@ -31,9 +31,24 @@ const ADMIN_EMAILS = new Set([
   'sealseapep@gmail.com',
 ]);
 
+const ALLOWED_EMAIL_DOMAIN = 'bpk.ac.th';
+
 function isAdminEmail(email: string | null | undefined): boolean {
   if (!email) return false;
   return ADMIN_EMAILS.has(email.trim().toLowerCase());
+}
+
+function isAllowedAppEmail(email: string | null | undefined): boolean {
+  if (!email) return false;
+  const normalized = email.trim().toLowerCase();
+  if (isAdminEmail(normalized)) return true;
+  return normalized.endsWith(`@${ALLOWED_EMAIL_DOMAIN}`);
+}
+
+function authFailureStatus(message: string): 401 | 403 | 500 {
+  if (message === 'Authentication required') return 401;
+  if (message === 'Admin access required' || message === 'School account required') return 403;
+  return 500;
 }
 
 function isSheetTruthy(v?: string) {
@@ -110,7 +125,9 @@ async function requireAuth(c: AppContext): Promise<{ email: string }> {
   if (!token) throw new Error('Authentication required');
   const clientId = c.env.GOOGLE_CLIENT_ID;
   if (!clientId) throw new Error('GOOGLE_CLIENT_ID not configured');
-  return verifyGoogleIdToken(token, clientId);
+  const user = await verifyGoogleIdToken(token, clientId);
+  if (!isAllowedAppEmail(user.email)) throw new Error('School account required');
+  return user;
 }
 
 async function requireAdmin(c: AppContext): Promise<{ email: string }> {
@@ -1910,6 +1927,7 @@ function mimeFromFilename(filename: string): string {
 
 app.get('/api/file-download', async (c) => {
   try {
+    await requireAuth(c);
     const fileId = c.req.query('fileId');
     if (!fileId) return c.json({ error: 'fileId is required' }, 400);
 
@@ -1952,7 +1970,7 @@ app.get('/api/file-download', async (c) => {
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Download failed';
-    return c.json({ error: message }, 500);
+    return c.json({ error: message }, authFailureStatus(message));
   }
 });
 
@@ -1963,13 +1981,19 @@ app.post('/api/chat', async (c) => {
     return handleAiChatRequest(c.env, authUser, body);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Request failed';
-    const status = message === 'Authentication required' ? 401 : 500;
+    const status = authFailureStatus(message);
     return c.json({ error: message }, status);
   }
 });
 
 app.post('/api/gemini-chat', async (c) => {
-  const authUser = await requireAuth(c);
+  let authUser: { email: string };
+  try {
+    authUser = await requireAuth(c);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Request failed';
+    return c.json({ success: false, error: message }, authFailureStatus(message));
+  }
   const body = await c.req.json();
   const message = String(body?.message || "").trim();
   const history = Array.isArray(body?.history) ? body.history : [];
@@ -2149,11 +2173,17 @@ app.get('/', async (c) => {
     if (!action) return c.json({ success: true, message: "StudyFlow Cloudflare Worker is online 🚀" });
     let result: any;
     switch (action) {
-      // --- Public ---
-      case "list": result = await getHomeworkList(c.env); break;
-      case "subjects": result = await getSubjects(c.env); break;
+      case "list": {
+        await requireAuth(c);
+        result = await getHomeworkList(c.env);
+        break;
+      }
+      case "subjects": {
+        await requireAuth(c);
+        result = await getSubjects(c.env);
+        break;
+      }
 
-      // --- Requires valid login ---
       case "listWithProgress": {
         const email = await requireAuth(c).then(u => u.email);
         result = await getHomeworkWithProgress(c.env, email);
@@ -2170,7 +2200,7 @@ app.get('/', async (c) => {
         break;
       }
       case "learningContent": {
-        const email = await optionalAuth(c);
+        const email = await requireAuth(c).then(u => u.email);
         const raw = filterPrivateLearningContent(
           await getLearningContent(
             c.env,
@@ -2194,7 +2224,7 @@ app.get('/', async (c) => {
         break;
       }
       case "batchData": {
-        const email = await optionalAuth(c);
+        const { email } = await requireAuth(c);
         const admin = isAdminEmail(email);
         const [
           audioPermissions,
@@ -2340,9 +2370,7 @@ app.get('/', async (c) => {
     }
     return c.json({ success: true, data: result });
   } catch (err: any) {
-    const status = err.message === 'Authentication required' ? 401
-      : err.message === 'Admin access required' ? 403
-      : 500;
+    const status = authFailureStatus(err.message);
     return c.json({ success: false, error: err.message }, status);
   }
 });
@@ -2453,9 +2481,7 @@ app.post('/', async (c) => {
     }
     return c.json({ success: true, data: result });
   } catch (err: any) {
-    const status = err.message === 'Authentication required' ? 401
-      : err.message === 'Admin access required' ? 403
-      : 500;
+    const status = authFailureStatus(err.message);
     return c.json({ success: false, error: err.message }, status);
   }
 });

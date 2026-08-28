@@ -3,8 +3,6 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { googleLogout } from '@react-oauth/google';
-import GoogleSignInButton from '@/components/GoogleSignInButton';
 import { useData } from '@/components/DataProvider';
 import { isAdminEmail } from '@/lib/admin';
 import {
@@ -13,7 +11,6 @@ import {
   isAdminNavItemActive,
   isAdminRoute,
 } from '@/lib/adminNav';
-import { clearIdToken } from '@/lib/auth';
 import {
   IconAdmin,
   IconArchive,
@@ -36,16 +33,12 @@ const ADMIN_NAV_ICONS = {
 
 export default function HeaderNav() {
   const pathname = usePathname();
-  const { user, setUser, refreshData } = useData();
+  const { user, logout } = useData();
   const showAdmin = user && isAdminEmail(user.email);
   const showAdminNav = showAdmin && isAdminRoute(pathname);
 
   const handleLogout = () => {
-    googleLogout();
-    clearIdToken();
-    setUser(null);
-    localStorage.removeItem('homework_user');
-    refreshData();
+    logout();
   };
 
   const handleAdminMore = () => {
@@ -130,18 +123,14 @@ export default function HeaderNav() {
         </nav>
 
         <div className="header-nav-auth">
-          {!user ? (
-            <span className="header-nav-auth-mobile">
-              <GoogleSignInButton size="large" type="icon" shape="circle" theme="outline" />
-            </span>
-          ) : (
+          {user ? (
             <div className="header-nav-user">
               <button type="button" onClick={handleLogout} className="header-nav-logout" title="Logout">
                 <img src={user.picture} alt="" className="header-nav-avatar" />
                 <span className="header-nav-logout-text">Logout</span>
               </button>
             </div>
-          )}
+          ) : null}
         </div>
       </div>
     </div>
