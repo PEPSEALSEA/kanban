@@ -2297,12 +2297,16 @@ app.get('/', async (c) => {
         const { page, limit } = parsePageLimit(c.req.query('page'), c.req.query('limit'));
         const q = String(c.req.query('q') || '').toLowerCase().trim();
         const subject = String(c.req.query('subject') || '').trim();
+        const missingTitle = isSheetTruthy(c.req.query('missingTitle'));
         let items = await getLearningContent(c.env);
         items.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
         if (subject && subject.toLowerCase() !== 'all') {
           items = items.filter((item: any) =>
             String(item.subject || '').trim().toLowerCase() === subject.toLowerCase()
           );
+        }
+        if (missingTitle) {
+          items = items.filter((item: any) => !String(item.title || '').trim());
         }
         if (q) {
           items = items.filter((item: any) =>
