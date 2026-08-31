@@ -28,6 +28,7 @@ type LearningContent = {
 };
 
 const isPrivateContent = (item: LearningContent) => item.is_private === '1' || String(item.is_private || '').toLowerCase() === 'true';
+const TELEGRAM_AUDIO_LIMIT_BYTES = 20 * 1024 * 1024;
 
 type AudioDraft = {
   id: string;
@@ -100,6 +101,7 @@ function BatchAudioUploadModal({
   const [status, setStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
   const [progress, setProgress] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [failedFiles, setFailedFiles] = useState<string[]>([]);
   const [createdIds, setCreatedIds] = useState<string[]>([]);
   const { isMobile } = useDeviceDetection();
 
@@ -126,6 +128,7 @@ function BatchAudioUploadModal({
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
     setError(null);
+    setFailedFiles([]);
     setCreatedIds([]);
     const nextDrafts = files.map((file, index) => {
       const parsed = parseAudioFilename(file.name, subjects);
@@ -149,17 +152,25 @@ function BatchAudioUploadModal({
   };
 
   const uploadAudio = async (file: File) => {
+    if (file.size > TELEGRAM_AUDIO_LIMIT_BYTES) {
+      const sizeMb = (file.size / 1024 / 1024).toFixed(1);
+      throw new Error(`${file.name} is ${sizeMb}MB. Telegram audio upload limit is 20MB.`);
+    }
+
     let fileToUpload = file;
-    if (file.size > 45 * 1024 * 1024) {
-      setProgress(`Optimizing ${file.name}`);
-      try {
-        const compressionResult = await compressAudioIfNeeded(file, (p) => {
-          setProgress(`Optimizing ${file.name}: ${p}%`);
-        });
-        if (compressionResult.compressed) fileToUpload = compressionResult.file;
-      } catch (compressErr) {
-        console.error('Compression failed:', compressErr);
-      }
+    setProgress(`Optimizing ${file.name}`);
+    try {
+      const compressionResult = await compressAudioIfNeeded(file, (p) => {
+        setProgress(`Optimizing ${file.name}: ${p}%`);
+      });
+      if (compressionResult.compressed) fileToUpload = compressionResult.file;
+    } catch (compressErr) {
+      console.error('Compression failed:', compressErr);
+    }
+
+    if (fileToUpload.size > TELEGRAM_AUDIO_LIMIT_BYTES) {
+      const sizeMb = (fileToUpload.size / 1024 / 1024).toFixed(1);
+      throw new Error(`${file.name} is still ${sizeMb}MB after compression. Telegram audio upload limit is 20MB.`);
     }
 
     setProgress(`High-Speed Uploading ${file.name}`);
@@ -188,7 +199,7 @@ function BatchAudioUploadModal({
       body: base64Data,
     });
     const fallback = (await response.json()) as any;
-    if (!fallback.success) throw new Error(fallback.error || `Upload failed: ${file.name}`);
+    if (!fallback.success) throw new Error(`${file.name}: ${fallback.error || 'Upload failed'}`);
     return makeAudioEntry(fallback.url, file.name, fallback.id);
   };
 
@@ -196,16 +207,25 @@ function BatchAudioUploadModal({
     if (groups.length === 0 || status === 'uploading') return;
     setStatus('uploading');
     setError(null);
+    setFailedFiles([]);
     setCreatedIds([]);
     const ids: string[] = [];
+    const failures: string[] = [];
 
     try {
       for (const group of groups) {
         setProgress(`Creating draft for ${group.subject} (${group.files.length} files)`);
         const audios: string[] = [];
         for (const draft of group.files) {
-          audios.push(await uploadAudio(draft.file));
+          try {
+            audios.push(await uploadAudio(draft.file));
+          } catch (fileError: any) {
+            const message = fileError.message || `Upload failed: ${draft.filename}`;
+            failures.push(message);
+            setFailedFiles([...failures]);
+          }
         }
+        if (failures.length > 0) throw new Error('Some audio files could not be uploaded.');
         const id = await saveLearningContent({
           date: group.date,
           subject: group.subject,
@@ -222,6 +242,7 @@ function BatchAudioUploadModal({
       setStatus('success');
       setProgress('');
       onRefresh();
+      window.setTimeout(onClose, 650);
     } catch (e: any) {
       console.error(e);
       setStatus('error');
@@ -245,7 +266,7 @@ function BatchAudioUploadModal({
 
   return (
     <div style={overlayStyle}>
-      <div className="admin-card" style={{ width: '100%', maxWidth: '980px', maxHeight: '92vh', overflowY: 'auto' }}>
+      <div className="admin-card" style={{ width: '100%', maxWidth: '980px', maxHeight: '92vh', overflowY: 'auto', position: 'relative' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', borderBottom: '1px solid var(--admin-border)', paddingBottom: '1rem', gap: '1rem' }}>
           <div>
             <h2 style={{ fontSize: '1.25rem', color: 'var(--admin-text-main)', margin: 0 }}>Batch Audio Upload</h2>
@@ -365,6 +386,14 @@ function BatchAudioUploadModal({
               </div>
             )}
             {error && <div style={{ color: '#f87171', fontSize: '0.8rem' }}>{error}</div>}
+            {failedFiles.length > 0 && (
+              <div style={{ border: '1px solid rgba(239, 68, 68, 0.25)', background: 'rgba(239, 68, 68, 0.08)', color: '#ef4444', borderRadius: '0.75rem', padding: '0.75rem', fontSize: '0.78rem' }}>
+                <div style={{ fontWeight: 800, marginBottom: '0.35rem' }}>Upload failed</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  {failedFiles.map((file, index) => <div key={`${file}-${index}`}>{file}</div>)}
+                </div>
+              </div>
+            )}
             {createdIds.length > 0 && <div style={{ color: '#10b981', fontSize: '0.8rem' }}>Created: {createdIds.join(', ')}</div>}
 
             <div style={{ display: 'flex', gap: '0.75rem', borderTop: '1px solid var(--admin-border)', paddingTop: '1rem' }}>
@@ -375,6 +404,32 @@ function BatchAudioUploadModal({
             </div>
           </section>
         </div>
+        {status === 'uploading' && (
+          <div style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 5,
+            background: 'rgba(248, 250, 252, 0.86)',
+            backdropFilter: 'blur(3px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1.5rem',
+          }}>
+            <div style={{ width: 'min(420px, 100%)', border: '1px solid var(--admin-border)', borderRadius: '0.9rem', background: 'white', padding: '1.25rem', boxShadow: '0 20px 45px rgba(15, 23, 42, 0.16)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', fontWeight: 800, color: 'var(--admin-text-main)', marginBottom: '0.75rem' }}>
+                {isHighSpeedProgress(progress) ? <IconZap className="w-5 h-5" /> : progress.includes('Slow-Fallback') ? <IconTurtle className="w-5 h-5" /> : <IconScissors className="w-5 h-5" />}
+                Uploading audio
+              </div>
+              <div style={{ height: '0.6rem', borderRadius: '999px', background: 'var(--admin-bg-soft)', overflow: 'hidden', marginBottom: '0.75rem' }}>
+                <div className="batch-upload-progress-bar" style={{ height: '100%', width: '45%', borderRadius: '999px', background: 'var(--admin-accent)' }} />
+              </div>
+              <div style={{ fontSize: '0.82rem', color: 'var(--admin-text-muted)', wordBreak: 'break-word' }}>
+                {progress || 'Preparing upload...'}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
