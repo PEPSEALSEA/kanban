@@ -205,7 +205,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setIsSyncing(true);
       setError(null);
       try {
-        const res = await fetch(`${GAS_WEB_APP_URL}?action=batchData`, { headers: authHeaders() });
+        const res = await fetch(`${GAS_WEB_APP_URL}?action=batchData&_=${Date.now()}`, {
+          headers: {
+            ...authHeaders(),
+            'Cache-Control': 'no-cache',
+          },
+          cache: 'no-store',
+        });
         if (res.status === 401 || res.status === 403) {
           logout();
           throw new Error("Authentication required");

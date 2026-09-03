@@ -13,7 +13,7 @@ import { IconX, IconPaperclip, IconSparkles } from '@/components/icons';
 const GAS_WEB_APP_URL = API_URL;
 const UPLOAD_WEB_APP_URL = UPLOAD_SERVICE_URL;
 
-export default function CreateHomeworkModal({ onClose, onRefresh }: { onClose: () => void; onRefresh: () => void }) {
+export default function CreateHomeworkModal({ onClose, onRefresh }: { onClose: () => void; onRefresh: () => void | Promise<void> }) {
   const { subjects } = useData();
   const [formData, setFormData] = useState({
     subject: subjects[0]?.name || 'Other',
@@ -106,8 +106,8 @@ export default function CreateHomeworkModal({ onClose, onRefresh }: { onClose: (
           link_image: formData.link_image.join(',')
         })
       });
+      await onRefresh();
       setStatus('success');
-      onRefresh();
       setTimeout(onClose, 1500);
     } catch (error) {
       setStatus('error');

@@ -20,7 +20,7 @@ export default function EditHomeworkModal({
 }: { 
   homework: any; 
   onClose: () => void; 
-  onRefresh: () => void; 
+  onRefresh: () => void | Promise<void>; 
 }) {
   const { subjects } = useData();
   const parseLinks = (links: string | undefined): string[] => {
@@ -134,8 +134,8 @@ export default function EditHomeworkModal({
           link_image: formData.link_image.join(',')
         })
       });
+      await onRefresh();
       setStatus('success');
-      onRefresh();
       setTimeout(onClose, 1500);
     } catch (error) {
       console.error(error);
@@ -152,8 +152,8 @@ export default function EditHomeworkModal({
           headers: { 'Content-Type': 'application/json', ...authHeaders() },
           body: JSON.stringify({ action: 'deleteHomework', id: homework.id })
         });
+        await onRefresh();
         setStatus('success');
-        onRefresh();
         setTimeout(onClose, 1500);
       } catch (error) {
         console.error(error);

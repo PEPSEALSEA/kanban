@@ -95,7 +95,7 @@ function BatchAudioUploadModal({
 }: {
   subjects: any[];
   onClose: () => void;
-  onRefresh: () => void;
+  onRefresh: () => void | Promise<void>;
 }) {
   const [drafts, setDrafts] = useState<AudioDraft[]>([]);
   const [status, setStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
@@ -239,9 +239,9 @@ function BatchAudioUploadModal({
         ids.push(id);
         setCreatedIds([...ids]);
       }
+      await onRefresh();
       setStatus('success');
       setProgress('');
-      onRefresh();
       window.setTimeout(onClose, 650);
     } catch (e: any) {
       console.error(e);

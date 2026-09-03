@@ -28,7 +28,7 @@ export default function EditContentModal({
 }: { 
   content: any; 
   onClose: () => void; 
-  onRefresh: () => void; 
+  onRefresh: () => void | Promise<void>; 
 }) {
   const { subjects } = useData();
   const parseItems = (str: string | undefined): string[] => {
@@ -73,7 +73,7 @@ export default function EditContentModal({
     if (!nextFormData.title.trim()) return;
     try {
       await saveLearningContent(nextFormData, customSubject, content.id);
-      onRefresh();
+      await onRefresh();
     } catch (err) {
       console.error('Auto-save failed:', err);
     }
@@ -194,8 +194,8 @@ export default function EditContentModal({
     setStatus('submitting');
     try {
       await saveLearningContent(formData, customSubject, content.id);
+      await onRefresh();
       setStatus('success');
-      onRefresh();
       setTimeout(onClose, 1500);
     } catch (error) {
       console.error(error);
@@ -212,8 +212,8 @@ export default function EditContentModal({
           headers: { 'Content-Type': 'application/json', ...authHeaders() },
           body: JSON.stringify({ action: 'deleteLearningContent', id: content.id })
         });
+        await onRefresh();
         setStatus('success');
-        onRefresh();
         setTimeout(onClose, 1500);
       } catch (error) {
         console.error(error);

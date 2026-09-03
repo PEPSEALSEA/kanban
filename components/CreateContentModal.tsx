@@ -19,7 +19,7 @@ function isHighSpeedProgress(progress: string) {
   return progress.includes('High-Speed');
 }
 
-export default function CreateContentModal({ onClose, onRefresh }: { onClose: () => void; onRefresh: () => void }) {
+export default function CreateContentModal({ onClose, onRefresh }: { onClose: () => void; onRefresh: () => void | Promise<void> }) {
   const { subjects } = useData();
   const [formData, setFormData] = useState({
     date: (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })(),
@@ -60,7 +60,7 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
       const id = await saveLearningContent(nextFormData, customSubjectRef.current, savedContentIdRef.current);
       savedContentIdRef.current = id;
       setSavedContentId(id);
-      onRefresh();
+      await onRefresh();
     } catch (err) {
       console.error('Auto-save failed:', err);
     }
@@ -175,8 +175,8 @@ export default function CreateContentModal({ onClose, onRefresh }: { onClose: ()
     setStatus('submitting');
     try {
       await saveLearningContent(formData, customSubject, savedContentIdRef.current);
+      await onRefresh();
       setStatus('success');
-      onRefresh();
       setTimeout(onClose, 1500);
     } catch (error) {
       setStatus('error');

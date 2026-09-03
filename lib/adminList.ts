@@ -12,11 +12,18 @@ export type AdminListResult<T> = {
 
 export async function fetchAdminJson<T>(action: string, params: Record<string, string | number | undefined> = {}): Promise<T> {
   const qs = new URLSearchParams({ action });
+  qs.set('_', Date.now().toString());
   for (const [key, value] of Object.entries(params)) {
     if (value === undefined || value === '') continue;
     qs.set(key, String(value));
   }
-  const res = await fetch(`${API_URL}?${qs.toString()}`, { headers: authHeaders() });
+  const res = await fetch(`${API_URL}?${qs.toString()}`, {
+    headers: {
+      ...authHeaders(),
+      'Cache-Control': 'no-cache',
+    },
+    cache: 'no-store',
+  });
   const data = await res.json();
   if (!data.success) throw new Error(data.error || `Failed: ${action}`);
   return data.data as T;

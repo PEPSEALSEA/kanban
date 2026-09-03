@@ -394,6 +394,33 @@ async function clearFastReadCaches(env: Bindings) {
   return content + batch;
 }
 
+async function markLearningContentFastReadStale(env: Bindings) {
+  const deletedCacheKeys = await clearFastReadCaches(env);
+  if (hasKV(env)) {
+    await env.CACHE.delete(`${CACHE_PREFIX}ready:learning_content`);
+  }
+  if (hasD1(env)) {
+    try {
+      await ensureFastReadSchema(env);
+      await env.DB.prepare(`
+        INSERT INTO sync_state (key, last_synced_at, last_row_count, status, error_message)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(key) DO UPDATE SET
+          last_synced_at = excluded.last_synced_at,
+          status = excluded.status,
+          error_message = excluded.error_message
+      `).bind("learning_content", new Date().toISOString(), 0, "stale", "").run();
+    } catch (e) {
+      console.warn("Failed to mark fast-read cache stale", e);
+    }
+  }
+  return deletedCacheKeys;
+}
+
+async function clearBatchDataCache(env: Bindings) {
+  return clearCachePrefix(env, BATCH_CACHE_PREFIX);
+}
+
 async function isFastReadReady(env: Bindings) {
   if (!hasD1(env)) return false;
   const cached = await getCachedJson<{ ready: boolean }>(env, `${CACHE_PREFIX}ready:learning_content`);
@@ -2807,29 +2834,57 @@ app.post('/', async (c) => {
         result = await saveAnalyticsIpNote(c.env, { ...body, admin_email: admin.email });
         break;
       }
-      case "addHomework": await requireAdmin(c); result = await addHomework(c.env, body); break;
-      case "editHomework": await requireAdmin(c); result = await editHomework(c.env, body); break;
-      case "deleteHomework": await requireAdmin(c); result = await deleteRowById(c.env, SHEETS.HOMEWORK, getVal('id')); break;
+      case "addHomework": {
+        await requireAdmin(c);
+        result = await addHomework(c.env, body);
+        await clearBatchDataCache(c.env);
+        break;
+      }
+      case "editHomework": {
+        await requireAdmin(c);
+        result = await editHomework(c.env, body);
+        await clearBatchDataCache(c.env);
+        break;
+      }
+      case "deleteHomework": {
+        await requireAdmin(c);
+        result = await deleteRowById(c.env, SHEETS.HOMEWORK, getVal('id'));
+        await clearBatchDataCache(c.env);
+        break;
+      }
       case "addLearningContent": {
         await requireAdmin(c);
         result = await addLearningContent(c.env, body);
+        await markLearningContentFastReadStale(c.env);
         c.executionCtx.waitUntil(syncLearningContentToFastRead(c.env).catch((e) => recordFastReadSyncError(c.env, "learning_content", e)));
         break;
       }
       case "editLearningContent": {
         await requireAdmin(c);
         result = await editLearningContent(c.env, body);
+        await markLearningContentFastReadStale(c.env);
         c.executionCtx.waitUntil(syncLearningContentToFastRead(c.env).catch((e) => recordFastReadSyncError(c.env, "learning_content", e)));
         break;
       }
       case "deleteLearningContent": {
         await requireAdmin(c);
         result = await deleteRowById(c.env, SHEETS.LEARNING_CONTENT, getVal('id'));
+        await markLearningContentFastReadStale(c.env);
         c.executionCtx.waitUntil(syncLearningContentToFastRead(c.env).catch((e) => recordFastReadSyncError(c.env, "learning_content", e)));
         break;
       }
-      case "addSubject": await requireAdmin(c); result = await addSubject(c.env, getVal('name'), getVal('color')); break;
-      case "deleteSubject": await requireAdmin(c); result = await deleteRowById(c.env, SHEETS.SUBJECTS, getVal('id')); break;
+      case "addSubject": {
+        await requireAdmin(c);
+        result = await addSubject(c.env, getVal('name'), getVal('color'));
+        await clearBatchDataCache(c.env);
+        break;
+      }
+      case "deleteSubject": {
+        await requireAdmin(c);
+        result = await deleteRowById(c.env, SHEETS.SUBJECTS, getVal('id'));
+        await clearBatchDataCache(c.env);
+        break;
+      }
       case "sendSummary": {
         await requireAdmin(c);
         const sectionFlags = parseSummarySectionFlags({
