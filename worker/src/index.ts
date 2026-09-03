@@ -19,6 +19,8 @@ type Bindings = {
   TELEGRAM_BOT_TOKEN?: string;
   TELEGRAM_CHAT_ID?: string;
   GOOGLE_CLIENT_ID: string;
+  DB?: D1Database;
+  CACHE?: KVNamespace;
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
@@ -194,6 +196,13 @@ const ANALYTICS_COLUMNS = EXPECTED_HEADERS[SHEETS.ANALYTICS];
 const ANALYTICS_IP_NOTES_COLUMNS = EXPECTED_HEADERS[SHEETS.ANALYTICS_IP_NOTES];
 const AI_CHAT_LOGS_COLUMNS = EXPECTED_HEADERS[SHEETS.AI_CHAT_LOGS];
 const APP_BASE_URL = "https://pepsealsea.github.io/kanban";
+const CACHE_VERSION = "v1";
+const CACHE_PREFIX = `sf:${CACHE_VERSION}:`;
+const CONTENT_CACHE_PREFIX = `${CACHE_PREFIX}content:`;
+const BATCH_CACHE_PREFIX = `${CACHE_PREFIX}batchData:`;
+const SHORT_CACHE_TTL_SECONDS = 5 * 60;
+const CONTENT_CACHE_TTL_SECONDS = 15 * 60;
+const LEARNING_CONTENT_HEADERS = EXPECTED_HEADERS[SHEETS.LEARNING_CONTENT];
 
 
 // --- AUTH & API HELPERS ---
@@ -324,6 +333,102 @@ function toObjects(rows: any[][], headers: string[]) {
     headers.forEach((h, i) => { obj[h] = row[i] !== undefined ? row[i] : ""; });
     return obj;
   });
+}
+
+function hasD1(env: Bindings): env is Bindings & { DB: D1Database } {
+  return Boolean(env.DB);
+}
+
+function hasKV(env: Bindings): env is Bindings & { CACHE: KVNamespace } {
+  return Boolean(env.CACHE);
+}
+
+async function getCachedJson<T>(env: Bindings, key: string): Promise<T | null> {
+  if (!hasKV(env)) return null;
+  const raw = await env.CACHE.get(key, { cacheTtl: 60 });
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    await env.CACHE.delete(key);
+    return null;
+  }
+}
+
+async function putCachedJson(env: Bindings, key: string, value: unknown, ttl = SHORT_CACHE_TTL_SECONDS) {
+  if (!hasKV(env)) return;
+  await env.CACHE.put(key, JSON.stringify(value), { expirationTtl: Math.max(60, ttl) });
+}
+
+async function cachedJson<T>(
+  env: Bindings,
+  key: string,
+  loader: () => Promise<T>,
+  ttl = SHORT_CACHE_TTL_SECONDS
+): Promise<T> {
+  const cached = await getCachedJson<T>(env, key);
+  if (cached !== null) return cached;
+  const value = await loader();
+  await putCachedJson(env, key, value, ttl);
+  return value;
+}
+
+async function clearCachePrefix(env: Bindings, prefix: string) {
+  if (!hasKV(env)) return 0;
+  let cursor: string | undefined;
+  let deleted = 0;
+  do {
+    const listed = await env.CACHE.list({ prefix, cursor, limit: 1000 });
+    await Promise.all(listed.keys.map((key) => env.CACHE!.delete(key.name)));
+    deleted += listed.keys.length;
+    cursor = listed.list_complete ? undefined : listed.cursor;
+  } while (cursor);
+  return deleted;
+}
+
+async function clearFastReadCaches(env: Bindings) {
+  const [content, batch] = await Promise.all([
+    clearCachePrefix(env, CONTENT_CACHE_PREFIX),
+    clearCachePrefix(env, BATCH_CACHE_PREFIX),
+  ]);
+  return content + batch;
+}
+
+async function isFastReadReady(env: Bindings) {
+  if (!hasD1(env)) return false;
+  const cached = await getCachedJson<{ ready: boolean }>(env, `${CACHE_PREFIX}ready:learning_content`);
+  if (cached?.ready) return true;
+  try {
+    const row = await env.DB.prepare(
+      `SELECT status FROM sync_state WHERE key = ? LIMIT 1`
+    ).bind("learning_content").first<{ status: string }>();
+    const ready = row?.status === "success";
+    if (ready) {
+      await putCachedJson(env, `${CACHE_PREFIX}ready:learning_content`, { ready }, SHORT_CACHE_TTL_SECONDS);
+    }
+    return ready;
+  } catch {
+    return false;
+  }
+}
+
+function normalizeDateOnly(value?: string) {
+  const d = new Date(value || "");
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toISOString().slice(0, 10);
+}
+
+function nextMonthKey(month: string) {
+  const match = String(month).match(/^(\d{4})-(\d{1,2})$/);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const monthIndex = Number(match[2]) - 1;
+  const start = new Date(Date.UTC(year, monthIndex, 1));
+  const end = new Date(Date.UTC(year, monthIndex + 1, 1));
+  return {
+    start: start.toISOString().slice(0, 10),
+    end: end.toISOString().slice(0, 10),
+  };
 }
 
 async function findRowIndexById(env: Bindings, sheetName: string, id: string) {
@@ -1080,7 +1185,10 @@ async function getLearningContent(
   month?: string,
   subject?: string
 ) {
-  const headers = ["id", "date", "subject", "title", "description", "audio_file_id", "audio_url", "attachments", "links", "is_private", "created_at"];
+  const fast = await getLearningContentFast(env, date, id, month, subject);
+  if (fast) return fast;
+
+  const headers = LEARNING_CONTENT_HEADERS;
 
   if (id) {
     const rowIndex = await findRowIndexById(env, SHEETS.LEARNING_CONTENT, String(id));
@@ -1117,6 +1225,277 @@ async function getLearningContent(
     });
   }
   return data;
+}
+
+async function ensureFastReadSchema(env: Bindings) {
+  if (!hasD1(env)) return false;
+  await env.DB.batch([
+    env.DB.prepare(`
+      CREATE TABLE IF NOT EXISTS learning_content (
+        id TEXT PRIMARY KEY,
+        date TEXT NOT NULL DEFAULT '',
+        subject TEXT NOT NULL DEFAULT '',
+        title TEXT NOT NULL DEFAULT '',
+        description TEXT NOT NULL DEFAULT '',
+        audio_file_id TEXT NOT NULL DEFAULT '',
+        audio_url TEXT NOT NULL DEFAULT '',
+        attachments TEXT NOT NULL DEFAULT '',
+        links TEXT NOT NULL DEFAULT '',
+        is_private TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL DEFAULT '',
+        updated_at TEXT NOT NULL DEFAULT ''
+      )
+    `),
+    env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_learning_content_date ON learning_content(date)`),
+    env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_learning_content_subject ON learning_content(subject)`),
+    env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_learning_content_created_at ON learning_content(created_at)`),
+    env.DB.prepare(`
+      CREATE TABLE IF NOT EXISTS sync_state (
+        key TEXT PRIMARY KEY,
+        last_synced_at TEXT NOT NULL,
+        last_row_count INTEGER NOT NULL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'success',
+        error_message TEXT NOT NULL DEFAULT ''
+      )
+    `),
+  ]);
+  return true;
+}
+
+async function getLearningContentFast(
+  env: Bindings,
+  date?: string,
+  id?: string,
+  month?: string,
+  subject?: string
+) {
+  if (!hasD1(env)) return null;
+  if (!(await isFastReadReady(env))) return null;
+
+  const cacheParts = [
+    id ? `id:${id}` : "",
+    month ? `month:${month}` : "",
+    subject ? `subject:${subject.trim().toLowerCase()}` : "",
+    date ? `date:${normalizeDateOnly(date)}` : "",
+  ].filter(Boolean);
+  const cacheKey = `${CONTENT_CACHE_PREFIX}${cacheParts.join(":") || "all"}`;
+
+  try {
+    return await cachedJson<any[]>(env, cacheKey, async () => {
+      const columns = LEARNING_CONTENT_HEADERS.join(", ");
+      if (id) {
+        const row = await env.DB.prepare(`SELECT ${columns} FROM learning_content WHERE id = ? LIMIT 1`).bind(String(id)).first();
+        return row ? [row] : [];
+      }
+
+      if (month) {
+        const window = nextMonthKey(month);
+        if (!window) return [];
+        const { results } = await env.DB.prepare(
+          `SELECT ${columns} FROM learning_content WHERE date >= ? AND date < ? ORDER BY date DESC, id ASC`
+        ).bind(window.start, window.end).all();
+        return results || [];
+      }
+
+      if (subject) {
+        const subjectKey = String(subject).trim().toLowerCase();
+        if (!subjectKey || subjectKey === "all") {
+          const { results } = await env.DB.prepare(`SELECT ${columns} FROM learning_content ORDER BY date DESC, id ASC`).all();
+          return results || [];
+        }
+        const { results } = await env.DB.prepare(
+          `SELECT ${columns} FROM learning_content WHERE lower(subject) = ? ORDER BY date DESC, id ASC`
+        ).bind(subjectKey).all();
+        return results || [];
+      }
+
+      if (date) {
+        const day = normalizeDateOnly(date);
+        if (!day) return [];
+        const { results } = await env.DB.prepare(
+          `SELECT ${columns} FROM learning_content WHERE date = ? ORDER BY id ASC`
+        ).bind(day).all();
+        return results || [];
+      }
+
+      const { results } = await env.DB.prepare(`SELECT ${columns} FROM learning_content ORDER BY date DESC, id ASC`).all();
+      return results || [];
+    }, CONTENT_CACHE_TTL_SECONDS);
+  } catch (e) {
+    console.warn("D1 learning content read failed; falling back to Sheets", e);
+    return null;
+  }
+}
+
+async function syncLearningContentToFastRead(env: Bindings) {
+  if (!hasD1(env)) throw new Error("D1 DB binding is not configured");
+  await ensureFastReadSchema(env);
+
+  const rows = await getSheetValues(env, `${SHEETS.LEARNING_CONTENT}!A2:K`);
+  const items = toObjects(rows, LEARNING_CONTENT_HEADERS)
+    .filter((item: any) => String(item.id || "").trim());
+  const now = new Date().toISOString();
+  const upsertSql = `
+    INSERT INTO learning_content (
+      id, date, subject, title, description, audio_file_id, audio_url,
+      attachments, links, is_private, created_at, updated_at
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      date = excluded.date,
+      subject = excluded.subject,
+      title = excluded.title,
+      description = excluded.description,
+      audio_file_id = excluded.audio_file_id,
+      audio_url = excluded.audio_url,
+      attachments = excluded.attachments,
+      links = excluded.links,
+      is_private = excluded.is_private,
+      created_at = excluded.created_at,
+      updated_at = excluded.updated_at
+  `;
+
+  for (let i = 0; i < items.length; i += 50) {
+    const chunk = items.slice(i, i + 50);
+    await env.DB.batch(chunk.map((item: any) => env.DB.prepare(upsertSql).bind(
+      String(item.id || ""),
+      normalizeDateOnly(item.date) || String(item.date || ""),
+      String(item.subject || ""),
+      String(item.title || ""),
+      String(item.description || ""),
+      String(item.audio_file_id || ""),
+      String(item.audio_url || ""),
+      String(item.attachments || ""),
+      String(item.links || ""),
+      isSheetTruthy(item.is_private) ? "1" : "",
+      String(item.created_at || ""),
+      now
+    )));
+  }
+
+  const ids = new Set(items.map((item: any) => String(item.id)));
+  if (ids.size > 0) {
+    const existing = await env.DB.prepare(`SELECT id FROM learning_content`).all<{ id: string }>();
+    const staleIds = (existing.results || [])
+      .map((row) => String(row.id))
+      .filter((id) => !ids.has(id));
+    for (let i = 0; i < staleIds.length; i += 90) {
+      const chunk = staleIds.slice(i, i + 90);
+      const placeholders = chunk.map(() => "?").join(", ");
+      await env.DB.prepare(`DELETE FROM learning_content WHERE id IN (${placeholders})`).bind(...chunk).run();
+    }
+  } else {
+    await env.DB.prepare(`DELETE FROM learning_content`).run();
+  }
+
+  await env.DB.prepare(`
+    INSERT INTO sync_state (key, last_synced_at, last_row_count, status, error_message)
+    VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(key) DO UPDATE SET
+      last_synced_at = excluded.last_synced_at,
+      last_row_count = excluded.last_row_count,
+      status = excluded.status,
+      error_message = excluded.error_message
+  `).bind("learning_content", now, items.length, "success", "").run();
+
+  const deletedCacheKeys = await clearFastReadCaches(env);
+  await putCachedJson(env, `${CACHE_PREFIX}sync:last`, {
+    learningContent: items.length,
+    syncedAt: now,
+    deletedCacheKeys,
+  }, CONTENT_CACHE_TTL_SECONDS);
+  await putCachedJson(env, `${CACHE_PREFIX}ready:learning_content`, { ready: true }, SHORT_CACHE_TTL_SECONDS);
+
+  return { learningContent: items.length, syncedAt: now, deletedCacheKeys };
+}
+
+async function recordFastReadSyncError(env: Bindings, key: string, error: unknown) {
+  if (!hasD1(env)) return;
+  const now = new Date().toISOString();
+  const message = error instanceof Error ? error.message : String(error || "Unknown sync error");
+  try {
+    await ensureFastReadSchema(env);
+    await env.DB.prepare(`
+      INSERT INTO sync_state (key, last_synced_at, last_row_count, status, error_message)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(key) DO UPDATE SET
+        last_synced_at = excluded.last_synced_at,
+        status = excluded.status,
+        error_message = excluded.error_message
+    `).bind(key, now, 0, "error", message.slice(0, 1000)).run();
+  } catch (e) {
+    console.warn("Failed to record sync error", e);
+  }
+}
+
+async function getFastReadStatus(env: Bindings) {
+  const status = {
+    d1Configured: hasD1(env),
+    kvConfigured: hasKV(env),
+    sync: [] as any[],
+  };
+  if (!hasD1(env)) return status;
+  try {
+    await ensureFastReadSchema(env);
+    const { results } = await env.DB.prepare(`SELECT * FROM sync_state ORDER BY key ASC`).all();
+    status.sync = results || [];
+  } catch (e) {
+    status.sync = [{ key: "fast_read", status: "error", error_message: e instanceof Error ? e.message : String(e) }];
+  }
+  return status;
+}
+
+async function getBatchData(env: Bindings, email: string) {
+  const admin = isAdminEmail(email);
+  const audioPermissions = await getAudioPermissions(env);
+  const audioLevel = resolveAudioAccessLevel(email, audioPermissions, isAdminEmail);
+  const cacheKey = `${BATCH_CACHE_PREFIX}${admin ? "admin" : "student"}:audio:${audioLevel}`;
+
+  if (!admin) {
+    const cached = await getCachedJson<any>(env, cacheKey);
+    if (cached) return cached;
+  }
+
+  const [
+    learningContentRaw,
+    homeworkRaw,
+    users,
+    progress,
+    subjects,
+    aiChatLogs,
+  ] = await Promise.all([
+    getLearningContent(env),
+    getHomeworkList(env),
+    getUserList(env),
+    getAllProgress(env),
+    getSubjects(env),
+    admin ? getAiChatLogs(env) : Promise.resolve([]),
+  ]);
+  const learningContent = sanitizeLearningContentList(
+    filterLearningContentThreeMonths(
+      filterPrivateLearningContent(learningContentRaw, email)
+    ),
+    audioLevel
+  );
+  const payload = {
+    homework: filterHomeworkFromToday(homeworkRaw),
+    users,
+    progress,
+    learningContent,
+    subjects,
+    analytics: [],
+    analyticsIpNotes: [],
+    audioAccessGranted: audioLevel !== 'none',
+    ...(admin ? {
+      audioPermissions,
+      aiChatLogs,
+    } : {}),
+  };
+
+  if (!admin) {
+    await putCachedJson(env, cacheKey, payload, SHORT_CACHE_TTL_SECONDS);
+  }
+  return payload;
 }
 
 async function getSubjects(env: Bindings) {
@@ -2225,49 +2604,21 @@ app.get('/', async (c) => {
       }
       case "batchData": {
         const { email } = await requireAuth(c);
-        const admin = isAdminEmail(email);
-        const [
-          audioPermissions,
-          learningContentRaw,
-          homeworkRaw,
-          users,
-          progress,
-          subjects,
-          aiChatLogs,
-        ] = await Promise.all([
-          getAudioPermissions(c.env),
-          getLearningContent(c.env),
-          getHomeworkList(c.env),
-          getUserList(c.env),
-          getAllProgress(c.env),
-          getSubjects(c.env),
-          admin ? getAiChatLogs(c.env) : Promise.resolve([]),
-        ]);
-        const audioLevel = resolveAudioAccessLevel(email, audioPermissions, isAdminEmail);
-        const learningContent = sanitizeLearningContentList(
-          filterLearningContentThreeMonths(
-            filterPrivateLearningContent(learningContentRaw, email)
-          ),
-          audioLevel
-        );
-        result = {
-          homework: filterHomeworkFromToday(homeworkRaw),
-          users,
-          progress,
-          learningContent,
-          subjects,
-          analytics: [],
-          analyticsIpNotes: [],
-          audioAccessGranted: audioLevel !== 'none',
-          ...(admin ? {
-            audioPermissions,
-            aiChatLogs,
-          } : {}),
-        };
+        result = await getBatchData(c.env, email);
         break;
       }
 
       // --- Requires admin ---
+      case "fastReadStatus": {
+        await requireAdmin(c);
+        result = await getFastReadStatus(c.env);
+        break;
+      }
+      case "syncFastRead": {
+        await requireAdmin(c);
+        result = await syncLearningContentToFastRead(c.env);
+        break;
+      }
       case "allProgress": await requireAdmin(c); result = await getAllProgress(c.env); break;
       case "users": await requireAdmin(c); result = await getUserList(c.env); break;
       case "adminHomeworkList": {
@@ -2459,9 +2810,24 @@ app.post('/', async (c) => {
       case "addHomework": await requireAdmin(c); result = await addHomework(c.env, body); break;
       case "editHomework": await requireAdmin(c); result = await editHomework(c.env, body); break;
       case "deleteHomework": await requireAdmin(c); result = await deleteRowById(c.env, SHEETS.HOMEWORK, getVal('id')); break;
-      case "addLearningContent": await requireAdmin(c); result = await addLearningContent(c.env, body); break;
-      case "editLearningContent": await requireAdmin(c); result = await editLearningContent(c.env, body); break;
-      case "deleteLearningContent": await requireAdmin(c); result = await deleteRowById(c.env, SHEETS.LEARNING_CONTENT, getVal('id')); break;
+      case "addLearningContent": {
+        await requireAdmin(c);
+        result = await addLearningContent(c.env, body);
+        c.executionCtx.waitUntil(syncLearningContentToFastRead(c.env).catch((e) => recordFastReadSyncError(c.env, "learning_content", e)));
+        break;
+      }
+      case "editLearningContent": {
+        await requireAdmin(c);
+        result = await editLearningContent(c.env, body);
+        c.executionCtx.waitUntil(syncLearningContentToFastRead(c.env).catch((e) => recordFastReadSyncError(c.env, "learning_content", e)));
+        break;
+      }
+      case "deleteLearningContent": {
+        await requireAdmin(c);
+        result = await deleteRowById(c.env, SHEETS.LEARNING_CONTENT, getVal('id'));
+        c.executionCtx.waitUntil(syncLearningContentToFastRead(c.env).catch((e) => recordFastReadSyncError(c.env, "learning_content", e)));
+        break;
+      }
       case "addSubject": await requireAdmin(c); result = await addSubject(c.env, getVal('name'), getVal('color')); break;
       case "deleteSubject": await requireAdmin(c); result = await deleteRowById(c.env, SHEETS.SUBJECTS, getVal('id')); break;
       case "sendSummary": {
@@ -2490,4 +2856,18 @@ app.post('/', async (c) => {
   }
 });
 
-export default app;
+export default {
+  fetch(request: Request, env: Bindings, ctx: ExecutionContext) {
+    return app.fetch(request, env, ctx);
+  },
+  async scheduled(controller: ScheduledController, env: Bindings, ctx: ExecutionContext) {
+    ctx.waitUntil(
+      syncLearningContentToFastRead(env)
+        .then((result) => console.log("fast-read sync complete", { cron: controller.cron, ...result }))
+        .catch(async (error) => {
+          console.warn("fast-read sync failed", error);
+          await recordFastReadSyncError(env, "learning_content", error);
+        })
+    );
+  },
+} satisfies ExportedHandler<Bindings>;
