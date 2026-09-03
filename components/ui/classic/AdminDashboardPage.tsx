@@ -40,6 +40,7 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'analytics'>('dashboard');
   const { isMobile } = useDeviceDetection();
   const [isFixingSheets, setIsFixingSheets] = useState(false);
+  const [isSyncingFastRead, setIsSyncingFastRead] = useState(false);
 
   const loadDashboard = useCallback(async () => {
     setMetricsLoading(true);
@@ -83,6 +84,20 @@ export default function AdminDashboard() {
       alert("Failed to fix sheets: " + e.message);
     } finally {
       setIsFixingSheets(false);
+    }
+  };
+
+  const handleSyncFastRead = async () => {
+    setIsSyncingFastRead(true);
+    try {
+      const data = await fetchAdminJson<{ learningContent: number; syncedAt: string; deletedCacheKeys: number }>('syncFastRead');
+      alert(`Fast cache synced successfully.\nLearning content: ${data.learningContent}\nCache keys refreshed: ${data.deletedCacheKeys}`);
+      await refreshData();
+      await loadDashboard();
+    } catch (e: any) {
+      alert("Failed to sync fast cache: " + (e.message || "Unknown error"));
+    } finally {
+      setIsSyncingFastRead(false);
     }
   };
 
@@ -223,6 +238,24 @@ export default function AdminDashboard() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
                   <span style={{ color: 'var(--admin-text-muted)' }}>Discord Webhooks</span>
                   <span style={{ color: '#10b981', fontWeight: 600 }}>Enabled</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.9rem', marginTop: '0.5rem', paddingTop: '1rem', borderTop: '1px solid var(--admin-border)' }}>
+                  <span style={{ color: 'var(--admin-text-muted)' }}>Fast Content Cache</span>
+                  <button
+                    onClick={handleSyncFastRead}
+                    disabled={isSyncingFastRead}
+                    style={{
+                      background: isSyncingFastRead ? 'var(--admin-text-muted)' : '#0ea5e9',
+                      color: 'white',
+                      padding: '0.4rem 0.8rem',
+                      borderRadius: '0.4rem',
+                      border: 'none',
+                      cursor: isSyncingFastRead ? 'not-allowed' : 'pointer',
+                      fontSize: '0.75rem',
+                      fontWeight: 600
+                    }}>
+                    {isSyncingFastRead ? 'Syncing...' : 'Sync Fast Cache'}
+                  </button>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.9rem', marginTop: '0.5rem', paddingTop: '1rem', borderTop: '1px solid var(--admin-border)' }}>
                   <span style={{ color: 'var(--admin-text-muted)' }}>Database Schema</span>
