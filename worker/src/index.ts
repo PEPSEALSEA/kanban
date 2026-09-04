@@ -202,6 +202,9 @@ const CONTENT_CACHE_PREFIX = `${CACHE_PREFIX}content:`;
 const BATCH_CACHE_PREFIX = `${CACHE_PREFIX}batchData:`;
 const SHORT_CACHE_TTL_SECONDS = 5 * 60;
 const CONTENT_CACHE_TTL_SECONDS = 15 * 60;
+const ACTIVITY_CACHE_KEY = `${CACHE_PREFIX}activity:last`;
+const ACTIVITY_WINDOW_MS = 30 * 60 * 1000;
+const ACTIVITY_TTL_SECONDS = 2 * 60 * 60;
 const LEARNING_CONTENT_HEADERS = EXPECTED_HEADERS[SHEETS.LEARNING_CONTENT];
 
 
@@ -401,7 +404,6 @@ async function markLearningContentFastReadStale(env: Bindings) {
   }
   if (hasD1(env)) {
     try {
-      await ensureFastReadSchema(env);
       await env.DB.prepare(`
         INSERT INTO sync_state (key, last_synced_at, last_row_count, status, error_message)
         VALUES (?, ?, ?, ?, ?)
@@ -419,6 +421,22 @@ async function markLearningContentFastReadStale(env: Bindings) {
 
 async function clearBatchDataCache(env: Bindings) {
   return clearCachePrefix(env, BATCH_CACHE_PREFIX);
+}
+
+function noteAppActivity(env: Bindings, ctx?: ExecutionContext) {
+  if (!hasKV(env)) return;
+  const write = env.CACHE.put(ACTIVITY_CACHE_KEY, String(Date.now()), {
+    expirationTtl: ACTIVITY_TTL_SECONDS,
+  });
+  if (ctx) {
+    ctx.waitUntil(write.catch((e) => console.warn("Failed to record app activity", e)));
+  }
+}
+
+async function hasRecentAppActivity(env: Bindings, windowMs = ACTIVITY_WINDOW_MS) {
+  if (!hasKV(env)) return true;
+  const last = Number(await env.CACHE.get(ACTIVITY_CACHE_KEY));
+  return Number.isFinite(last) && Date.now() - last <= windowMs;
 }
 
 async function isFastReadReady(env: Bindings) {
@@ -456,6 +474,19 @@ function nextMonthKey(month: string) {
     start: start.toISOString().slice(0, 10),
     end: end.toISOString().slice(0, 10),
   };
+}
+
+function hashText(value: string) {
+  let hash = 2166136261;
+  for (let i = 0; i < value.length; i += 1) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
+function learningContentHash(item: any) {
+  return hashText(LEARNING_CONTENT_HEADERS.map((key) => String(item[key] || "")).join("\u001f"));
 }
 
 async function findRowIndexById(env: Bindings, sheetName: string, id: string) {
@@ -1270,7 +1301,8 @@ async function ensureFastReadSchema(env: Bindings) {
         links TEXT NOT NULL DEFAULT '',
         is_private TEXT NOT NULL DEFAULT '',
         created_at TEXT NOT NULL DEFAULT '',
-        updated_at TEXT NOT NULL DEFAULT ''
+        updated_at TEXT NOT NULL DEFAULT '',
+        content_hash TEXT NOT NULL DEFAULT ''
       )
     `),
     env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_learning_content_date ON learning_content(date)`),
@@ -1356,18 +1388,22 @@ async function getLearningContentFast(
 
 async function syncLearningContentToFastRead(env: Bindings) {
   if (!hasD1(env)) throw new Error("D1 DB binding is not configured");
-  await ensureFastReadSchema(env);
 
   const rows = await getSheetValues(env, `${SHEETS.LEARNING_CONTENT}!A2:K`);
   const items = toObjects(rows, LEARNING_CONTENT_HEADERS)
     .filter((item: any) => String(item.id || "").trim());
+  const hashedItems = items.map((item: any) => ({
+    ...item,
+    id: String(item.id || "").trim(),
+    content_hash: learningContentHash(item),
+  }));
   const now = new Date().toISOString();
   const upsertSql = `
     INSERT INTO learning_content (
       id, date, subject, title, description, audio_file_id, audio_url,
-      attachments, links, is_private, created_at, updated_at
+      attachments, links, is_private, created_at, updated_at, content_hash
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       date = excluded.date,
       subject = excluded.subject,
@@ -1379,13 +1415,19 @@ async function syncLearningContentToFastRead(env: Bindings) {
       links = excluded.links,
       is_private = excluded.is_private,
       created_at = excluded.created_at,
-      updated_at = excluded.updated_at
+      updated_at = excluded.updated_at,
+      content_hash = excluded.content_hash
   `;
+  const existing = await env.DB.prepare(`SELECT id, content_hash FROM learning_content`).all<{ id: string; content_hash?: string }>();
+  const existingHashById = new Map(
+    (existing.results || []).map((row) => [String(row.id), String(row.content_hash || "")])
+  );
+  const changedItems = hashedItems.filter((item: any) => existingHashById.get(item.id) !== item.content_hash);
 
-  for (let i = 0; i < items.length; i += 50) {
-    const chunk = items.slice(i, i + 50);
+  for (let i = 0; i < changedItems.length; i += 50) {
+    const chunk = changedItems.slice(i, i + 50);
     await env.DB.batch(chunk.map((item: any) => env.DB.prepare(upsertSql).bind(
-      String(item.id || ""),
+      item.id,
       normalizeDateOnly(item.date) || String(item.date || ""),
       String(item.subject || ""),
       String(item.title || ""),
@@ -1396,44 +1438,60 @@ async function syncLearningContentToFastRead(env: Bindings) {
       String(item.links || ""),
       isSheetTruthy(item.is_private) ? "1" : "",
       String(item.created_at || ""),
-      now
+      now,
+      item.content_hash
     )));
   }
 
-  const ids = new Set(items.map((item: any) => String(item.id)));
+  const ids = new Set(hashedItems.map((item: any) => String(item.id)));
+  let deletedRows = 0;
   if (ids.size > 0) {
-    const existing = await env.DB.prepare(`SELECT id FROM learning_content`).all<{ id: string }>();
     const staleIds = (existing.results || [])
       .map((row) => String(row.id))
       .filter((id) => !ids.has(id));
     for (let i = 0; i < staleIds.length; i += 90) {
       const chunk = staleIds.slice(i, i + 90);
       const placeholders = chunk.map(() => "?").join(", ");
-      await env.DB.prepare(`DELETE FROM learning_content WHERE id IN (${placeholders})`).bind(...chunk).run();
+      const deleted = await env.DB.prepare(`DELETE FROM learning_content WHERE id IN (${placeholders})`).bind(...chunk).run();
+      deletedRows += deleted.meta?.changes || chunk.length;
     }
-  } else {
-    await env.DB.prepare(`DELETE FROM learning_content`).run();
+  } else if ((existing.results || []).length > 0) {
+    const deleted = await env.DB.prepare(`DELETE FROM learning_content`).run();
+    deletedRows = deleted.meta?.changes || existing.results.length;
   }
 
-  await env.DB.prepare(`
-    INSERT INTO sync_state (key, last_synced_at, last_row_count, status, error_message)
-    VALUES (?, ?, ?, ?, ?)
-    ON CONFLICT(key) DO UPDATE SET
-      last_synced_at = excluded.last_synced_at,
-      last_row_count = excluded.last_row_count,
-      status = excluded.status,
-      error_message = excluded.error_message
-  `).bind("learning_content", now, items.length, "success", "").run();
+  if (changedItems.length > 0 || deletedRows > 0 || existingHashById.size === 0) {
+    await env.DB.prepare(`
+      INSERT INTO sync_state (key, last_synced_at, last_row_count, status, error_message)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(key) DO UPDATE SET
+        last_synced_at = excluded.last_synced_at,
+        last_row_count = excluded.last_row_count,
+        status = excluded.status,
+        error_message = excluded.error_message
+    `).bind("learning_content", now, hashedItems.length, "success", "").run();
+  }
 
-  const deletedCacheKeys = await clearFastReadCaches(env);
+  const didChangeFastRead = changedItems.length > 0 || deletedRows > 0;
+  const deletedCacheKeys = didChangeFastRead ? await clearFastReadCaches(env) : 0;
   await putCachedJson(env, `${CACHE_PREFIX}sync:last`, {
-    learningContent: items.length,
+    learningContent: hashedItems.length,
+    changed: changedItems.length,
+    deleted: deletedRows,
+    unchanged: hashedItems.length - changedItems.length,
     syncedAt: now,
     deletedCacheKeys,
   }, CONTENT_CACHE_TTL_SECONDS);
   await putCachedJson(env, `${CACHE_PREFIX}ready:learning_content`, { ready: true }, SHORT_CACHE_TTL_SECONDS);
 
-  return { learningContent: items.length, syncedAt: now, deletedCacheKeys };
+  return {
+    learningContent: hashedItems.length,
+    changed: changedItems.length,
+    deleted: deletedRows,
+    unchanged: hashedItems.length - changedItems.length,
+    syncedAt: now,
+    deletedCacheKeys,
+  };
 }
 
 async function recordFastReadSyncError(env: Bindings, key: string, error: unknown) {
@@ -1441,7 +1499,6 @@ async function recordFastReadSyncError(env: Bindings, key: string, error: unknow
   const now = new Date().toISOString();
   const message = error instanceof Error ? error.message : String(error || "Unknown sync error");
   try {
-    await ensureFastReadSchema(env);
     await env.DB.prepare(`
       INSERT INTO sync_state (key, last_synced_at, last_row_count, status, error_message)
       VALUES (?, ?, ?, ?, ?)
@@ -1463,7 +1520,6 @@ async function getFastReadStatus(env: Bindings) {
   };
   if (!hasD1(env)) return status;
   try {
-    await ensureFastReadSchema(env);
     const { results } = await env.DB.prepare(`SELECT * FROM sync_state ORDER BY key ASC`).all();
     status.sync = results || [];
   } catch (e) {
@@ -2607,6 +2663,7 @@ app.get('/', async (c) => {
       }
       case "learningContent": {
         const email = await requireAuth(c).then(u => u.email);
+        noteAppActivity(c.env, c.executionCtx);
         const raw = filterPrivateLearningContent(
           await getLearningContent(
             c.env,
@@ -2631,6 +2688,7 @@ app.get('/', async (c) => {
       }
       case "batchData": {
         const { email } = await requireAuth(c);
+        noteAppActivity(c.env, c.executionCtx);
         result = await getBatchData(c.env, email);
         break;
       }
@@ -2917,12 +2975,19 @@ export default {
   },
   async scheduled(controller: ScheduledController, env: Bindings, ctx: ExecutionContext) {
     ctx.waitUntil(
-      syncLearningContentToFastRead(env)
-        .then((result) => console.log("fast-read sync complete", { cron: controller.cron, ...result }))
-        .catch(async (error) => {
+      (async () => {
+        if (!(await hasRecentAppActivity(env))) {
+          console.log("fast-read sync skipped: no recent app activity", { cron: controller.cron });
+          return;
+        }
+        try {
+          const result = await syncLearningContentToFastRead(env);
+          console.log("fast-read sync complete", { cron: controller.cron, ...result });
+        } catch (error) {
           console.warn("fast-read sync failed", error);
           await recordFastReadSyncError(env, "learning_content", error);
-        })
+        }
+      })()
     );
   },
 } satisfies ExportedHandler<Bindings>;
