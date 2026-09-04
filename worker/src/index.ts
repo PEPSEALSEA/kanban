@@ -205,6 +205,8 @@ const CONTENT_CACHE_TTL_SECONDS = 15 * 60;
 const ACTIVITY_CACHE_KEY = `${CACHE_PREFIX}activity:last`;
 const ACTIVITY_WINDOW_MS = 30 * 60 * 1000;
 const ACTIVITY_TTL_SECONDS = 2 * 60 * 60;
+const FAST_READ_DISABLED_KEY = `${CACHE_PREFIX}fastRead:disabled`;
+const FAST_READ_DISABLE_TTL_SECONDS = 8 * 60 * 60;
 const LEARNING_CONTENT_HEADERS = EXPECTED_HEADERS[SHEETS.LEARNING_CONTENT];
 
 
@@ -414,6 +416,9 @@ async function markLearningContentFastReadStale(env: Bindings) {
       `).bind("learning_content", new Date().toISOString(), 0, "stale", "").run();
     } catch (e) {
       console.warn("Failed to mark fast-read cache stale", e);
+      if (isD1LimitError(e)) {
+        await disableFastRead(env, errorMessage(e));
+      }
     }
   }
   return deletedCacheKeys;
@@ -421,6 +426,45 @@ async function markLearningContentFastReadStale(env: Bindings) {
 
 async function clearBatchDataCache(env: Bindings) {
   return clearCachePrefix(env, BATCH_CACHE_PREFIX);
+}
+
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error || "Unknown error");
+}
+
+function isD1LimitError(error: unknown) {
+  const message = errorMessage(error).toLowerCase();
+  return (
+    message.includes("limit") ||
+    message.includes("quota") ||
+    message.includes("rows_written") ||
+    message.includes("rows_read") ||
+    message.includes("daily") ||
+    message.includes("exceeded")
+  );
+}
+
+async function getFastReadDisabled(env: Bindings) {
+  const disabled = await getCachedJson<{ disabled: boolean; reason?: string; disabledAt?: string }>(
+    env,
+    FAST_READ_DISABLED_KEY
+  );
+  return disabled?.disabled ? disabled : null;
+}
+
+async function disableFastRead(env: Bindings, reason: string, ttl = FAST_READ_DISABLE_TTL_SECONDS) {
+  if (!hasKV(env)) return;
+  await putCachedJson(env, FAST_READ_DISABLED_KEY, {
+    disabled: true,
+    reason: reason.slice(0, 500),
+    disabledAt: new Date().toISOString(),
+  }, ttl);
+  await env.CACHE.delete(`${CACHE_PREFIX}ready:learning_content`);
+}
+
+async function enableFastRead(env: Bindings) {
+  if (!hasKV(env)) return;
+  await env.CACHE.delete(FAST_READ_DISABLED_KEY);
 }
 
 function noteAppActivity(env: Bindings, ctx?: ExecutionContext) {
@@ -441,6 +485,7 @@ async function hasRecentAppActivity(env: Bindings, windowMs = ACTIVITY_WINDOW_MS
 
 async function isFastReadReady(env: Bindings) {
   if (!hasD1(env)) return false;
+  if (await getFastReadDisabled(env)) return false;
   const cached = await getCachedJson<{ ready: boolean }>(env, `${CACHE_PREFIX}ready:learning_content`);
   if (cached?.ready) return true;
   try {
@@ -1382,12 +1427,23 @@ async function getLearningContentFast(
     }, CONTENT_CACHE_TTL_SECONDS);
   } catch (e) {
     console.warn("D1 learning content read failed; falling back to Sheets", e);
+    if (isD1LimitError(e)) {
+      await disableFastRead(env, errorMessage(e));
+    }
     return null;
   }
 }
 
-async function syncLearningContentToFastRead(env: Bindings) {
+async function syncLearningContentToFastRead(env: Bindings, options: { force?: boolean } = {}) {
   if (!hasD1(env)) throw new Error("D1 DB binding is not configured");
+  const disabled = await getFastReadDisabled(env);
+  if (disabled && !options.force) {
+    return {
+      skipped: true,
+      reason: `fast-read disabled: ${disabled.reason || "D1 is cooling down"}`,
+      disabledAt: disabled.disabledAt,
+    };
+  }
 
   const rows = await getSheetValues(env, `${SHEETS.LEARNING_CONTENT}!A2:K`);
   const items = toObjects(rows, LEARNING_CONTENT_HEADERS)
@@ -1483,6 +1539,7 @@ async function syncLearningContentToFastRead(env: Bindings) {
     deletedCacheKeys,
   }, CONTENT_CACHE_TTL_SECONDS);
   await putCachedJson(env, `${CACHE_PREFIX}ready:learning_content`, { ready: true }, SHORT_CACHE_TTL_SECONDS);
+  await enableFastRead(env);
 
   return {
     learningContent: hashedItems.length,
@@ -1497,7 +1554,11 @@ async function syncLearningContentToFastRead(env: Bindings) {
 async function recordFastReadSyncError(env: Bindings, key: string, error: unknown) {
   if (!hasD1(env)) return;
   const now = new Date().toISOString();
-  const message = error instanceof Error ? error.message : String(error || "Unknown sync error");
+  const message = errorMessage(error);
+  if (isD1LimitError(error)) {
+    await disableFastRead(env, message);
+    return;
+  }
   try {
     await env.DB.prepare(`
       INSERT INTO sync_state (key, last_synced_at, last_row_count, status, error_message)
@@ -1516,9 +1577,12 @@ async function getFastReadStatus(env: Bindings) {
   const status = {
     d1Configured: hasD1(env),
     kvConfigured: hasKV(env),
+    fastReadDisabled: null as any,
     sync: [] as any[],
   };
+  status.fastReadDisabled = await getFastReadDisabled(env);
   if (!hasD1(env)) return status;
+  if (status.fastReadDisabled) return status;
   try {
     const { results } = await env.DB.prepare(`SELECT * FROM sync_state ORDER BY key ASC`).all();
     status.sync = results || [];
@@ -2701,7 +2765,12 @@ app.get('/', async (c) => {
       }
       case "syncFastRead": {
         await requireAdmin(c);
-        result = await syncLearningContentToFastRead(c.env);
+        try {
+          result = await syncLearningContentToFastRead(c.env, { force: true });
+        } catch (e) {
+          await recordFastReadSyncError(c.env, "learning_content", e);
+          throw e;
+        }
         break;
       }
       case "allProgress": await requireAdmin(c); result = await getAllProgress(c.env); break;
