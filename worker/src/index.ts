@@ -207,6 +207,7 @@ const ACTIVITY_WINDOW_MS = 30 * 60 * 1000;
 const ACTIVITY_TTL_SECONDS = 2 * 60 * 60;
 const FAST_READ_DISABLED_KEY = `${CACHE_PREFIX}fastRead:disabled`;
 const FAST_READ_DISABLE_TTL_SECONDS = 8 * 60 * 60;
+const FAST_READ_LIMIT_RESET_BUFFER_SECONDS = 10 * 60;
 const LEARNING_CONTENT_HEADERS = EXPECTED_HEADERS[SHEETS.LEARNING_CONTENT];
 
 
@@ -417,7 +418,7 @@ async function markLearningContentFastReadStale(env: Bindings) {
     } catch (e) {
       console.warn("Failed to mark fast-read cache stale", e);
       if (isD1LimitError(e)) {
-        await disableFastRead(env, errorMessage(e));
+        await disableFastRead(env, errorMessage(e), fastReadDisableTtlSeconds(e));
       }
     }
   }
@@ -441,6 +442,21 @@ function isD1LimitError(error: unknown) {
     message.includes("rows_read") ||
     message.includes("daily") ||
     message.includes("exceeded")
+  );
+}
+
+function fastReadDisableTtlSeconds(error: unknown) {
+  if (!isD1LimitError(error)) return FAST_READ_DISABLE_TTL_SECONDS;
+  const now = new Date();
+  const nextReset = new Date(now);
+  nextReset.setUTCHours(0, 0, 0, 0);
+  if (nextReset <= now) {
+    nextReset.setUTCDate(nextReset.getUTCDate() + 1);
+  }
+  const secondsUntilReset = Math.ceil((nextReset.getTime() - now.getTime()) / 1000);
+  return Math.max(
+    10 * 60,
+    Math.min(FAST_READ_DISABLE_TTL_SECONDS, secondsUntilReset + FAST_READ_LIMIT_RESET_BUFFER_SECONDS)
   );
 }
 
@@ -1428,7 +1444,7 @@ async function getLearningContentFast(
   } catch (e) {
     console.warn("D1 learning content read failed; falling back to Sheets", e);
     if (isD1LimitError(e)) {
-      await disableFastRead(env, errorMessage(e));
+      await disableFastRead(env, errorMessage(e), fastReadDisableTtlSeconds(e));
     }
     return null;
   }
@@ -1556,7 +1572,7 @@ async function recordFastReadSyncError(env: Bindings, key: string, error: unknow
   const now = new Date().toISOString();
   const message = errorMessage(error);
   if (isD1LimitError(error)) {
-    await disableFastRead(env, message);
+    await disableFastRead(env, message, fastReadDisableTtlSeconds(error));
     return;
   }
   try {
