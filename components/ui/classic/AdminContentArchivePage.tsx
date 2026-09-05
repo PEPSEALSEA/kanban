@@ -4,6 +4,7 @@ import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { useData } from '@/components/DataProvider';
 import CreateContentModal from '@/components/CreateContentModal';
 import EditContentModal from '@/components/EditContentModal';
+import BatchAudioTranscriptionModal from '@/components/BatchAudioTranscriptionModal';
 import { useDeviceDetection } from '@/hooks/useDeviceDetection';
 import AdminPagination from '@/components/admin/AdminPagination';
 import { fetchAdminJson, type AdminListResult, type AdminPageSize } from '@/lib/adminList';
@@ -552,7 +553,7 @@ export default function ContentArchiveEditor() {
   const [titleFilter, setTitleFilter] = useState<'all' | 'missing'>('all');
   const [listLoading, setListLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
-  const [activeModal, setActiveModal] = useState<{ type: 'create' | 'edit' | 'batch', content?: any } | null>(null);
+  const [activeModal, setActiveModal] = useState<{ type: 'create' | 'edit' | 'batch' | 'transcribe', content?: any } | null>(null);
   const { isMobile } = useDeviceDetection();
 
   useEffect(() => {
@@ -592,7 +593,7 @@ export default function ContentArchiveEditor() {
 
   const filterSubjects = ['All', ...subjects.map(s => s.name), 'Other'];
 
-  if (listLoading && items.length === 0) {
+  if (listLoading && items.length === 0 && !activeModal) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
         <div className="loader"></div>
@@ -608,6 +609,9 @@ export default function ContentArchiveEditor() {
           <p style={{ color: 'var(--admin-text-muted)' }}>Manage your learning materials, audio lectures, and study guides.</p>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <button onClick={() => setActiveModal({ type: 'transcribe' })} className="admin-btn-primary">
+            <IconMusic className="w-4 h-4" /> AI ถอดเสียง & สร้าง Content
+          </button>
           <button
             onClick={() => setActiveModal({ type: 'batch' })}
             style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', border: '1px solid var(--admin-border)', background: 'var(--admin-bg-soft)', color: 'var(--admin-text-main)', padding: '0.75rem 1rem', borderRadius: '0.75rem', fontWeight: 700, cursor: 'pointer' }}
@@ -737,6 +741,7 @@ export default function ContentArchiveEditor() {
           onRefresh={loadContent} 
         />
       )}
+      {activeModal?.type === 'transcribe' && <BatchAudioTranscriptionModal onClose={() => setActiveModal(null)} onRefresh={loadContent} />}
       {activeModal?.type === 'edit' && (
         <EditContentModal 
           content={activeModal.content} 

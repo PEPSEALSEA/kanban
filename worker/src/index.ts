@@ -7,6 +7,10 @@ import {
   sanitizeLearningContentList,
 } from './audioSecurity';
 import { handleAiChatRequest } from './aiChat';
+import { audioTranscriptionRoutes } from './audioTranscription';
+import { validDate } from '../../shared/audioTranscript';
+import { z } from 'zod';
+import { bodyLimit } from 'hono/body-limit';
 
 type Bindings = {
   SPREADSHEET_ID: string;
@@ -260,9 +264,9 @@ function columnLetter(index1Based: number): string {
   return s;
 }
 
-async function appendSheetRow(env: Bindings, range: string, values: any[]) {
+async function appendSheetRow(env: Bindings, range: string, values: any[], raw = false) {
   const token = await getAuthToken(env);
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${env.SPREADSHEET_ID}/values/${encodeURIComponent(range)}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${env.SPREADSHEET_ID}/values/${encodeURIComponent(range)}:append?valueInputOption=${raw ? 'RAW' : 'USER_ENTERED'}&insertDataOption=INSERT_ROWS`;
   const res = await fetch(url, {
     method: 'POST',
     headers: {
@@ -270,17 +274,10 @@ async function appendSheetRow(env: Bindings, range: string, values: any[]) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ values: [values] }),
+    signal: AbortSignal.timeout(45000),
   });
   if (!res.ok) throw new Error(`Sheets API error: ${res.statusText}`);
   return await res.json();
-}
-
-async function writeRowStartingAtA(env: Bindings, sheetName: string, values: any[]) {
-  const used = await getSheetValues(env, `${sheetName}!A:Z`);
-  const nextRow = used.length + 1;
-  const endCol = columnLetter(values.length);
-  await updateSheetRow(env, `${sheetName}!A${nextRow}:${endCol}${nextRow}`, values);
-  return nextRow;
 }
 
 async function getSheetIdByTitle(env: Bindings, sheetName: string): Promise<number | null> {
@@ -2140,10 +2137,11 @@ async function editHomework(env: Bindings, data: any) {
   return "ok";
 }
 
-async function addLearningContent(env: Bindings, data: any) {
-  const id = "LC-" + Date.now().toString();
+async function addLearningContent(env: Bindings, data: any, assignedId?: string) {
+  const id = assignedId || "LC-" + crypto.randomUUID();
   const row = [id, data.date || new Date().toISOString().split('T')[0], data.subject || "", data.title || "", data.description || "", data.audio_file_id || "", data.audio_url || "", data.attachments || "", data.links || "", isSheetTruthy(data.is_private) ? '1' : '', new Date().toISOString()];
-  await writeRowStartingAtA(env, SHEETS.LEARNING_CONTENT, row);
+  // Anchor table detection to the ID column; append is atomic across parallel requests.
+  await appendSheetRow(env, `${SHEETS.LEARNING_CONTENT}!A:A`, row, true);
   return id;
 }
 
@@ -2515,6 +2513,65 @@ app.get('/api/file-download', async (c) => {
     return c.json({ error: message }, authFailureStatus(message));
   }
 });
+
+app.use('/api/admin/audio/*', async (c, next) => {
+  try { await requireAdmin(c); }
+  catch (error) {
+    const message = error instanceof Error ? error.message : 'Authentication required';
+    return c.json({ success: false, error: message }, authFailureStatus(message));
+  }
+  c.header('Cache-Control', 'no-store');
+  await next();
+});
+
+app.use('/api/admin/audio/save', bodyLimit({ maxSize: 300000 }));
+app.post('/api/admin/audio/save', async c => {
+  try {
+    const body = z.object({
+      requestId: z.string().regex(/^[a-f0-9-]{36}-\d{1,3}$/),
+      date: z.string().refine(validDate), subject: z.string().trim().min(1).max(150),
+      title: z.string().trim().min(1).max(220), description: z.string().min(1).max(49000),
+      audio_file_id: z.string().min(1).max(500), audio_url: z.string().max(2000),
+      is_private: z.enum(['', '1']),
+    }).parse(await c.req.json());
+    const db = c.env.DB;
+    if (!db) return c.json({ success: false, error: 'ฐานข้อมูลยังไม่พร้อม' }, 503);
+    await db.prepare(`CREATE TABLE IF NOT EXISTS audio_content_saves (
+      request_id TEXT PRIMARY KEY, payload_hash TEXT NOT NULL, content_id TEXT NOT NULL,
+      lease_until INTEGER NOT NULL DEFAULT 0, saved INTEGER NOT NULL DEFAULT 0
+    )`).run();
+    const hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(body)))))
+      .map(byte => byte.toString(16).padStart(2, '0')).join('');
+    const id = `LC-AI-${body.requestId}`;
+    await db.prepare('INSERT OR IGNORE INTO audio_content_saves (request_id, payload_hash, content_id) VALUES (?, ?, ?)')
+      .bind(body.requestId, hash, id).run();
+    const journal = await db.prepare('SELECT payload_hash, saved FROM audio_content_saves WHERE request_id = ?')
+      .bind(body.requestId).first<{ payload_hash: string; saved: number }>();
+    if (journal?.payload_hash !== hash) return c.json({ success: false, error: 'ข้อมูลของงานนี้เปลี่ยนหลังเริ่มบันทึก กรุณาใช้ข้อมูลเดิมในการลองใหม่' }, 409);
+    if (journal.saved) return c.json({ success: true, id });
+    const now = Date.now();
+    const lease = await db.prepare('UPDATE audio_content_saves SET lease_until = ? WHERE request_id = ? AND lease_until < ? AND saved = 0')
+      .bind(now + 120000, body.requestId, now).run();
+    if (!lease.meta.changes) return c.json({ success: false, error: 'กำลังตรวจสอบการบันทึกก่อนหน้า กรุณารอแล้วลองใหม่' }, 409);
+    // Read Sheets directly, bypassing the read cache, to reconcile an ambiguous prior append.
+    const existing = await getSheetValues(c.env, `${SHEETS.LEARNING_CONTENT}!A:A`);
+    if (!existing.some((row: unknown[]) => String(row[0] || '') === id)) {
+      // A slow Sheets read must not let an expired lease holder append after a newer attempt.
+      const renewed = await db.prepare('UPDATE audio_content_saves SET lease_until = ? WHERE request_id = ? AND lease_until = ? AND saved = 0')
+        .bind(Date.now() + 120000, body.requestId, now + 120000).run();
+      if (!renewed.meta.changes) return c.json({ success: false, error: 'มีการลองบันทึกอื่นกำลังทำงาน กรุณารอสักครู่' }, 409);
+      await addLearningContent(c.env, body, id);
+    }
+    await db.prepare('UPDATE audio_content_saves SET saved = 1, lease_until = 0 WHERE request_id = ?').bind(body.requestId).run();
+    await markLearningContentFastReadStale(c.env);
+    c.executionCtx.waitUntil(syncLearningContentToFastRead(c.env).catch(e => recordFastReadSyncError(c.env, 'learning_content', e)));
+    return c.json({ success: true, id });
+  } catch (error) {
+    // Keep the lease after failure: an upstream append may have succeeded despite a lost response.
+    return c.json({ success: false, error: error instanceof z.ZodError ? 'ข้อมูล Content ไม่ถูกต้อง' : 'บันทึกไม่สำเร็จหรือยังยืนยันไม่ได้ รอ 2 นาทีแล้วลองใหม่ ระบบจะตรวจสอบก่อนสร้างซ้ำ' }, error instanceof z.ZodError ? 400 : 503);
+  }
+});
+app.route('/api/admin/audio', audioTranscriptionRoutes());
 
 app.post('/api/chat', async (c) => {
   try {

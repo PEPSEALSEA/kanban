@@ -88,14 +88,17 @@ export async function compressAudioIfNeeded(
     return new Promise(async (resolve, reject) => {
         let blobUrl: string | null = null;
         let worker: Worker | null = null;
+        let audioCtx: AudioContext | null = null;
 
         try {
-            const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+            audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
             const arrayBuffer = await file.arrayBuffer();
-            const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+            const audioBuffer = await audioCtx!.decodeAudioData(arrayBuffer);
+            await audioCtx!.close();
+            audioCtx = null;
             
             const duration = audioBuffer.duration;
-            const channels = audioBuffer.numberOfChannels;
+            const channels = Math.min(2, audioBuffer.numberOfChannels);
             const sampleRate = audioBuffer.sampleRate;
 
             let bitrate = Math.floor((targetBytes * 8) / duration / 1000);
@@ -151,9 +154,12 @@ export async function compressAudioIfNeeded(
                 channels,
                 sampleRate,
                 bitrate
-            }, [left.buffer, right.buffer]);
+            }, left.buffer === right.buffer ? [left.buffer] : [left.buffer, right.buffer]);
 
         } catch (err) {
+            if (worker) worker.terminate();
+            if (blobUrl) URL.revokeObjectURL(blobUrl);
+            if (audioCtx) void audioCtx.close().catch(() => undefined);
             reject(err);
         }
     });
