@@ -11,6 +11,15 @@ export const AUDIO_MIME: Record<string, string> = {
   ogg: 'audio/ogg', flac: 'audio/flac', aiff: 'audio/aiff', aif: 'audio/aiff', webm: 'audio/webm',
 };
 
+export const AUDIO_ACCEPT = [
+  'audio/*',
+  'audio/mp4',
+  'audio/x-m4a',
+  'audio/m4a',
+  'video/mp4',
+  ...Object.keys(AUDIO_MIME).map(ext => `.${ext}`),
+].join(',');
+
 // Kept verbatim as the editorial instruction; pipeline constraints are separate.
 export const TEACHING_PROMPT = `คุณคือผู้ถอดเนื้อหาการสอนจาก transcript เสียงครู
 

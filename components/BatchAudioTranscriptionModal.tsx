@@ -10,7 +10,7 @@ import {
   loadAudioJobs, storeAudioJob, uploadAudio, type AudioJob,
 } from '@/lib/audioTranscription';
 import {
-  ARCHIVE_MAX_BYTES, AUDIO_MAX_BYTES, AUDIO_MIME, AUDIO_MODELS, TEACHING_PROMPT,
+  ARCHIVE_MAX_BYTES, AUDIO_ACCEPT, AUDIO_MAX_BYTES, AUDIO_MIME, AUDIO_MODELS, TEACHING_PROMPT,
   contentParts, dateFromAudioName, splitText, type AudioMetadata, type GeminiAudioFile,
 } from '@/shared/audioTranscript';
 
@@ -277,7 +277,7 @@ export default function BatchAudioTranscriptionModal({ onClose, onRefresh }: { o
           <label style={{ display: 'block', margin: '0.8rem 0' }}><input type="checkbox" checked={isPrivate} onChange={e => setIsPrivate(e.target.checked)} /> สร้างไฟล์ใหม่เป็น Private</label>
           <label style={{ display: 'block', border: '2px dashed var(--admin-border)', borderRadius: '0.75rem', padding: '1.2rem', background: 'var(--admin-bg-soft)' }}>
             <strong>เลือกเสียงหลายไฟล์</strong><p style={{ fontSize: '0.8rem', margin: '0.4rem 0' }}>MP3, M4A, WAV, AAC, OGG, FLAC, AIFF, WebM · สูงสุด 90 MB/ไฟล์ · เตรียมเสียงให้ไม่เกิน 19 MB ก่อนส่ง</p>
-            <input aria-label="เลือกเสียงหลายไฟล์" type="file" multiple style={{ maxWidth: '100%' }} accept={Object.keys(AUDIO_MIME).map(ext => `.${ext}`).join(',')} onChange={e => { void addFiles(Array.from(e.target.files || [])); e.target.value = ''; }} />
+            <input aria-label="เลือกเสียงหลายไฟล์" type="file" multiple style={{ maxWidth: '100%' }} accept={AUDIO_ACCEPT} onChange={e => { void addFiles(Array.from(e.target.files || [])); e.target.value = ''; }} />
           </label>
         </fieldset>
         <details style={{ margin: '1rem 0', fontSize: '0.85rem' }}><summary>Prompt ที่ใช้จัดเนื้อหา</summary><pre style={{ whiteSpace: 'pre-wrap', padding: '1rem', maxHeight: 280, overflowY: 'auto' }}>{TEACHING_PROMPT}</pre></details>
