@@ -7,6 +7,7 @@ import { isAdminEmail } from '@/lib/admin';
 import { isAllowedAppEmail } from '@/lib/allowedEmail';
 import { authHeaders, clearIdToken, getIdToken } from '@/lib/auth';
 import { completeGoogleLogin } from '@/lib/googleLogin';
+import { consumeGoogleRedirectCredential } from '@/lib/googleRedirectLogin';
 import { googleLogout } from '@react-oauth/google';
 import type { AiChatLog } from '@/lib/geminiChat';
 
@@ -127,57 +128,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [loginError, setLoginError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const refreshInFlightRef = useRef<Promise<void> | null>(null);
-
-  // Restore user only when a valid Google ID token exists (localStorage).
-  // homework_user alone is not enough — token expires after ~55 minutes.
-  useEffect(() => {
-    const token = getIdToken();
-    const savedUser = localStorage.getItem('homework_user');
-
-    if (savedUser && token) {
-      try {
-        const parsed = JSON.parse(savedUser) as UserInfo;
-        if (isAllowedAppEmail(parsed.email)) {
-          setUser(parsed);
-        } else {
-          localStorage.removeItem('homework_user');
-          clearIdToken();
-        }
-      } catch {
-        localStorage.removeItem('homework_user');
-        clearIdToken();
-      }
-    } else if (savedUser && !token) {
-      localStorage.removeItem('homework_user');
-    }
-
-    const cachedData = localStorage.getItem('studyflow_cache');
-    if (cachedData) {
-      try {
-        const parsed = JSON.parse(cachedData);
-        const cachedUser = savedUser && token ? JSON.parse(savedUser) as UserInfo : null;
-        const hasAuth = Boolean(token) && isAllowedAppEmail(cachedUser?.email);
-        if (hasAuth) {
-          const cachedContent = parsed.learningContent || [];
-          setAllHomework(parsed.homework || []);
-          setAllUsers(parsed.users || []);
-          setAllProgress(parsed.progress || []);
-          setLearningContent(stripPrivateContent(cachedContent, cachedUser?.email));
-          setSubjects(parsed.subjects || []);
-          setAnalytics([]);
-          setAnalyticsIpNotes([]);
-          setAiChatLogs(parsed.aiChatLogs || []);
-          setAudioPermissions(parsed.audioPermissions || []);
-          setAudioAccessGranted(Boolean(parsed.audioAccessGranted));
-        }
-      } catch (e) {
-        console.error("Cache parsing failed", e);
-      }
-    }
-    setIsLoading(false);
-    setAuthReady(true);
-    setReadyForAutoLogin(true);
-  }, []);
 
   const logout = useCallback(() => {
     googleLogout();
@@ -397,6 +347,71 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setLoginError(message);
     }
   }, [refreshData]);
+
+  // Restore user only when a valid Google ID token exists (localStorage).
+  // homework_user alone is not enough — token expires after ~55 minutes.
+  useEffect(() => {
+    try {
+      const redirectCredential = consumeGoogleRedirectCredential();
+      if (redirectCredential) {
+        void loginWithGoogle(redirectCredential.credential).then(() => {
+          if (redirectCredential.returnTo && redirectCredential.returnTo !== window.location.pathname) {
+            window.location.replace(redirectCredential.returnTo);
+          }
+        });
+      }
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'เข้าสู่ระบบไม่สำเร็จ';
+      setLoginError(message);
+    }
+
+    const token = getIdToken();
+    const savedUser = localStorage.getItem('homework_user');
+
+    if (savedUser && token) {
+      try {
+        const parsed = JSON.parse(savedUser) as UserInfo;
+        if (isAllowedAppEmail(parsed.email)) {
+          setUser(parsed);
+        } else {
+          localStorage.removeItem('homework_user');
+          clearIdToken();
+        }
+      } catch {
+        localStorage.removeItem('homework_user');
+        clearIdToken();
+      }
+    } else if (savedUser && !token) {
+      localStorage.removeItem('homework_user');
+    }
+
+    const cachedData = localStorage.getItem('studyflow_cache');
+    if (cachedData) {
+      try {
+        const parsed = JSON.parse(cachedData);
+        const cachedUser = savedUser && token ? JSON.parse(savedUser) as UserInfo : null;
+        const hasAuth = Boolean(token) && isAllowedAppEmail(cachedUser?.email);
+        if (hasAuth) {
+          const cachedContent = parsed.learningContent || [];
+          setAllHomework(parsed.homework || []);
+          setAllUsers(parsed.users || []);
+          setAllProgress(parsed.progress || []);
+          setLearningContent(stripPrivateContent(cachedContent, cachedUser?.email));
+          setSubjects(parsed.subjects || []);
+          setAnalytics([]);
+          setAnalyticsIpNotes([]);
+          setAiChatLogs(parsed.aiChatLogs || []);
+          setAudioPermissions(parsed.audioPermissions || []);
+          setAudioAccessGranted(Boolean(parsed.audioAccessGranted));
+        }
+      } catch (e) {
+        console.error("Cache parsing failed", e);
+      }
+    }
+    setIsLoading(false);
+    setAuthReady(true);
+    setReadyForAutoLogin(true);
+  }, [loginWithGoogle]);
 
   useEffect(() => {
     if (!user) return;

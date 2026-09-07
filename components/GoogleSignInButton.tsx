@@ -2,6 +2,7 @@
 
 import { GoogleLogin } from '@react-oauth/google';
 import { useData } from '@/components/DataProvider';
+import { startGoogleRedirectLogin } from '@/lib/googleRedirectLogin';
 
 type GoogleSignInButtonProps = {
   size?: 'large' | 'medium' | 'small';
@@ -23,18 +24,31 @@ export default function GoogleSignInButton({
   const { loginWithGoogle } = useData();
 
   return (
-    <GoogleLogin
-      onSuccess={async (credentialResponse) => {
-        if (!credentialResponse.credential) return;
-        await loginWithGoogle(credentialResponse.credential);
-      }}
-      onError={() => {}}
-      size={size}
-      type={type}
-      shape={shape}
-      theme={theme}
-      width={width}
-      text={text}
-    />
+    <div className="google-sign-in">
+      <GoogleLogin
+        onSuccess={async (credentialResponse) => {
+          if (!credentialResponse.credential) return;
+          await loginWithGoogle(credentialResponse.credential);
+        }}
+        onError={() => {
+          startGoogleRedirectLogin();
+        }}
+        size={size}
+        type={type}
+        shape={shape}
+        theme={theme}
+        width={width}
+        text={text}
+        itp_support
+        use_fedcm_for_button
+      />
+      <button
+        type="button"
+        className="google-sign-in-fallback"
+        onClick={startGoogleRedirectLogin}
+      >
+        เข้าสู่ระบบด้วย Google
+      </button>
+    </div>
   );
 }
