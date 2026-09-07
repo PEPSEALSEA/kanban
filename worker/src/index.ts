@@ -43,6 +43,7 @@ const ADMIN_EMAILS = new Set([
 const ALLOWED_EMAIL_DOMAIN = 'bpk.ac.th';
 const DISCORD_GUILD_ID = '1076509106120183838';
 const DISCORD_REQUIRED_ROLE_ID = '1162383289575817326';
+const DISCORD_FRONTEND_REDIRECT_URI = 'https://pepsealsea.github.io/kanban/';
 
 function isAdminEmail(email: string | null | undefined): boolean {
   if (!email) return false;
@@ -186,6 +187,18 @@ function missingDiscordConfig(env: Bindings): string | null {
   if (!env.DISCORD_BOT_TOKEN) return 'DISCORD_BOT_TOKEN not configured';
   if (!env.DISCORD_SESSION_SECRET) return 'DISCORD_SESSION_SECRET not configured';
   return null;
+}
+
+function safeDiscordReturnTo(value: string | null | undefined): string {
+  if (!value) return '/kanban/';
+  try {
+    const url = new URL(value, DISCORD_FRONTEND_REDIRECT_URI);
+    if (url.origin !== new URL(DISCORD_FRONTEND_REDIRECT_URI).origin) return '/kanban/';
+    if (!url.pathname.startsWith('/kanban')) return '/kanban/';
+    return `${url.pathname}${url.search}`;
+  } catch {
+    return '/kanban/';
+  }
 }
 
 async function verifyGoogleIdToken(
@@ -2660,6 +2673,23 @@ app.post('/api/auth/discord/session', async (c) => {
   } catch {
     return c.json({ success: false, error: 'Discord login failed' }, 500);
   }
+});
+
+app.get('/api/auth/discord/start', async (c) => {
+  if (!c.env.DISCORD_CLIENT_ID) {
+    return c.json({ success: false, error: 'DISCORD_CLIENT_ID not configured' }, 500);
+  }
+
+  const params = new URLSearchParams({
+    client_id: c.env.DISCORD_CLIENT_ID,
+    redirect_uri: DISCORD_FRONTEND_REDIRECT_URI,
+    response_type: 'token',
+    scope: 'identify',
+    state: safeDiscordReturnTo(c.req.query('return_to')),
+    prompt: 'consent',
+  });
+
+  return c.redirect(`https://discord.com/oauth2/authorize?${params}`, 302);
 });
 
 app.use('/api/admin/audio/*', async (c, next) => {

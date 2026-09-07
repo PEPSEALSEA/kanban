@@ -4,6 +4,7 @@ import { API_URL } from '@/lib/config';
 const DISCORD_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const DISCORD_CLIENT_ID = '1449452278598602752';
 const DISCORD_STATE_KEY = 'sf_discord_login_state';
+const BASE_PATH = '/kanban';
 
 type DiscordSessionPayload = {
   sub: string;
@@ -31,6 +32,18 @@ function randomToken(): string {
   const bytes = new Uint8Array(16);
   crypto.getRandomValues(bytes);
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+function safeReturnTo(value: string | null | undefined): string | null {
+  if (!value) return null;
+  try {
+    const url = new URL(value, window.location.origin);
+    if (url.origin !== window.location.origin) return null;
+    if (!url.pathname.startsWith(BASE_PATH)) return null;
+    return `${url.pathname}${url.search}`;
+  } catch {
+    return null;
+  }
 }
 
 export function startDiscordLogin(): void {
@@ -70,7 +83,8 @@ export async function consumeDiscordRedirectLogin(
   const stored = sessionStorage.getItem(DISCORD_STATE_KEY);
   sessionStorage.removeItem(DISCORD_STATE_KEY);
   const savedState = stored ? JSON.parse(stored) as { state?: string; returnTo?: string } : {};
-  if (accessToken && params.get('state') !== savedState.state) {
+  const state = params.get('state');
+  if (accessToken && savedState.state && state !== savedState.state) {
     window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
     throw new Error('Discord login expired. Please try again.');
   }
@@ -78,7 +92,7 @@ export async function consumeDiscordRedirectLogin(
   window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
 
   const token = sessionToken || await createDiscordSession(accessToken!);
-  const returnTo = savedState.returnTo || params.get('return_to');
+  const returnTo = safeReturnTo(savedState.returnTo) || safeReturnTo(state) || safeReturnTo(params.get('return_to'));
   const payload = decodeDiscordSession(token);
   if (!payload.email || payload.exp * 1000 < Date.now()) {
     throw new Error('Discord login expired. Please try again.');
@@ -103,7 +117,7 @@ export async function consumeDiscordRedirectLogin(
   }).catch(() => {});
   void refreshData?.();
 
-  if (returnTo && returnTo !== window.location.pathname && returnTo.startsWith('/kanban')) {
+  if (returnTo && returnTo !== window.location.pathname) {
     window.location.replace(returnTo);
   }
 
