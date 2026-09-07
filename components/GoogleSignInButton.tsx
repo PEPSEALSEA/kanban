@@ -2,6 +2,7 @@
 
 import { GoogleLogin } from '@react-oauth/google';
 import { useData } from '@/components/DataProvider';
+import { startDiscordLogin } from '@/lib/discordLogin';
 import { startGoogleRedirectLogin } from '@/lib/googleRedirectLogin';
 
 type GoogleSignInButtonProps = {
@@ -48,6 +49,13 @@ export default function GoogleSignInButton({
         onClick={startGoogleRedirectLogin}
       >
         เข้าสู่ระบบด้วย Google
+      </button>
+      <button
+        type="button"
+        className="discord-sign-in-fallback"
+        onClick={startDiscordLogin}
+      >
+        เข้าสู่ระบบด้วย Discord
       </button>
     </div>
   );

@@ -6,6 +6,7 @@ import { API_URL } from '@/lib/config';
 import { isAdminEmail } from '@/lib/admin';
 import { isAllowedAppEmail } from '@/lib/allowedEmail';
 import { authHeaders, clearIdToken, getIdToken } from '@/lib/auth';
+import { consumeDiscordRedirectLogin } from '@/lib/discordLogin';
 import { completeGoogleLogin } from '@/lib/googleLogin';
 import { consumeGoogleRedirectCredential } from '@/lib/googleRedirectLogin';
 import { googleLogout } from '@react-oauth/google';
@@ -55,6 +56,10 @@ type LearningContent = {
 
 function isSheetTruthy(v?: string) {
   return v === '1' || String(v || '').toLowerCase() === 'true';
+}
+
+function isDiscordFallbackEmail(email: string | null | undefined): boolean {
+  return Boolean(email?.startsWith('discord:'));
 }
 
 function stripPrivateContent(content: LearningContent[], userEmail?: string | null): LearningContent[] {
@@ -352,6 +357,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   // homework_user alone is not enough — token expires after ~55 minutes.
   useEffect(() => {
     try {
+      const usedDiscordRedirect = consumeDiscordRedirectLogin(setUser, refreshData);
+      if (usedDiscordRedirect) {
+        setIsLoading(false);
+        setAuthReady(true);
+        setReadyForAutoLogin(true);
+        return;
+      }
+
       const redirectCredential = consumeGoogleRedirectCredential();
       if (redirectCredential) {
         void loginWithGoogle(redirectCredential.credential).then(() => {
@@ -371,7 +384,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (savedUser && token) {
       try {
         const parsed = JSON.parse(savedUser) as UserInfo;
-        if (isAllowedAppEmail(parsed.email)) {
+        if (isAllowedAppEmail(parsed.email) || isDiscordFallbackEmail(parsed.email)) {
           setUser(parsed);
         } else {
           localStorage.removeItem('homework_user');
@@ -390,7 +403,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       try {
         const parsed = JSON.parse(cachedData);
         const cachedUser = savedUser && token ? JSON.parse(savedUser) as UserInfo : null;
-        const hasAuth = Boolean(token) && isAllowedAppEmail(cachedUser?.email);
+        const hasAuth =
+          Boolean(token) &&
+          (isAllowedAppEmail(cachedUser?.email) || isDiscordFallbackEmail(cachedUser?.email));
         if (hasAuth) {
           const cachedContent = parsed.learningContent || [];
           setAllHomework(parsed.homework || []);

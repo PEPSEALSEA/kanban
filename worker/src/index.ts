@@ -23,6 +23,10 @@ type Bindings = {
   TELEGRAM_BOT_TOKEN?: string;
   TELEGRAM_CHAT_ID?: string;
   GOOGLE_CLIENT_ID: string;
+  DISCORD_CLIENT_ID?: string;
+  DISCORD_CLIENT_SECRET?: string;
+  DISCORD_SESSION_SECRET?: string;
+  DISCORD_FRONTEND_URL?: string;
   DB?: D1Database;
   CACHE?: KVNamespace;
 };
@@ -38,6 +42,9 @@ const ADMIN_EMAILS = new Set([
 ]);
 
 const ALLOWED_EMAIL_DOMAIN = 'bpk.ac.th';
+const DISCORD_GUILD_ID = '1076509106120183838';
+const DISCORD_REQUIRED_ROLE_ID = '1162383289575817326';
+const DEFAULT_FRONTEND_URL = 'https://pepsealsea.github.io/kanban/';
 
 function isAdminEmail(email: string | null | undefined): boolean {
   if (!email) return false;
@@ -53,7 +60,11 @@ function isAllowedAppEmail(email: string | null | undefined): boolean {
 
 function authFailureStatus(message: string): 401 | 403 | 500 {
   if (message === 'Authentication required') return 401;
-  if (message === 'Admin access required' || message === 'School account required') return 403;
+  if (
+    message === 'Admin access required' ||
+    message === 'School account required' ||
+    message === 'Discord role required'
+  ) return 403;
   return 500;
 }
 
@@ -80,9 +91,142 @@ async function getGooglePublicKeys(): Promise<any[]> {
 }
 
 function b64urlDecode(str: string): Uint8Array {
-  const b64 = str.replace(/-/g, '+').replace(/_/g, '/');
+  const b64 = str.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(str.length / 4) * 4, '=');
   const bin = atob(b64);
   return Uint8Array.from(bin, (c) => c.charCodeAt(0));
+}
+
+function b64urlEncode(bytes: Uint8Array): string {
+  let bin = '';
+  for (const byte of bytes) bin += String.fromCharCode(byte);
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function b64urlEncodeJson(value: unknown): string {
+  return b64urlEncode(new TextEncoder().encode(JSON.stringify(value)));
+}
+
+async function hmacKey(secret: string): Promise<CryptoKey> {
+  return crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign', 'verify']
+  );
+}
+
+async function signPayload(payload: string, secret: string): Promise<string> {
+  const signature = await crypto.subtle.sign(
+    'HMAC',
+    await hmacKey(secret),
+    new TextEncoder().encode(payload)
+  );
+  return b64urlEncode(new Uint8Array(signature));
+}
+
+async function verifySignedPayload<T>(token: string, secret: string, prefix?: string): Promise<T> {
+  const parts = token.split('.');
+  const payloadIndex = prefix ? 1 : 0;
+  const signatureIndex = prefix ? 2 : 1;
+  if (prefix && parts[0] !== prefix) throw new Error('Invalid token format');
+  if (!parts[payloadIndex] || !parts[signatureIndex]) throw new Error('Invalid token format');
+  const payload = parts[payloadIndex];
+  const valid = await crypto.subtle.verify(
+    'HMAC',
+    await hmacKey(secret),
+    b64urlDecode(parts[signatureIndex]),
+    new TextEncoder().encode(payload)
+  );
+  if (!valid) throw new Error('Invalid token signature');
+  return JSON.parse(new TextDecoder().decode(b64urlDecode(payload))) as T;
+}
+
+type DiscordSession = {
+  iss: 'studyflow-discord';
+  sub: string;
+  email: string;
+  name: string;
+  picture: string;
+  exp: number;
+};
+
+async function createDiscordSessionToken(user: {
+  id: string;
+  username: string;
+  global_name?: string | null;
+  avatar?: string | null;
+}, secret: string): Promise<string> {
+  const avatarExt = user.avatar?.startsWith('a_') ? 'gif' : 'png';
+  const picture = user.avatar
+    ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.${avatarExt}?size=128`
+    : 'https://cdn.discordapp.com/embed/avatars/0.png';
+  const payload = b64urlEncodeJson({
+    iss: 'studyflow-discord',
+    sub: user.id,
+    email: `discord:${user.id}`,
+    name: user.global_name || user.username || 'Discord user',
+    picture,
+    exp: Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60,
+  } satisfies DiscordSession);
+  return `discord.${payload}.${await signPayload(payload, secret)}`;
+}
+
+async function verifyDiscordSessionToken(
+  token: string,
+  secret: string
+): Promise<{ email: string; name?: string; picture?: string }> {
+  const payload = await verifySignedPayload<DiscordSession>(token, secret, 'discord');
+  if (payload.iss !== 'studyflow-discord') throw new Error('Invalid token issuer');
+  if (payload.exp < Math.floor(Date.now() / 1000)) throw new Error('Token expired');
+  if (!payload.email.startsWith('discord:')) throw new Error('Invalid token subject');
+  return { email: payload.email, name: payload.name, picture: payload.picture };
+}
+
+function frontendUrl(env: Bindings): URL {
+  return new URL(env.DISCORD_FRONTEND_URL || DEFAULT_FRONTEND_URL);
+}
+
+function safeFrontendReturnTo(value: string | null | undefined): string {
+  if (!value) return '/kanban/';
+  try {
+    const url = new URL(value, DEFAULT_FRONTEND_URL);
+    if (url.origin !== new URL(DEFAULT_FRONTEND_URL).origin) return '/kanban/';
+    if (!url.pathname.startsWith('/kanban')) return '/kanban/';
+    return `${url.pathname}${url.search}`;
+  } catch {
+    return '/kanban/';
+  }
+}
+
+async function createDiscordState(returnTo: string, secret: string): Promise<string> {
+  const payload = b64urlEncodeJson({
+    nonce: crypto.randomUUID(),
+    returnTo: safeFrontendReturnTo(returnTo),
+    exp: Math.floor(Date.now() / 1000) + 10 * 60,
+  });
+  return `${payload}.${await signPayload(payload, secret)}`;
+}
+
+async function verifyDiscordState(
+  state: string,
+  secret: string
+): Promise<{ returnTo: string; exp: number }> {
+  const payload = await verifySignedPayload<{ returnTo: string; exp: number }>(state, secret);
+  if (payload.exp < Math.floor(Date.now() / 1000)) throw new Error('Discord login expired');
+  return { ...payload, returnTo: safeFrontendReturnTo(payload.returnTo) };
+}
+
+function discordRedirectUri(c: AppContext): string {
+  const url = new URL(c.req.url);
+  return `${url.origin}/api/auth/discord/callback`;
+}
+
+function missingDiscordConfig(env: Bindings): string | null {
+  if (!env.DISCORD_CLIENT_ID) return 'DISCORD_CLIENT_ID not configured';
+  if (!env.DISCORD_CLIENT_SECRET) return 'DISCORD_CLIENT_SECRET not configured';
+  if (!env.DISCORD_SESSION_SECRET) return 'DISCORD_SESSION_SECRET not configured';
+  return null;
 }
 
 async function verifyGoogleIdToken(
@@ -129,6 +273,12 @@ async function requireAuth(c: AppContext): Promise<{ email: string }> {
   const authHeader = c.req.header('Authorization') ?? '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
   if (!token) throw new Error('Authentication required');
+
+  if (token.startsWith('discord.')) {
+    if (!c.env.DISCORD_SESSION_SECRET) throw new Error('DISCORD_SESSION_SECRET not configured');
+    return verifyDiscordSessionToken(token, c.env.DISCORD_SESSION_SECRET);
+  }
+
   const clientId = c.env.GOOGLE_CLIENT_ID;
   if (!clientId) throw new Error('GOOGLE_CLIENT_ID not configured');
   const user = await verifyGoogleIdToken(token, clientId);
@@ -2511,6 +2661,98 @@ app.get('/api/file-download', async (c) => {
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Download failed';
     return c.json({ error: message }, authFailureStatus(message));
+  }
+});
+
+app.get('/api/auth/discord/start', async (c) => {
+  const missing = missingDiscordConfig(c.env);
+  if (missing) return c.json({ success: false, error: missing }, 500);
+
+  const state = await createDiscordState(
+    c.req.query('return_to') || '/kanban/',
+    c.env.DISCORD_SESSION_SECRET!
+  );
+  const params = new URLSearchParams({
+    client_id: c.env.DISCORD_CLIENT_ID!,
+    redirect_uri: discordRedirectUri(c),
+    response_type: 'code',
+    scope: 'identify guilds.members.read',
+    state,
+    prompt: 'consent',
+  });
+
+  return c.redirect(`https://discord.com/oauth2/authorize?${params}`, 302);
+});
+
+app.get('/api/auth/discord/callback', async (c) => {
+  const frontend = frontendUrl(c.env);
+
+  function redirectWithError(message: string) {
+    frontend.hash = new URLSearchParams({ discord_error: message }).toString();
+    return c.redirect(frontend.toString(), 302);
+  }
+
+  try {
+    const missing = missingDiscordConfig(c.env);
+    if (missing) return redirectWithError(missing);
+
+    const callbackError = c.req.query('error');
+    if (callbackError) {
+      return redirectWithError(c.req.query('error_description') || callbackError);
+    }
+
+    const code = c.req.query('code');
+    const state = c.req.query('state');
+    if (!code || !state) return redirectWithError('Discord login was cancelled');
+
+    const verifiedState = await verifyDiscordState(state, c.env.DISCORD_SESSION_SECRET!);
+    const tokenRes = await fetch('https://discord.com/api/v10/oauth2/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: c.env.DISCORD_CLIENT_ID!,
+        client_secret: c.env.DISCORD_CLIENT_SECRET!,
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri: discordRedirectUri(c),
+      }),
+    });
+    if (!tokenRes.ok) return redirectWithError('Discord login failed');
+
+    const token = await tokenRes.json() as {
+      access_token?: string;
+      token_type?: string;
+    };
+    if (!token.access_token) return redirectWithError('Discord login failed');
+
+    const auth = { Authorization: `${token.token_type || 'Bearer'} ${token.access_token}` };
+    const [userRes, memberRes] = await Promise.all([
+      fetch('https://discord.com/api/v10/users/@me', { headers: auth }),
+      fetch(`https://discord.com/api/v10/users/@me/guilds/${DISCORD_GUILD_ID}/member`, {
+        headers: auth,
+      }),
+    ]);
+    if (!userRes.ok || !memberRes.ok) return redirectWithError('Discord role required');
+
+    const user = await userRes.json() as {
+      id: string;
+      username: string;
+      global_name?: string | null;
+      avatar?: string | null;
+    };
+    const member = await memberRes.json() as { roles?: string[] };
+    if (!member.roles?.includes(DISCORD_REQUIRED_ROLE_ID)) {
+      return redirectWithError('Discord role required');
+    }
+
+    const sessionToken = await createDiscordSessionToken(user, c.env.DISCORD_SESSION_SECRET!);
+    frontend.hash = new URLSearchParams({
+      discord_token: sessionToken,
+      return_to: verifiedState.returnTo,
+    }).toString();
+    return c.redirect(frontend.toString(), 302);
+  } catch {
+    return redirectWithError('Discord login failed');
   }
 });
 

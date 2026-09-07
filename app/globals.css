@@ -1624,7 +1624,8 @@ h4 {
   width: 100%;
 }
 
-.google-sign-in-fallback {
+.google-sign-in-fallback,
+.discord-sign-in-fallback {
   width: min(280px, 100%);
   min-height: 44px;
   border: 1px solid #cbd5e1;
@@ -1640,6 +1641,16 @@ h4 {
 
 .google-sign-in-fallback:hover {
   background: #f8fafc;
+}
+
+.discord-sign-in-fallback {
+  border-color: #4752c4;
+  background: #5865f2;
+  color: #ffffff;
+}
+
+.discord-sign-in-fallback:hover {
+  background: #4752c4;
 }
 
 .login-gate-error {

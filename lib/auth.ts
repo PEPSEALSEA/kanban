@@ -2,10 +2,10 @@ const TOKEN_KEY = 'sf_id_token';
 const TOKEN_EXPIRY_KEY = 'sf_id_token_exp';
 const TOKEN_TTL_MS = 55 * 60 * 1000; // 55 min (Google ID tokens last 1 hour)
 
-export function saveIdToken(token: string): void {
+export function saveIdToken(token: string, ttlMs: number = TOKEN_TTL_MS): void {
   try {
     localStorage.setItem(TOKEN_KEY, token);
-    localStorage.setItem(TOKEN_EXPIRY_KEY, String(Date.now() + TOKEN_TTL_MS));
+    localStorage.setItem(TOKEN_EXPIRY_KEY, String(Date.now() + ttlMs));
   } catch {}
 }
 
