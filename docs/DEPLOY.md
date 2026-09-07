@@ -62,11 +62,11 @@ Secrets (Cloudflare dashboard → Worker → Settings → Variables):
 
 - `GEMINI_API_KEY` — required for `/api/chat` and `/api/gemini-chat`
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_EMAIL`, `GOOGLE_PRIVATE_KEY`, etc.
-- `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `DISCORD_SESSION_SECRET` — required for Discord fallback login
+- `DISCORD_CLIENT_ID`, `DISCORD_BOT_TOKEN`, `DISCORD_SESSION_SECRET` — required for Discord fallback login
 
 Discord Developer Portal OAuth2 redirect:
 
-- `https://kanban-worker.sealseapep.workers.dev/api/auth/discord/callback`
+- `https://pepsealsea.github.io/kanban/`
 
 Local dev secrets: `worker/.dev.vars` (gitignored)
 

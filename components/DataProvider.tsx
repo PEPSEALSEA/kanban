@@ -356,76 +356,75 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   // Restore user only when a valid Google ID token exists (localStorage).
   // homework_user alone is not enough — token expires after ~55 minutes.
   useEffect(() => {
-    try {
-      const usedDiscordRedirect = consumeDiscordRedirectLogin(setUser, refreshData);
-      if (usedDiscordRedirect) {
-        setIsLoading(false);
-        setAuthReady(true);
-        setReadyForAutoLogin(true);
-        return;
-      }
-
-      const redirectCredential = consumeGoogleRedirectCredential();
-      if (redirectCredential) {
-        void loginWithGoogle(redirectCredential.credential).then(() => {
-          if (redirectCredential.returnTo && redirectCredential.returnTo !== window.location.pathname) {
-            window.location.replace(redirectCredential.returnTo);
-          }
-        });
-      }
-    } catch (e) {
-      const message = e instanceof Error ? e.message : 'เข้าสู่ระบบไม่สำเร็จ';
-      setLoginError(message);
-    }
-
-    const token = getIdToken();
-    const savedUser = localStorage.getItem('homework_user');
-
-    if (savedUser && token) {
+    const restore = async () => {
       try {
-        const parsed = JSON.parse(savedUser) as UserInfo;
-        if (isAllowedAppEmail(parsed.email) || isDiscordFallbackEmail(parsed.email)) {
-          setUser(parsed);
-        } else {
+        const usedDiscordRedirect = await consumeDiscordRedirectLogin(setUser, refreshData);
+        if (usedDiscordRedirect) return;
+
+        const redirectCredential = consumeGoogleRedirectCredential();
+        if (redirectCredential) {
+          void loginWithGoogle(redirectCredential.credential).then(() => {
+            if (redirectCredential.returnTo && redirectCredential.returnTo !== window.location.pathname) {
+              window.location.replace(redirectCredential.returnTo);
+            }
+          });
+        }
+      } catch (e) {
+        const message = e instanceof Error ? e.message : 'เข้าสู่ระบบไม่สำเร็จ';
+        setLoginError(message);
+      }
+
+      const token = getIdToken();
+      const savedUser = localStorage.getItem('homework_user');
+
+      if (savedUser && token) {
+        try {
+          const parsed = JSON.parse(savedUser) as UserInfo;
+          if (isAllowedAppEmail(parsed.email) || isDiscordFallbackEmail(parsed.email)) {
+            setUser(parsed);
+          } else {
+            localStorage.removeItem('homework_user');
+            clearIdToken();
+          }
+        } catch {
           localStorage.removeItem('homework_user');
           clearIdToken();
         }
-      } catch {
+      } else if (savedUser && !token) {
         localStorage.removeItem('homework_user');
-        clearIdToken();
       }
-    } else if (savedUser && !token) {
-      localStorage.removeItem('homework_user');
-    }
 
-    const cachedData = localStorage.getItem('studyflow_cache');
-    if (cachedData) {
-      try {
-        const parsed = JSON.parse(cachedData);
-        const cachedUser = savedUser && token ? JSON.parse(savedUser) as UserInfo : null;
-        const hasAuth =
-          Boolean(token) &&
-          (isAllowedAppEmail(cachedUser?.email) || isDiscordFallbackEmail(cachedUser?.email));
-        if (hasAuth) {
-          const cachedContent = parsed.learningContent || [];
-          setAllHomework(parsed.homework || []);
-          setAllUsers(parsed.users || []);
-          setAllProgress(parsed.progress || []);
-          setLearningContent(stripPrivateContent(cachedContent, cachedUser?.email));
-          setSubjects(parsed.subjects || []);
-          setAnalytics([]);
-          setAnalyticsIpNotes([]);
-          setAiChatLogs(parsed.aiChatLogs || []);
-          setAudioPermissions(parsed.audioPermissions || []);
-          setAudioAccessGranted(Boolean(parsed.audioAccessGranted));
+      const cachedData = localStorage.getItem('studyflow_cache');
+      if (cachedData) {
+        try {
+          const parsed = JSON.parse(cachedData);
+          const cachedUser = savedUser && token ? JSON.parse(savedUser) as UserInfo : null;
+          const hasAuth =
+            Boolean(token) &&
+            (isAllowedAppEmail(cachedUser?.email) || isDiscordFallbackEmail(cachedUser?.email));
+          if (hasAuth) {
+            const cachedContent = parsed.learningContent || [];
+            setAllHomework(parsed.homework || []);
+            setAllUsers(parsed.users || []);
+            setAllProgress(parsed.progress || []);
+            setLearningContent(stripPrivateContent(cachedContent, cachedUser?.email));
+            setSubjects(parsed.subjects || []);
+            setAnalytics([]);
+            setAnalyticsIpNotes([]);
+            setAiChatLogs(parsed.aiChatLogs || []);
+            setAudioPermissions(parsed.audioPermissions || []);
+            setAudioAccessGranted(Boolean(parsed.audioAccessGranted));
+          }
+        } catch (e) {
+          console.error("Cache parsing failed", e);
         }
-      } catch (e) {
-        console.error("Cache parsing failed", e);
       }
-    }
-    setIsLoading(false);
-    setAuthReady(true);
-    setReadyForAutoLogin(true);
+      setIsLoading(false);
+      setAuthReady(true);
+      setReadyForAutoLogin(true);
+    };
+
+    void restore();
   }, [loginWithGoogle]);
 
   useEffect(() => {

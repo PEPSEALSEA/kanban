@@ -2,6 +2,8 @@ import { authHeaders, saveIdToken } from '@/lib/auth';
 import { API_URL } from '@/lib/config';
 
 const DISCORD_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const DISCORD_CLIENT_ID = '1449452278598602752';
+const DISCORD_STATE_KEY = 'sf_discord_login_state';
 
 type DiscordSessionPayload = {
   sub: string;
@@ -25,16 +27,31 @@ function decodeDiscordSession(token: string): DiscordSessionPayload {
   return b64urlDecodeJson<DiscordSessionPayload>(payload);
 }
 
-export function startDiscordLogin(): void {
-  const returnTo = `${window.location.pathname}${window.location.search}`;
-  const params = new URLSearchParams({ return_to: returnTo });
-  window.location.assign(`${API_URL}/api/auth/discord/start?${params}`);
+function randomToken(): string {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
-export function consumeDiscordRedirectLogin(
+export function startDiscordLogin(): void {
+  const state = randomToken();
+  const returnTo = `${window.location.pathname}${window.location.search}`;
+  sessionStorage.setItem(DISCORD_STATE_KEY, JSON.stringify({ state, returnTo }));
+  const params = new URLSearchParams({
+    client_id: DISCORD_CLIENT_ID,
+    redirect_uri: `${window.location.origin}/kanban/`,
+    response_type: 'token',
+    scope: 'identify',
+    state,
+    prompt: 'consent',
+  });
+  window.location.assign(`https://discord.com/oauth2/authorize?${params}`);
+}
+
+export async function consumeDiscordRedirectLogin(
   setUser: (user: { email: string; name: string; picture: string }) => void,
   refreshData?: () => Promise<void>
-): boolean {
+): Promise<boolean> {
   if (!window.location.hash) return false;
 
   const params = new URLSearchParams(window.location.hash.slice(1));
@@ -46,12 +63,22 @@ export function consumeDiscordRedirectLogin(
       : 'เข้าสู่ระบบด้วย Discord ไม่สำเร็จ');
   }
 
-  const token = params.get('discord_token');
-  if (!token) return false;
+  const accessToken = params.get('access_token');
+  const sessionToken = params.get('discord_token');
+  if (!accessToken && !sessionToken) return false;
 
-  const returnTo = params.get('return_to');
+  const stored = sessionStorage.getItem(DISCORD_STATE_KEY);
+  sessionStorage.removeItem(DISCORD_STATE_KEY);
+  const savedState = stored ? JSON.parse(stored) as { state?: string; returnTo?: string } : {};
+  if (accessToken && params.get('state') !== savedState.state) {
+    window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
+    throw new Error('Discord login expired. Please try again.');
+  }
+
   window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
 
+  const token = sessionToken || await createDiscordSession(accessToken!);
+  const returnTo = savedState.returnTo || params.get('return_to');
   const payload = decodeDiscordSession(token);
   if (!payload.email || payload.exp * 1000 < Date.now()) {
     throw new Error('Discord login expired. Please try again.');
@@ -81,4 +108,19 @@ export function consumeDiscordRedirectLogin(
   }
 
   return true;
+}
+
+async function createDiscordSession(accessToken: string): Promise<string> {
+  const res = await fetch(`${API_URL}/api/auth/discord/session`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ access_token: accessToken }),
+  });
+  const data = await res.json() as { success?: boolean; token?: string; error?: string };
+  if (!res.ok || !data.success || !data.token) {
+    throw new Error(data.error === 'Discord role required'
+      ? 'บัญชี Discord นี้ยังไม่มี role ที่อนุญาตให้เข้าใช้งาน'
+      : 'เข้าสู่ระบบด้วย Discord ไม่สำเร็จ');
+  }
+  return data.token;
 }

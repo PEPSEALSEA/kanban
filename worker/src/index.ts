@@ -24,9 +24,8 @@ type Bindings = {
   TELEGRAM_CHAT_ID?: string;
   GOOGLE_CLIENT_ID: string;
   DISCORD_CLIENT_ID?: string;
-  DISCORD_CLIENT_SECRET?: string;
+  DISCORD_BOT_TOKEN?: string;
   DISCORD_SESSION_SECRET?: string;
-  DISCORD_FRONTEND_URL?: string;
   DB?: D1Database;
   CACHE?: KVNamespace;
 };
@@ -44,7 +43,6 @@ const ADMIN_EMAILS = new Set([
 const ALLOWED_EMAIL_DOMAIN = 'bpk.ac.th';
 const DISCORD_GUILD_ID = '1076509106120183838';
 const DISCORD_REQUIRED_ROLE_ID = '1162383289575817326';
-const DEFAULT_FRONTEND_URL = 'https://pepsealsea.github.io/kanban/';
 
 function isAdminEmail(email: string | null | undefined): boolean {
   if (!email) return false;
@@ -183,48 +181,9 @@ async function verifyDiscordSessionToken(
   return { email: payload.email, name: payload.name, picture: payload.picture };
 }
 
-function frontendUrl(env: Bindings): URL {
-  return new URL(env.DISCORD_FRONTEND_URL || DEFAULT_FRONTEND_URL);
-}
-
-function safeFrontendReturnTo(value: string | null | undefined): string {
-  if (!value) return '/kanban/';
-  try {
-    const url = new URL(value, DEFAULT_FRONTEND_URL);
-    if (url.origin !== new URL(DEFAULT_FRONTEND_URL).origin) return '/kanban/';
-    if (!url.pathname.startsWith('/kanban')) return '/kanban/';
-    return `${url.pathname}${url.search}`;
-  } catch {
-    return '/kanban/';
-  }
-}
-
-async function createDiscordState(returnTo: string, secret: string): Promise<string> {
-  const payload = b64urlEncodeJson({
-    nonce: crypto.randomUUID(),
-    returnTo: safeFrontendReturnTo(returnTo),
-    exp: Math.floor(Date.now() / 1000) + 10 * 60,
-  });
-  return `${payload}.${await signPayload(payload, secret)}`;
-}
-
-async function verifyDiscordState(
-  state: string,
-  secret: string
-): Promise<{ returnTo: string; exp: number }> {
-  const payload = await verifySignedPayload<{ returnTo: string; exp: number }>(state, secret);
-  if (payload.exp < Math.floor(Date.now() / 1000)) throw new Error('Discord login expired');
-  return { ...payload, returnTo: safeFrontendReturnTo(payload.returnTo) };
-}
-
-function discordRedirectUri(c: AppContext): string {
-  const url = new URL(c.req.url);
-  return `${url.origin}/api/auth/discord/callback`;
-}
-
 function missingDiscordConfig(env: Bindings): string | null {
   if (!env.DISCORD_CLIENT_ID) return 'DISCORD_CLIENT_ID not configured';
-  if (!env.DISCORD_CLIENT_SECRET) return 'DISCORD_CLIENT_SECRET not configured';
+  if (!env.DISCORD_BOT_TOKEN) return 'DISCORD_BOT_TOKEN not configured';
   if (!env.DISCORD_SESSION_SECRET) return 'DISCORD_SESSION_SECRET not configured';
   return null;
 }
@@ -2664,75 +2623,19 @@ app.get('/api/file-download', async (c) => {
   }
 });
 
-app.get('/api/auth/discord/start', async (c) => {
-  const missing = missingDiscordConfig(c.env);
-  if (missing) return c.json({ success: false, error: missing }, 500);
-
-  const state = await createDiscordState(
-    c.req.query('return_to') || '/kanban/',
-    c.env.DISCORD_SESSION_SECRET!
-  );
-  const params = new URLSearchParams({
-    client_id: c.env.DISCORD_CLIENT_ID!,
-    redirect_uri: discordRedirectUri(c),
-    response_type: 'code',
-    scope: 'identify guilds.members.read',
-    state,
-    prompt: 'consent',
-  });
-
-  return c.redirect(`https://discord.com/oauth2/authorize?${params}`, 302);
-});
-
-app.get('/api/auth/discord/callback', async (c) => {
-  const frontend = frontendUrl(c.env);
-
-  function redirectWithError(message: string) {
-    frontend.hash = new URLSearchParams({ discord_error: message }).toString();
-    return c.redirect(frontend.toString(), 302);
-  }
-
+app.post('/api/auth/discord/session', async (c) => {
   try {
     const missing = missingDiscordConfig(c.env);
-    if (missing) return redirectWithError(missing);
+    if (missing) return c.json({ success: false, error: missing }, 500);
 
-    const callbackError = c.req.query('error');
-    if (callbackError) {
-      return redirectWithError(c.req.query('error_description') || callbackError);
-    }
+    const body = await c.req.json() as { access_token?: string };
+    const accessToken = String(body.access_token || '');
+    if (!accessToken) return c.json({ success: false, error: 'Authentication required' }, 401);
 
-    const code = c.req.query('code');
-    const state = c.req.query('state');
-    if (!code || !state) return redirectWithError('Discord login was cancelled');
-
-    const verifiedState = await verifyDiscordState(state, c.env.DISCORD_SESSION_SECRET!);
-    const tokenRes = await fetch('https://discord.com/api/v10/oauth2/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        client_id: c.env.DISCORD_CLIENT_ID!,
-        client_secret: c.env.DISCORD_CLIENT_SECRET!,
-        grant_type: 'authorization_code',
-        code,
-        redirect_uri: discordRedirectUri(c),
-      }),
+    const userRes = await fetch('https://discord.com/api/v10/users/@me', {
+      headers: { Authorization: `Bearer ${accessToken}` },
     });
-    if (!tokenRes.ok) return redirectWithError('Discord login failed');
-
-    const token = await tokenRes.json() as {
-      access_token?: string;
-      token_type?: string;
-    };
-    if (!token.access_token) return redirectWithError('Discord login failed');
-
-    const auth = { Authorization: `${token.token_type || 'Bearer'} ${token.access_token}` };
-    const [userRes, memberRes] = await Promise.all([
-      fetch('https://discord.com/api/v10/users/@me', { headers: auth }),
-      fetch(`https://discord.com/api/v10/users/@me/guilds/${DISCORD_GUILD_ID}/member`, {
-        headers: auth,
-      }),
-    ]);
-    if (!userRes.ok || !memberRes.ok) return redirectWithError('Discord role required');
+    if (!userRes.ok) return c.json({ success: false, error: 'Authentication required' }, 401);
 
     const user = await userRes.json() as {
       id: string;
@@ -2740,19 +2643,22 @@ app.get('/api/auth/discord/callback', async (c) => {
       global_name?: string | null;
       avatar?: string | null;
     };
+
+    const memberRes = await fetch(
+      `https://discord.com/api/v10/guilds/${DISCORD_GUILD_ID}/members/${user.id}`,
+      { headers: { Authorization: `Bot ${c.env.DISCORD_BOT_TOKEN}` } }
+    );
+    if (!memberRes.ok) return c.json({ success: false, error: 'Discord role required' }, 403);
+
     const member = await memberRes.json() as { roles?: string[] };
     if (!member.roles?.includes(DISCORD_REQUIRED_ROLE_ID)) {
-      return redirectWithError('Discord role required');
+      return c.json({ success: false, error: 'Discord role required' }, 403);
     }
 
-    const sessionToken = await createDiscordSessionToken(user, c.env.DISCORD_SESSION_SECRET!);
-    frontend.hash = new URLSearchParams({
-      discord_token: sessionToken,
-      return_to: verifiedState.returnTo,
-    }).toString();
-    return c.redirect(frontend.toString(), 302);
+    const token = await createDiscordSessionToken(user, c.env.DISCORD_SESSION_SECRET!);
+    return c.json({ success: true, token });
   } catch {
-    return redirectWithError('Discord login failed');
+    return c.json({ success: false, error: 'Discord login failed' }, 500);
   }
 });
 
