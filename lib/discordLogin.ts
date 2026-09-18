@@ -1,7 +1,6 @@
 import { authHeaders, saveIdToken } from '@/lib/auth';
 import { API_URL } from '@/lib/config';
 
-const DISCORD_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const DISCORD_CLIENT_ID = '1449452278598602752';
 const DISCORD_STATE_KEY = 'sf_discord_login_state';
 const BASE_PATH = '/kanban';
@@ -24,7 +23,7 @@ function b64urlDecodeJson<T>(value: string): T {
 
 function decodeDiscordSession(token: string): DiscordSessionPayload {
   const [kind, payload] = token.split('.');
-  if (kind !== 'discord' || !payload) throw new Error('Invalid Discord session');
+  if (!['session', 'discord'].includes(kind) || !payload) throw new Error('Invalid Discord session');
   return b64urlDecodeJson<DiscordSessionPayload>(payload);
 }
 
@@ -103,7 +102,7 @@ export async function consumeDiscordRedirectLogin(
     name: payload.name || 'Discord user',
     picture: payload.picture || '/kanban/icon.png',
   };
-  saveIdToken(token, DISCORD_TOKEN_TTL_MS);
+  saveIdToken(token);
   setUser(user);
   localStorage.setItem('homework_user', JSON.stringify(user));
   void fetch(API_URL, {

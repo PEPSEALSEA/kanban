@@ -353,8 +353,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
   }, [refreshData]);
 
-  // Restore user only when a valid Google ID token exists (localStorage).
-  // homework_user alone is not enough — token expires after ~55 minutes.
+  // Restore the user only while a valid StudyFlow session exists in localStorage.
   useEffect(() => {
     const restore = async () => {
       try {

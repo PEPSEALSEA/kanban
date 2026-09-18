@@ -26,6 +26,7 @@ type Bindings = {
   DISCORD_CLIENT_ID?: string;
   DISCORD_BOT_TOKEN?: string;
   DISCORD_SESSION_SECRET?: string;
+  STUDYFLOW_SESSION_SECRET?: string;
   DB?: D1Database;
   CACHE?: KVNamespace;
 };
@@ -58,7 +59,13 @@ function isAllowedAppEmail(email: string | null | undefined): boolean {
 }
 
 function authFailureStatus(message: string): 401 | 403 | 500 {
-  if (message === 'Authentication required') return 401;
+  if (
+    message === 'Authentication required' ||
+    message === 'Token expired' ||
+    message.startsWith('Invalid token') ||
+    message === 'Invalid session issuer' ||
+    message === 'Invalid session subject'
+  ) return 401;
   if (
     message === 'Admin access required' ||
     message === 'School account required' ||
@@ -150,25 +157,54 @@ type DiscordSession = {
   exp: number;
 };
 
-async function createDiscordSessionToken(user: {
-  id: string;
-  username: string;
-  global_name?: string | null;
-  avatar?: string | null;
-}, secret: string): Promise<string> {
-  const avatarExt = user.avatar?.startsWith('a_') ? 'gif' : 'png';
-  const picture = user.avatar
-    ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.${avatarExt}?size=128`
-    : 'https://cdn.discordapp.com/embed/avatars/0.png';
+type StudyFlowSession = {
+  iss: 'studyflow-session';
+  sub: string;
+  email: string;
+  name: string;
+  picture: string;
+  provider: 'google' | 'discord';
+  exp: number;
+};
+
+const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
+
+function getSessionSecret(env: Bindings): string | null {
+  return env.STUDYFLOW_SESSION_SECRET || env.DISCORD_SESSION_SECRET || null;
+}
+
+async function createStudyFlowSessionToken(
+  user: { sub: string; email: string; name?: string; picture?: string },
+  provider: StudyFlowSession['provider'],
+  secret: string
+): Promise<string> {
   const payload = b64urlEncodeJson({
-    iss: 'studyflow-discord',
-    sub: user.id,
-    email: `discord:${user.id}`,
-    name: user.global_name || user.username || 'Discord user',
-    picture,
-    exp: Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60,
-  } satisfies DiscordSession);
-  return `discord.${payload}.${await signPayload(payload, secret)}`;
+    iss: 'studyflow-session',
+    sub: user.sub,
+    email: user.email,
+    name: user.name || user.email,
+    picture: user.picture || '/kanban/icon.png',
+    provider,
+    exp: Math.floor(Date.now() / 1000) + SESSION_TTL_SECONDS,
+  } satisfies StudyFlowSession);
+  return `session.${payload}.${await signPayload(payload, secret)}`;
+}
+
+async function verifyStudyFlowSessionToken(
+  token: string,
+  secret: string
+): Promise<{ email: string; name?: string; picture?: string }> {
+  const payload = await verifySignedPayload<StudyFlowSession>(token, secret, 'session');
+  if (payload.iss !== 'studyflow-session') throw new Error('Invalid session issuer');
+  if (payload.exp < Math.floor(Date.now() / 1000)) throw new Error('Token expired');
+  if (!payload.sub || !payload.email) throw new Error('Invalid session subject');
+  if (payload.provider === 'google' && !isAllowedAppEmail(payload.email)) {
+    throw new Error('School account required');
+  }
+  if (payload.provider === 'discord' && !payload.email.startsWith('discord:')) {
+    throw new Error('Invalid session subject');
+  }
+  return { email: payload.email, name: payload.name, picture: payload.picture };
 }
 
 async function verifyDiscordSessionToken(
@@ -185,7 +221,7 @@ async function verifyDiscordSessionToken(
 function missingDiscordConfig(env: Bindings): string | null {
   if (!env.DISCORD_CLIENT_ID) return 'DISCORD_CLIENT_ID not configured';
   if (!env.DISCORD_BOT_TOKEN) return 'DISCORD_BOT_TOKEN not configured';
-  if (!env.DISCORD_SESSION_SECRET) return 'DISCORD_SESSION_SECRET not configured';
+  if (!getSessionSecret(env)) return 'StudyFlow session secret not configured';
   return null;
 }
 
@@ -204,7 +240,7 @@ function safeDiscordReturnTo(value: string | null | undefined): string {
 async function verifyGoogleIdToken(
   token: string,
   clientId: string
-): Promise<{ email: string; name?: string; picture?: string }> {
+): Promise<{ sub: string; email: string; name?: string; picture?: string }> {
   const parts = token.split('.');
   if (parts.length !== 3) throw new Error('Invalid token format');
 
@@ -235,8 +271,9 @@ async function verifyGoogleIdToken(
   const valid = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', cryptoKey, sig, data);
   if (!valid) throw new Error('Invalid token signature');
   if (!payload.email) throw new Error('Token missing email claim');
+  if (!payload.sub) throw new Error('Token missing subject claim');
 
-  return { email: payload.email as string, name: payload.name, picture: payload.picture };
+  return { sub: payload.sub as string, email: payload.email as string, name: payload.name, picture: payload.picture };
 }
 
 type AppContext = Context<{ Bindings: Bindings }>;
@@ -245,6 +282,12 @@ async function requireAuth(c: AppContext): Promise<{ email: string }> {
   const authHeader = c.req.header('Authorization') ?? '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
   if (!token) throw new Error('Authentication required');
+
+  if (token.startsWith('session.')) {
+    const secret = getSessionSecret(c.env);
+    if (!secret) throw new Error('StudyFlow session secret not configured');
+    return verifyStudyFlowSessionToken(token, secret);
+  }
 
   if (token.startsWith('discord.')) {
     if (!c.env.DISCORD_SESSION_SECRET) throw new Error('DISCORD_SESSION_SECRET not configured');
@@ -2636,6 +2679,37 @@ app.get('/api/file-download', async (c) => {
   }
 });
 
+app.post('/api/auth/google/session', async (c) => {
+  try {
+    const secret = getSessionSecret(c.env);
+    if (!secret) return c.json({ success: false, error: 'StudyFlow session secret not configured' }, 500);
+    if (!c.env.GOOGLE_CLIENT_ID) return c.json({ success: false, error: 'GOOGLE_CLIENT_ID not configured' }, 500);
+
+    const body = await c.req.json() as { credential?: string };
+    const credential = String(body.credential || '');
+    if (!credential) return c.json({ success: false, error: 'Authentication required' }, 401);
+
+    const user = await verifyGoogleIdToken(credential, c.env.GOOGLE_CLIENT_ID);
+    if (!isAllowedAppEmail(user.email)) {
+      return c.json({ success: false, error: 'School account required' }, 403);
+    }
+
+    const token = await createStudyFlowSessionToken(user, 'google', secret);
+    return c.json({
+      success: true,
+      token,
+      user: {
+        email: user.email,
+        name: user.name || user.email,
+        picture: user.picture || '/kanban/icon.png',
+      },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Google login failed';
+    return c.json({ success: false, error: message }, authFailureStatus(message));
+  }
+});
+
 app.post('/api/auth/discord/session', async (c) => {
   try {
     const missing = missingDiscordConfig(c.env);
@@ -2668,7 +2742,17 @@ app.post('/api/auth/discord/session', async (c) => {
       return c.json({ success: false, error: 'Discord role required' }, 403);
     }
 
-    const token = await createDiscordSessionToken(user, c.env.DISCORD_SESSION_SECRET!);
+    const secret = getSessionSecret(c.env)!;
+    const avatarExt = user.avatar?.startsWith('a_') ? 'gif' : 'png';
+    const picture = user.avatar
+      ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.${avatarExt}?size=128`
+      : 'https://cdn.discordapp.com/embed/avatars/0.png';
+    const token = await createStudyFlowSessionToken({
+      sub: user.id,
+      email: `discord:${user.id}`,
+      name: user.global_name || user.username || 'Discord user',
+      picture,
+    }, 'discord', secret);
     return c.json({ success: true, token });
   } catch {
     return c.json({ success: false, error: 'Discord login failed' }, 500);

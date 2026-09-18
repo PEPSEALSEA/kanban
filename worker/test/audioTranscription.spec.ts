@@ -79,8 +79,44 @@ describe('concurrent and ambiguous content saves (real SQLite journal, mocked Sh
     const key = await crypto.subtle.generateKey({ name: 'RSASSA-PKCS1-v1_5', modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' }, true, ['sign', 'verify']);
     jwk = await crypto.subtle.exportKey('jwk', key.publicKey);
     const encode = (data: unknown) => Buffer.from(JSON.stringify(data)).toString('base64url');
-    const payload = `${encode({ alg: 'RS256', kid: 'audio-test' })}.${encode({ aud: 'test-client', iss: 'https://accounts.google.com', email: 'pepsealsea@gmail.com', exp: Math.floor(Date.now() / 1000) + 3600 })}`;
+    const payload = `${encode({ alg: 'RS256', kid: 'audio-test' })}.${encode({ aud: 'test-client', iss: 'https://accounts.google.com', sub: 'google-user-1', email: 'pepsealsea@gmail.com', name: 'Test User', picture: 'https://example.com/avatar.png', exp: Math.floor(Date.now() / 1000) + 3600 })}`;
     token = `${payload}.${Buffer.from(await crypto.subtle.sign('RSASSA-PKCS1-v1_5', key.privateKey, new TextEncoder().encode(payload))).toString('base64url')}`;
+  });
+  it('exchanges a Google credential for a signed 30-day StudyFlow session', async () => {
+    vi.stubGlobal('fetch', vi.fn(async url => {
+      if (String(url).includes('/oauth2/v3/certs')) {
+        return Response.json({ keys: [{ ...jwk, kid: 'audio-test' }] });
+      }
+      throw new Error('Unexpected external request');
+    }));
+    const env = {
+      GOOGLE_CLIENT_ID: 'test-client',
+      STUDYFLOW_SESSION_SECRET: 'test-session-secret-that-is-long-and-random',
+      GEMINI_API_KEY: 'test-gemini-key',
+      TELEGRAM_BOT_TOKEN: 'test-telegram-token',
+      TELEGRAM_CHAT_ID: 'test-chat-id',
+      DB: {},
+    };
+    const exchange = await worker.fetch(new Request('http://localhost/api/auth/google/session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ credential: token }),
+    }), env, {});
+    expect(exchange.status).toBe(200);
+    const result = await exchange.json() as { token: string; user: { email: string } };
+    expect(result.token).toMatch(/^session\.[^.]+\.[^.]+$/);
+    expect(result.user.email).toBe('pepsealsea@gmail.com');
+
+    const payload = JSON.parse(Buffer.from(result.token.split('.')[1], 'base64url').toString()) as { exp: number; provider: string };
+    const expectedExpiry = Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60;
+    expect(payload.provider).toBe('google');
+    expect(payload.exp).toBeGreaterThanOrEqual(expectedExpiry - 2);
+    expect(payload.exp).toBeLessThanOrEqual(expectedExpiry + 2);
+
+    const authorized = await worker.fetch(new Request('http://localhost/api/admin/audio/config', {
+      headers: { Authorization: `Bearer ${result.token}` },
+    }), env, {});
+    expect(authorized.status).toBe(200);
   });
   it('appends separate IDs in parallel and reconciles a lost response without appending twice', async () => {
     const sql = new DatabaseSync(':memory:');

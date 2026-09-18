@@ -30,8 +30,32 @@ export async function completeGoogleLogin(
     googleLogout();
     throw new SchoolAccountRequiredError(decoded.email || '');
   }
-  saveIdToken(credential);
-  const newUser = { email: decoded.email, name: decoded.name, picture: decoded.picture };
+
+  const sessionResponse = await fetch(`${API_URL}/api/auth/google/session`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ credential }),
+  });
+  const session = await sessionResponse.json() as {
+    success?: boolean;
+    token?: string;
+    user?: Partial<GoogleUser>;
+    error?: string;
+  };
+  if (!sessionResponse.ok || !session.success || !session.token) {
+    if (session.error === 'School account required') {
+      googleLogout();
+      throw new SchoolAccountRequiredError(decoded.email || '');
+    }
+    throw new Error('ไม่สามารถสร้างเซสชันการเข้าสู่ระบบได้ กรุณาลองใหม่');
+  }
+
+  saveIdToken(session.token);
+  const newUser = {
+    email: session.user?.email || decoded.email,
+    name: session.user?.name || decoded.name || decoded.email,
+    picture: session.user?.picture || decoded.picture || '/kanban/icon.png',
+  };
   setUser(newUser);
   localStorage.setItem('homework_user', JSON.stringify(newUser));
   try {
