@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useData } from '@/components/DataProvider';
 import AttachmentList from '@/components/AttachmentList';
+import AudioPlayer from '@/components/AudioPlayer';
 import MarkdownRenderer from '@/components/MarkdownRenderer';
 import { API_URL, UPLOAD_SERVICE_URL } from '@/lib/config';
 import { authHeaders } from '@/lib/auth';
@@ -58,6 +59,8 @@ type Homework = {
   note: string;
   my_status?: 'pending' | 'in_progress' | 'done';
 };
+
+const AUDIO_FILENAME_RE = /\.(mp3|m4a|aac|wav|ogg|opus|flac)$/i;
 
 export default function StudyFlow() {
   const { 
@@ -183,6 +186,16 @@ export default function StudyFlow() {
       ...(activeHomework.link_image ? activeHomework.link_image.split(',').filter(Boolean).map(parseItem) : [])
     ];
   }, [activeHomework?.id, activeHomework?.link_work, activeHomework?.link_image]);
+
+  const memoizedHomeworkAudio = useMemo(
+    () => memoizedHomeworkAttachments.filter((attachment) => AUDIO_FILENAME_RE.test(attachment.title)),
+    [memoizedHomeworkAttachments]
+  );
+
+  const memoizedHomeworkFiles = useMemo(
+    () => memoizedHomeworkAttachments.filter((attachment) => !AUDIO_FILENAME_RE.test(attachment.title)),
+    [memoizedHomeworkAttachments]
+  );
 
   const handleFileUpload = async (file: File, homeworkId: string, status: string, fileId: string): Promise<boolean> => {
     try {
@@ -939,13 +952,30 @@ export default function StudyFlow() {
                   <h3 className="text-sm font-bold mb-6 uppercase tracking-widest text-slate-400 flex items-center gap-2">
                     <span className="w-8 h-[1px] bg-slate-200"></span> Instructions
                   </h3>
-                  <div className="mb-8">
-                    <AttachmentList 
-                      contentId={activeHomework.id}
-                      contentType="homework"
-                      attachments={memoizedHomeworkAttachments} 
-                    />
-                  </div>
+                  {memoizedHomeworkFiles.length > 0 && (
+                    <div className="mb-8">
+                      <AttachmentList
+                        contentId={activeHomework.id}
+                        contentType="homework"
+                        attachments={memoizedHomeworkFiles}
+                      />
+                    </div>
+                  )}
+                  {memoizedHomeworkAudio.length > 0 && (
+                    <div className="mb-8 flex flex-col gap-4">
+                      <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Audio</h4>
+                      {memoizedHomeworkAudio.map((audio, index) => (
+                        <AudioPlayer
+                          key={audio.fileId || `${audio.title}-${index}`}
+                          contentId={`${activeHomework.id}_${audio.fileId || index}`}
+                          contentType="homework"
+                          audioUrl={audio.url}
+                          driveId={audio.fileId}
+                          title={audio.title}
+                        />
+                      ))}
+                    </div>
+                  )}
                   <div className="bg-slate-50/50 rounded-2xl border border-slate-100 p-8 leading-relaxed text-slate-700 font-medium break-words">
                     <MarkdownRenderer content={activeHomework.description || ''} />
                   </div>

@@ -2,7 +2,7 @@
 
 import React, { useRef } from 'react';
 import { useDeviceDetection } from '@/hooks/useDeviceDetection';
-import { IconImage, IconFile, IconCamera } from '@/components/icons';
+import { IconImage, IconFile, IconCamera, IconMusic } from '@/components/icons';
 
 type AttachmentFileInputProps = {
   multiple?: boolean;
@@ -11,6 +11,7 @@ type AttachmentFileInputProps = {
   accept?: string;
   style?: React.CSSProperties;
   showCamera?: boolean;
+  showAudio?: boolean;
   compact?: boolean;
   buttonClassName?: string;
 };
@@ -41,12 +42,14 @@ export default function AttachmentFileInput({
   accept,
   style,
   showCamera = true,
+  showAudio = false,
   compact = false,
   buttonClassName,
 }: AttachmentFileInputProps) {
   const { isMobile } = useDeviceDetection();
   const galleryRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const audioRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const desktopRef = useRef<HTMLInputElement>(null);
 
@@ -93,6 +96,22 @@ export default function AttachmentFileInput({
             </>
           )}
         </button>
+        {showAudio && (
+          <button
+            type="button"
+            disabled={disabled}
+            className={compact ? compactClass : undefined}
+            style={compact ? undefined : MOBILE_BTN_STYLE}
+            onClick={() => openPicker(audioRef)}
+          >
+            {compact ? <IconMusic className="w-4 h-4" /> : (
+              <>
+                <IconMusic className="w-4 h-4" />
+                <span>Audio</span>
+              </>
+            )}
+          </button>
+        )}
         <button
           type="button"
           disabled={disabled}
@@ -139,6 +158,15 @@ export default function AttachmentFileInput({
         type="file"
         multiple={multiple}
         accept="application/pdf,.pdf,image/*,application/*"
+        onChange={resetAndChange}
+        disabled={disabled}
+        style={{ display: 'none' }}
+      />
+      <input
+        ref={audioRef}
+        type="file"
+        multiple={multiple}
+        accept="audio/*,.mp3,.m4a"
         onChange={resetAndChange}
         disabled={disabled}
         style={{ display: 'none' }}

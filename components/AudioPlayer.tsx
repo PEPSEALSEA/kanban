@@ -284,7 +284,10 @@ export default function AudioPlayer(props: AudioPlayerProps) {
     props.audioUrl?.replace(/[{}]/g, '').trim()
   );
 
-  if (!hasAudio || !canAccessAudio) return null;
+  // Homework audio is an assignment attachment, so it is available to every
+  // student who can open that homework. Learning-content audio keeps its
+  // existing access rule.
+  if (!hasAudio || (props.contentType !== 'homework' && !canAccessAudio)) return null;
 
   return <AudioPlayerInner {...props} />;
 }

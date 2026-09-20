@@ -8,7 +8,7 @@ import AttachmentFileInput from '@/components/AttachmentFileInput';
 
 import { API_URL, UPLOAD_SERVICE_URL } from '@/lib/config';
 import { authHeaders } from '@/lib/auth';
-import { IconX, IconPaperclip, IconSparkles } from '@/components/icons';
+import { IconX, IconPaperclip, IconMusic, IconSparkles } from '@/components/icons';
 
 const GAS_WEB_APP_URL = API_URL;
 const UPLOAD_WEB_APP_URL = UPLOAD_SERVICE_URL;
@@ -48,8 +48,9 @@ export default function CreateHomeworkModal({ onClose, onRefresh }: { onClose: (
 
     try {
       for (const file of files) {
+        const isAudio = file.type.startsWith('audio/') || /\.(mp3|m4a|aac|wav|ogg|opus|flac)$/i.test(file.name);
         // Try Direct Upload (High Speed)
-        const result = await uploadToTelegramDirect(file, 'document');
+        const result = await uploadToTelegramDirect(file, isAudio ? 'audio' : 'document');
         
         if (result.success) {
           // Register in database sheet (background)
@@ -188,12 +189,13 @@ export default function CreateHomeworkModal({ onClose, onRefresh }: { onClose: (
               multiple
               onChange={handleFileUpload}
               disabled={isUploading}
+              showAudio
             />
             {isUploading && <p style={{ fontSize: '0.75rem', color: 'var(--admin-primary)', marginTop: '0.5rem' }}>Uploading...</p>}
             <div style={{ marginTop: '0.5rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
               {formData.link_image.map((url, i) => (
                 <div key={i} style={{ background: 'var(--admin-bg-soft)', padding: '4px 8px', borderRadius: '4px', fontSize: '0.7rem', border: '1px solid var(--admin-border)' }}>
-                  <IconPaperclip className="w-3.5 h-3.5 inline" /> {decodeURIComponent(url.split('#')[1] || 'File')}
+                  {/\.(mp3|m4a|aac|wav|ogg|opus|flac)$/i.test(decodeURIComponent(url.split('#')[1] || '')) ? <IconMusic className="w-3.5 h-3.5 inline" /> : <IconPaperclip className="w-3.5 h-3.5 inline" />} {decodeURIComponent(url.split('#')[1] || 'File')}
                 </div>
               ))}
             </div>
