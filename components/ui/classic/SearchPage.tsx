@@ -47,6 +47,7 @@ export default function SearchPage() {
   const [selectedSubject, setSelectedSubject] = useState('');
   const [subjectContent, setSubjectContent] = useState<LearningContent[] | null>(null);
   const [loadingSubject, setLoadingSubject] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(16);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const subjectNames = useMemo(() => {
@@ -88,6 +89,7 @@ export default function SearchPage() {
       return;
     }
     let cancelled = false;
+    setSubjectContent(null);
     setLoadingSubject(true);
     void fetch(`${API_URL}?action=learningContent&subject=${encodeURIComponent(selectedSubject)}`, { headers: authHeaders() })
       .then((response) => response.json())
@@ -119,6 +121,16 @@ export default function SearchPage() {
   const visibleContent = scope === 'homework' ? [] : contentResults;
   const resultCount = visibleHomework.length + visibleContent.length;
   const hasFilter = Boolean(term || selectedSubject || scope !== 'all');
+  const resultItems = useMemo(() => [
+    ...visibleHomework.map((item) => ({ item, type: 'homework' as const })),
+    ...visibleContent.map((item) => ({ item, type: 'content' as const })),
+  ].sort((a, b) => {
+    const dateA = a.type === 'homework' ? a.item.deadline : a.item.date;
+    const dateB = b.type === 'homework' ? b.item.deadline : b.item.date;
+    return new Date(dateB).getTime() - new Date(dateA).getTime();
+  }), [visibleHomework, visibleContent]);
+
+  useEffect(() => { setVisibleCount(16); }, [query, selectedSubject, scope]);
 
   useEffect(() => {
     if (hasFilter) logEvent('search', { metadata: { scope, subject: selectedSubject || 'all', results: resultCount } });
@@ -128,78 +140,68 @@ export default function SearchPage() {
 
   const selectSubject = (subject: string) => {
     setSelectedSubject((current) => normalize(current) === normalize(subject) ? '' : subject);
-    inputRef.current?.focus();
   };
 
   return (
     <main className="search-page">
-      <section className="search-hero">
-        <div className="search-hero-orb search-hero-orb--one" />
-        <div className="search-hero-orb search-hero-orb--two" />
-        <div className="search-hero-content">
-          <p className="search-eyebrow">STUDYFLOW SEARCH</p>
-          <h1>ค้นหาให้เจอ<br /><span>แล้วไปต่อทันที</span></h1>
-          <p className="search-hero-description">ค้นหาการบ้านและเนื้อหาเรียนในที่เดียว เลือกวิชาก่อนเพื่อให้ผลลัพธ์ตรงขึ้น</p>
+      <section className="search-shell">
+        <header className="search-heading">
+          <div>
+            <h1>Search</h1>
+            <p>ค้นหาการบ้านและคลังเนื้อหาการเรียน</p>
+          </div>
+          <span className="search-heading-icon"><IconSearch className="w-5 h-5" /></span>
+        </header>
+
+        <div className="search-toolbar">
           <div className="search-input-wrap">
             <IconSearch className="search-input-icon" />
-            <input
-              ref={inputRef}
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="ค้นหาชื่อเรื่อง, คำสำคัญ หรือรหัส..."
-              aria-label="ค้นหาเนื้อหาและการบ้าน"
-            />
-            {query && <button type="button" onClick={() => setQuery('')} aria-label="ล้างคำค้น"><IconX className="w-4 h-4" /></button>}
+            <input ref={inputRef} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="ค้นหาชื่อเรื่อง คำสำคัญ หรือรหัส..." aria-label="ค้นหาเนื้อหาและการบ้าน" />
+            {query && <button type="button" onClick={() => { setQuery(''); inputRef.current?.focus(); }} aria-label="ล้างคำค้น"><IconX className="w-4 h-4" /></button>}
           </div>
-        </div>
-      </section>
-
-      <section className="search-shell">
-        <div className="search-controls">
           <div className="search-scope" role="group" aria-label="ขอบเขตการค้นหา">
-            {([['all', 'ทั้งหมด'], ['homework', 'การบ้าน'], ['content', 'เนื้อหาเรียน']] as const).map(([value, label]) => (
-              <button key={value} type="button" onClick={() => setScope(value)} className={scope === value ? 'is-active' : ''}>{label}</button>
+            {([['all', 'ทั้งหมด'], ['homework', 'การบ้าน'], ['content', 'เนื้อหา']] as const).map(([value, label]) => (
+              <button key={value} type="button" onClick={() => setScope(value)} className={scope === value ? 'is-active' : ''} aria-pressed={scope === value}>{label}</button>
             ))}
           </div>
-          {hasFilter && <button className="search-clear" type="button" onClick={() => { setQuery(''); setScope('all'); setSelectedSubject(''); }}>ล้างตัวกรอง</button>}
         </div>
 
-        <div className="search-subject-area">
-          <div className="search-subject-heading"><span>วิชาที่กำลังใช้งาน</span><small>เลือกเพื่อกรองผลลัพธ์</small></div>
-          <div className="search-chip-row">
-            {activeSubjects.length ? activeSubjects.map((subject) => <SubjectChip key={subject} subject={subject} color={selectedColor(subject)} selected={normalize(selectedSubject) === normalize(subject)} onClick={() => selectSubject(subject)} />) : <span className="search-muted">ยังไม่มีวิชาที่ใช้งานอยู่</span>}
-          </div>
-          {otherSubjects.length > 0 && <>
-            <div className="search-subject-heading search-subject-heading--other"><span>วิชาอื่น ๆ</span></div>
-            <div className="search-chip-row">
-              {otherSubjects.map((subject) => <SubjectChip key={subject} subject={subject} color={selectedColor(subject)} selected={normalize(selectedSubject) === normalize(subject)} onClick={() => selectSubject(subject)} />)}
+        <div className="search-workspace">
+          <aside className="search-filter-panel" aria-label="กรองตามวิชา">
+            <div className="search-filter-header"><span>รายวิชา</span>{selectedSubject && <button type="button" onClick={() => setSelectedSubject('')}>ล้าง</button>}</div>
+            <button type="button" className={`search-subject-option search-subject-option--all${!selectedSubject ? ' is-selected' : ''}`} onClick={() => setSelectedSubject('')} aria-pressed={!selectedSubject}>
+              <span className="search-option-icon"><IconArchive className="w-4 h-4" /></span><span>ทุกวิชา</span>
+            </button>
+            <div className="search-filter-label">วิชาที่กำลังใช้งาน</div>
+            <div className="search-subject-list">
+              {activeSubjects.length ? activeSubjects.map((subject) => <SubjectOption key={subject} subject={subject} color={selectedColor(subject)} selected={normalize(selectedSubject) === normalize(subject)} onClick={() => selectSubject(subject)} />) : <span className="search-muted">ยังไม่มีวิชาที่ใช้งานอยู่</span>}
             </div>
-          </>}
-        </div>
+            {otherSubjects.length > 0 && <>
+              <div className="search-filter-label search-filter-label--other">วิชาอื่น ๆ</div>
+              <div className="search-subject-list">{otherSubjects.map((subject) => <SubjectOption key={subject} subject={subject} color={selectedColor(subject)} selected={normalize(selectedSubject) === normalize(subject)} onClick={() => selectSubject(subject)} />)}</div>
+            </>}
+          </aside>
 
-        <div className="search-results-heading">
-          <div><p>ผลลัพธ์{selectedSubject ? ` · ${selectedSubject}` : ''}</p><h2>{isLoading || loadingSubject ? 'กำลังค้นหา…' : hasFilter ? `${resultCount} รายการ` : 'เลือกวิชาหรือเริ่มพิมพ์ค้นหา'}</h2></div>
-          {hasFilter && <span className="search-result-note">การบ้านและเนื้อหาเรียน</span>}
+          <section className="search-results" aria-label="ผลการค้นหา">
+            <div className="search-results-heading">
+              <div><p>{hasFilter ? 'ผลการค้นหา' : 'รายการทั้งหมด'}</p><h2>{isLoading || loadingSubject ? 'กำลังค้นหา…' : `${resultCount} รายการ`}</h2></div>
+              {hasFilter && <button className="search-clear" type="button" onClick={() => { setQuery(''); setScope('all'); setSelectedSubject(''); }}>ล้างตัวกรอง</button>}
+            </div>
+            {selectedSubject && <div className="search-active-filter">วิชา: {selectedSubject}<button type="button" onClick={() => setSelectedSubject('')} aria-label="ล้างวิชาที่เลือก"><IconX className="w-3 h-3" /></button></div>}
+            <div className="search-result-grid">
+              {resultItems.slice(0, visibleCount).map(({ item, type }, index) => <ResultCard key={`${type}-${item.id}`} item={item} type={type} color={selectedColor(item.subject)} index={index} />)}
+              {!isLoading && !loadingSubject && resultCount === 0 && <div className="search-empty"><IconSearch className="w-8 h-8" /><strong>ไม่พบสิ่งที่คุณกำลังหา</strong><span>ลองเปลี่ยนคำค้นหรือเลือกวิชาอื่น</span></div>}
+            </div>
+            {resultCount > visibleCount && <button className="search-more" type="button" onClick={() => setVisibleCount((count) => count + 20)}>ดูเพิ่มเติม ({resultCount - visibleCount})</button>}
+          </section>
         </div>
-
-        {!hasFilter ? <SearchStart /> : (
-          <div className="search-result-grid">
-            {visibleHomework.map((item: Homework, index) => <ResultCard key={`hw-${item.id}`} item={item} type="homework" color={selectedColor(item.subject)} index={index} />)}
-            {visibleContent.map((item, index) => <ResultCard key={`content-${item.id}`} item={item} type="content" color={selectedColor(item.subject)} index={visibleHomework.length + index} />)}
-            {!loadingSubject && resultCount === 0 && <div className="search-empty"><IconSearch className="w-9 h-9" /><strong>ไม่พบสิ่งที่คุณกำลังหา</strong><span>ลองเปลี่ยนคำค้น หรือเลือกวิชาอื่นดู</span></div>}
-          </div>
-        )}
       </section>
     </main>
   );
 }
 
-function SubjectChip({ subject, color, selected, onClick }: { subject: string; color: string; selected: boolean; onClick: () => void }) {
-  return <button type="button" onClick={onClick} className={`search-subject-chip${selected ? ' is-selected' : ''}`} style={selected ? { backgroundColor: color, borderColor: color } : subjectBadgeStyle(color, '20')}><span>{subject.slice(0, 1)}</span>{subject}</button>;
-}
-
-function SearchStart() {
-  return <div className="search-start"><div className="search-start-icon"><IconSearch className="w-7 h-7" /></div><div><strong>เริ่มจากวิชาที่เรียนอยู่</strong><p>เลือกวิชาด้านบน หรือพิมพ์คำที่ต้องการค้นหาได้เลย</p></div></div>;
+function SubjectOption({ subject, color, selected, onClick }: { subject: string; color: string; selected: boolean; onClick: () => void }) {
+  return <button type="button" onClick={onClick} className={`search-subject-option${selected ? ' is-selected' : ''}`} aria-pressed={selected}><span className="search-option-dot" style={{ backgroundColor: color }} /><span>{subject}</span><IconChevronRight className="search-option-chevron" /></button>;
 }
 
 function ResultCard({ item, type, color, index }: { item: Homework | LearningContent; type: 'homework' | 'content'; color: string; index: number }) {
