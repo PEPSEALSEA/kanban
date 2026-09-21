@@ -195,7 +195,7 @@ export default function SearchPage() {
 }
 
 function SubjectChip({ subject, color, selected, onClick }: { subject: string; color: string; selected: boolean; onClick: () => void }) {
-  return <button type="button" onClick={onClick} className={`search-subject-chip${selected ? ' is-selected' : ''}`} style={selected ? { backgroundColor: color, borderColor: color } : subjectBadgeStyle(color, '18')}><span>{subject.slice(0, 1)}</span>{subject}</button>;
+  return <button type="button" onClick={onClick} className={`search-subject-chip${selected ? ' is-selected' : ''}`} style={selected ? { backgroundColor: color, borderColor: color } : subjectBadgeStyle(color, '20')}><span>{subject.slice(0, 1)}</span>{subject}</button>;
 }
 
 function SearchStart() {
@@ -209,7 +209,7 @@ function ResultCard({ item, type, color, index }: { item: Homework | LearningCon
   const date = isHomework ? dateLabel((item as Homework).deadline) : dateLabel((item as LearningContent).date);
   return <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(index * 0.025, 0.2) }}>
     <Link href={href} className="search-result-card">
-      <div className="search-result-icon" style={subjectBadgeStyle(color, '18')}>{isHomework ? <IconKanban className="w-5 h-5" /> : <IconArchive className="w-5 h-5" />}</div>
+      <div className="search-result-icon" style={subjectBadgeStyle(color, '20')}>{isHomework ? <IconKanban className="w-5 h-5" /> : <IconArchive className="w-5 h-5" />}</div>
       <div className="search-result-copy"><div className="search-result-meta"><span style={{ color }}>{item.subject || 'ไม่ระบุวิชา'}</span><i>•</i><span>{isHomework ? 'การบ้าน' : 'เนื้อหาเรียน'}</span><i>•</i><span>{date}</span></div><h3>{item.title || 'ไม่มีชื่อเรื่อง'}</h3>{description && <p>{description}</p>}</div>
       <IconChevronRight className="search-result-arrow" />
     </Link>
