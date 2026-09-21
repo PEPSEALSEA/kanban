@@ -21,6 +21,7 @@ import {
   IconFolder,
   IconKanban,
   IconMenu,
+  IconSearch,
   IconTag,
 } from '@/components/icons';
 
@@ -99,6 +100,13 @@ export default function HeaderNav() {
               >
                 <IconArchive className="nav-item-icon" />
                 <span className="nav-item-label">Archive</span>
+              </Link>
+              <Link
+                href="/search"
+                className={`nav-item ${isActive('/search') ? 'active' : ''}`}
+              >
+                <IconSearch className="nav-item-icon" />
+                <span className="nav-item-label">Search</span>
               </Link>
               {user && (
                 <Link
