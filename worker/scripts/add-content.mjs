@@ -9,6 +9,9 @@
 //   --date YYYY-MM-DD  Defaults to a DD-MM-YY / DD-MM-YYYY / YYYY-MM-DD date in the file name, else today (Asia/Bangkok)
 //   --private          Mark the card private (is_private = 1)
 //   --term N/YYYY      Defaults to CURRENT_TERM in lib/config.ts
+//   --audio <path>     Also archive this audio (<=19 MB) and attach it. Needs CLI_ADMIN_KEY (worker/.dev.vars or env)
+//                      matching the Worker secret; goes through POST /api/cli/content. Idempotent (re-runs skip).
+//   --api <url>        Worker URL override (default WORKER_URL in .dev.vars, else the production Worker)
 //
 // The row gets tags "<term>,<course code>" (code from the current-term Subjects row, if it has one).
 // Audio is not handled here: the audio archive needs the Worker's Telegram secrets, so attach the audio afterwards
@@ -104,6 +107,20 @@ if (wanted !== 'other') {
 }
 const tags = [term, code].filter(Boolean).join(',');
 
+// --- audio (optional): goes through the Worker's /api/cli/content, which holds the Telegram secrets ---
+const audioArg = opt('audio');
+let audioPath = '';
+if (audioArg) {
+  audioPath = path.resolve(audioArg);
+  if (!fs.existsSync(audioPath)) fail(`audio file not found: ${audioPath}`);
+  const size = fs.statSync(audioPath).size;
+  if (size > 19 * 1024 * 1024) fail(`audio is ${(size / 1048576).toFixed(1)} MB; the archive limit is 19 MB. Compress or split it first.`);
+}
+const API_URL = opt('api') || env.WORKER_URL || 'https://kanban-worker.sealseapep.workers.dev';
+const CLI_KEY = process.env.CLI_ADMIN_KEY || env.CLI_ADMIN_KEY || '';
+// Deterministic key => re-running the same pair never creates a duplicate card.
+const key = crypto.createHash('sha256').update([audioArg ? path.basename(audioPath) : '', date, subject, title].join('\n')).digest('hex').slice(0, 32);
+
 const row = [
   `LC-${crypto.randomUUID()}`, date, subject, title, markdown,
   '', '', '', '', flag('private') ? '1' : '',
@@ -118,8 +135,26 @@ console.log(`title:   ${title}`);
 console.log(`tags:    ${tags}`);
 console.log(`private: ${row[9] ? 'yes' : 'no'}`);
 console.log(`length:  ${markdown.length} chars, ${markdown.split('\n').length} lines`);
+if (audioPath) console.log(`audio:   ${path.basename(audioPath)} (${(fs.statSync(audioPath).size / 1048576).toFixed(1)} MB) -> via ${API_URL}`);
 
 if (!APPLY) { console.log('\nRe-run with --apply to append this card.'); process.exit(0); }
+
+if (audioPath) {
+  if (!CLI_KEY) fail('CLI_ADMIN_KEY is missing: add it to worker/.dev.vars (same value as the Worker secret) or set the env var.');
+  const form = new FormData();
+  form.append('key', key);
+  form.append('date', date);
+  form.append('subject', subject);
+  form.append('title', title);
+  form.append('description', markdown);
+  form.append('is_private', flag('private') ? '1' : '');
+  form.append('audio', new Blob([fs.readFileSync(audioPath)]), path.basename(audioPath));
+  const r = await fetch(`${API_URL}/api/cli/content`, { method: 'POST', headers: { 'X-CLI-Key': CLI_KEY }, body: form });
+  const out = await r.json().catch(() => ({}));
+  if (!r.ok || !out.success) fail(`Worker import failed: ${r.status} ${out.error || ''}`);
+  console.log(`\n${out.existed ? 'Already imported (skipped)' : 'Imported with audio'}: ${out.id}`);
+  process.exit(0);
+}
 
 // RAW + anchored to column A, same as the Worker's addLearningContent (keeps "1/2569" and dates as text).
 const res = await fetch(`${base}/values/${encodeURIComponent('LearningContent!A:A')}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, {

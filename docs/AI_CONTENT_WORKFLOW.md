@@ -20,7 +20,13 @@ Use this when you hand the AI an audio file and its transcript and want a finish
    ```
 
    Add `--date YYYY-MM-DD` to override the date and `--private` for a private card. A cell holds at most 50,000 characters; longer lessons must be split into numbered cards in time order.
-5. **Audio** – attach the audio in the app afterwards (Admin → Content Archive → edit the card). The audio archive uses the Worker's Telegram secrets, which the script does not have.
+5. **Audio** – add `--audio <file>` (≤ 19 MB; compress first) to archive the audio and attach it in the same step:
+
+   ```powershell
+   node worker/scripts/add-content.mjs --file lesson.md --audio lesson.m4a --subject Physic --apply
+   ```
+
+   The script posts to the Worker's `POST /api/cli/content` (header `X-CLI-Key`), which holds the Telegram secrets, archives the audio and appends the card. It is idempotent: re-running the same audio/date/subject/title is skipped, so a batch can be safely resumed. One-time setup: pick a random string ≥ 32 chars, `cd worker; npx wrangler secret put CLI_ADMIN_KEY`, and put the same value as `CLI_ADMIN_KEY=` in `worker/.dev.vars` (git-ignored). Without `--audio`, attach the audio later in the app (Admin → Content Archive → edit the card).
 6. **Publish** – the card shows up in the app within 10 minutes (the Worker syncs the D1 copy on a cron tick), or at once via Admin → Dashboard → Sync Fast Cache.
 
 The in-app route (Admin → Content Archive → "AI ถอดเสียง & สร้าง Content") does all of this in one go with Gemini, including the audio upload; see [AUDIO_TRANSCRIPTION.md](AUDIO_TRANSCRIPTION.md).

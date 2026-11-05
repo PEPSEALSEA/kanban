@@ -22,6 +22,7 @@ type Bindings = {
   GEMINI_MODEL?: string;
   TELEGRAM_BOT_TOKEN?: string;
   TELEGRAM_CHAT_ID?: string;
+  CLI_ADMIN_KEY?: string;
   GOOGLE_CLIENT_ID: string;
   DISCORD_CLIENT_ID?: string;
   DISCORD_BOT_TOKEN?: string;
@@ -2955,6 +2956,87 @@ app.post('/api/admin/audio/save', async c => {
   }
 });
 app.route('/api/admin/audio', audioTranscriptionRoutes());
+
+// --- CLI content import (worker/scripts/add-content.mjs --audio ...) -------------------------------
+// Header-key auth (secret CLI_ADMIN_KEY) instead of a Google login, so a local script can archive the
+// audio to Telegram and append the LearningContent card in one call. Idempotent per `key`.
+const CLI_AUDIO_MAX_BYTES = 19 * 1024 * 1024;
+const CLI_AUDIO_MIME: Record<string, string> = {
+  mp3: 'audio/mpeg', m4a: 'audio/mp4', wav: 'audio/wav', aac: 'audio/aac', ogg: 'audio/ogg',
+  flac: 'audio/flac', aiff: 'audio/aiff', aif: 'audio/aiff', webm: 'audio/webm',
+};
+
+async function cliKeyMatches(provided: string, expected: string): Promise<boolean> {
+  const enc = new TextEncoder();
+  const [a, b] = await Promise.all([
+    crypto.subtle.digest('SHA-256', enc.encode(provided)),
+    crypto.subtle.digest('SHA-256', enc.encode(expected)),
+  ]);
+  const x = new Uint8Array(a);
+  const y = new Uint8Array(b);
+  let diff = 0;
+  for (let i = 0; i < x.length; i++) diff |= x[i] ^ y[i];
+  return diff === 0;
+}
+
+app.use('/api/cli/content', bodyLimit({ maxSize: CLI_AUDIO_MAX_BYTES + 512 * 1024, onError: c => c.json({ success: false, error: 'request too large (audio max 19 MB)' }, 413) }));
+app.post('/api/cli/content', async c => {
+  const expected = c.env.CLI_ADMIN_KEY;
+  if (!expected || expected.length < 32) return c.json({ success: false, error: 'CLI import is not configured' }, 503);
+  if (!(await cliKeyMatches(c.req.header('x-cli-key') || '', expected))) return c.json({ success: false, error: 'unauthorized' }, 401);
+  try {
+    const form = await c.req.formData();
+    const field = (name: string) => {
+      const v = form.get(name);
+      return typeof v === 'string' ? v : '';
+    };
+    const key = field('key');
+    const date = field('date');
+    const subject = field('subject').trim();
+    const title = field('title').trim();
+    const description = field('description');
+    if (!/^[a-f0-9]{16,64}$/.test(key)) return c.json({ success: false, error: 'invalid key' }, 400);
+    if (!validDate(date)) return c.json({ success: false, error: 'invalid date' }, 400);
+    if (!subject || subject.length > 150 || !title || title.length > 220) return c.json({ success: false, error: 'invalid subject/title' }, 400);
+    if (!description || description.length > 49000) return c.json({ success: false, error: 'description empty or over 49000 chars' }, 400);
+
+    const id = `LC-CLI-${key}`;
+    const existing = await getSheetValues(c.env, `${SHEETS.LEARNING_CONTENT}!A:A`);
+    if (existing.some((row: unknown[]) => String(row[0] || '') === id)) return c.json({ success: true, id, existed: true });
+
+    let audioFileId = '';
+    let audioUrl = '';
+    const audio = form.get('audio');
+    if (audio && typeof audio !== 'string') {
+      const filename = (audio.name || 'audio.mp3').slice(0, 180);
+      const mime = CLI_AUDIO_MIME[filename.split('.').pop()?.toLowerCase() || ''];
+      if (!mime) return c.json({ success: false, error: 'unsupported audio type' }, 400);
+      if (!audio.size || audio.size > CLI_AUDIO_MAX_BYTES) return c.json({ success: false, error: 'audio empty or over 19 MB' }, 413);
+      if (!c.env.TELEGRAM_BOT_TOKEN || !c.env.TELEGRAM_CHAT_ID) return c.json({ success: false, error: 'Telegram is not configured' }, 503);
+      const tg = new FormData();
+      tg.append('chat_id', c.env.TELEGRAM_CHAT_ID);
+      tg.append('document', audio.slice(0, audio.size, mime), filename);
+      const res = await fetch(`https://api.telegram.org/bot${c.env.TELEGRAM_BOT_TOKEN}/sendDocument`, { method: 'POST', body: tg, signal: AbortSignal.timeout(120000) });
+      const data = await res.json() as { ok?: boolean; result?: { document?: { file_id?: string } } };
+      const fileId = data.result?.document?.file_id;
+      if (!res.ok || !data.ok || !fileId) return c.json({ success: false, error: 'audio archive failed' }, 502);
+      audioFileId = fileId;
+      audioUrl = `${new URL(c.req.url).origin}/api/file-download?fileId=${encodeURIComponent(fileId)}#${encodeURIComponent(filename)}#${fileId}`;
+    }
+
+    await addLearningContent(c.env, {
+      date, subject, title, description,
+      audio_file_id: audioFileId, audio_url: audioUrl,
+      is_private: field('is_private') === '1' ? '1' : '',
+    }, id);
+    await markLearningContentFastReadStale(c.env);
+    c.executionCtx.waitUntil(syncLearningContentToFastRead(c.env).catch(e => recordFastReadSyncError(c.env, 'learning_content', e)));
+    return c.json({ success: true, id, existed: false, audio: Boolean(audioFileId) });
+  } catch (error) {
+    console.error('cli content import failed', error);
+    return c.json({ success: false, error: 'import failed' }, 502);
+  }
+});
 
 app.post('/api/chat', async (c) => {
   try {
