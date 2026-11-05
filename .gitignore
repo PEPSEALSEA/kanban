@@ -41,6 +41,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# local upload queue (SQLite, lesson drafts + job state)
+content-queue/
+
 # design reference (local only)
 Linear-design-analysis.md
 

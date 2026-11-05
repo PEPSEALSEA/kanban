@@ -61,7 +61,9 @@ cd worker; npx wrangler deploy
 
 When the user sends audio file(s) and/or transcript text file(s) and wants them on Learning Content (e.g. "อัปเดตขึ้น learning content", or just drops both), follow **`docs/AI_CONTENT_WORKFLOW.md`** steps A–F without being told each step:
 
-A. Pair audio + transcript (they can arrive in separate messages; wait until a lesson has both) → B. compress audio over 19 MiB with `scripts/audio-compress.mjs` (whole batch in one parallel run) → C. write the lesson with the teaching template (`TEACHING_PROMPT` in `shared/audioTranscript.ts`) into `content-drafts/` → D. pick subject (current term) / date / private → E. `worker/scripts/add-content.mjs --audio …` dry-run, then `--apply` (the user's request is the authorization; ask only if something is ambiguous) → F. report title, subject, date, tags, audio, card id.
+A. Pair audio + transcript (they can arrive in separate messages; wait until a lesson has both) → B. compress audio over 19 MiB with `scripts/audio-compress.mjs` (whole batch in one parallel run) → C. write the lesson with the teaching template (`TEACHING_PROMPT` in `shared/audioTranscript.ts`) into `content-drafts/` → D. pick subject (current term) / date / private → E. **queue, don't upload inline**: start `node worker/scripts/content-queue.mjs drain --watch` once in the background, then `content-queue.mjs add --file … --audio … --subject …` after each lesson so the AI never waits on Telegram (the user's request is the authorization; ask only if something is ambiguous) → F. report from `content-queue.mjs status --all`: title, subject, date, tags, audio, card id.
+
+The card id depends on audio name + date + subject + title; changing any of them (or dropping `--audio`) makes a new card on upload, so never test the importer against production with different arguments (use `--db <temp>` / `drain --dry-run`).
 
 Never print `CLI_ADMIN_KEY` or other secrets.
 

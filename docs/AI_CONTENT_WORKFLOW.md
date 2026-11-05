@@ -42,23 +42,49 @@ Save the Markdown as `content-drafts/<name>.md` (that folder is git-ignored).
 - **Private**: no, unless the user said so.
 - **Tags** `<term>,<course code>` are added automatically.
 
-## E. Publish
+## E. Queue, then upload in a separate process
 
-For each lesson, dry-run first, check the printed row, then apply:
+Summarising (C) is fast; archiving the audio on Telegram and writing the Sheet row is slow and can fail or be rate limited. They run as **two independent processes** joined by a local SQLite queue (`content-queue/queue.db`, git-ignored), so the AI never waits on an upload.
+
+**1. Start the uploader once, at the beginning of the batch, in the background** (use the Bash/PowerShell tool's `run_in_background`). It uploads whatever is in the queue, one job at a time, retries network / 429 / 5xx errors with backoff, and exits by itself after 5 minutes with nothing left to do:
 
 ```powershell
-node worker/scripts/add-content.mjs --file content-drafts/x.md --audio compressed/x.m4a --subject Physic            # dry-run
-node worker/scripts/add-content.mjs --file content-drafts/x.md --audio compressed/x.m4a --subject Physic --apply    # writes
+node worker/scripts/content-queue.mjs drain --watch
 ```
 
-- `--audio` archives the audio and creates the card in one step through the Worker (`POST /api/cli/content`, key `CLI_ADMIN_KEY` in `worker/.dev.vars`). It is idempotent: re-running the same audio/date/subject/title is skipped, so an interrupted batch can simply be run again.
-- The user's request to update Learning Content is the authorization to `--apply`. Stop and ask only when something is ambiguous (unknown subject, unclear pairing, a duplicate was skipped, content over 50,000 characters, an error).
+**2. After each lesson is written (step C), enqueue it.** This is local only and returns at once, so move straight on to the next lesson:
+
+```powershell
+node worker/scripts/content-queue.mjs add --file content-drafts/x.md --audio compressed/x.m4a --subject Physic --date 2026-11-05
+```
+
+`add` checks everything that can be checked offline: first line `# title`, length, `[mm:ss]`, date, audio exists and is within 19 MiB, subject is a current-term subject (cached 12 h, so it is not a network wait). A bad lesson is rejected here, while the AI still has the context to fix it. The job stores a copy of the text; the audio is referenced by path, so do not delete or move the audio until the job is `done`.
+
+**3. When the last lesson is enqueued**, check with `status` (or wait for the uploader to finish). If it exited, `status` shows what is left; start `drain` again (without `--watch` it just drains and exits).
+
+```powershell
+node worker/scripts/content-queue.mjs status            # pending / uploading / failed jobs
+node worker/scripts/content-queue.mjs status --all      # also the finished ones with their card ids
+node worker/scripts/content-queue.mjs drain --dry-run   # list what would upload, writes nothing
+node worker/scripts/content-queue.mjs retry --all       # failed -> pending, after fixing the cause
+node worker/scripts/content-queue.mjs remove <id>       # drop a pending/failed job
+```
+
+- Uploads go through the Worker (`POST /api/cli/content`, key `CLI_ADMIN_KEY` in `worker/.dev.vars`). The card id is derived from audio file name + date + subject + title, so re-running, a crash mid-upload, or a second `add` of the same lesson never makes a duplicate card. A 401/503 (wrong key / Worker not configured) stops the drain with the jobs left pending.
+- Only one `drain` runs at a time. If a `--watch` drain is already running, just `add`; it picks the new jobs up.
+- **Careful:** the card id changes if the audio name, date, subject or title change (even adding or dropping `--audio`), and that makes a **new** card on upload. Never "test" a queue or import against production with different arguments than the real ones; use `--db <temp file>` and `drain --dry-run`.
+- The user's request to update Learning Content is the authorization to enqueue and drain. Stop and ask only when something is ambiguous (unknown subject, unclear pairing, content over 50,000 characters, a job that keeps failing).
 - Without `--audio` the card is text-only; the audio can be attached later in Admin → Content Archive.
+- One-off single card, no queue: `node worker/scripts/add-content.mjs --file … --audio … --subject … [--apply]` (dry-run by default; `--replace-audio` swaps the audio of an already imported card).
 - Never print or paste `CLI_ADMIN_KEY` or other secrets.
+
+### Speeding up C for large batches
+
+The queue removes the upload wait. To also cut the summarising time, lessons are independent, so several can be written in parallel (one subagent per lesson or small group, each ending with its own `add`). Keep the transcript → lesson rules above identical for every subagent.
 
 ## F. Report
 
-For each lesson give: title, subject, date, tags, audio attached (yes/no), card id. For a batch, a short table; one failure must not stop the rest, list failures at the end. Remind that the card appears in the app within 10 minutes (the Worker syncs on a cron tick) or at once via Admin → Dashboard → Sync Fast Cache.
+Use `status --all` for the real state, not memory. For each lesson give: title, subject, date, tags, audio attached (yes/no), card id. For a batch, a short table; one failure must not stop the rest, list failures (with `last_error`) at the end. Remind that the card appears in the app within 10 minutes (the Worker syncs on a cron tick) or at once via Admin → Dashboard → Sync Fast Cache.
 
 ---
 
