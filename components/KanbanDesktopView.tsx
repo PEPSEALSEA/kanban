@@ -3,6 +3,7 @@
 import React, { useMemo } from 'react';
 import { Homework, UserInfo, ProgressItem } from '@/types';
 import { IconKanban, IconCalendar, IconTimeline, IconFlame, IconShell, IconCheck, IconChevronLeft, IconChevronRight } from '@/components/icons';
+import { readableTextColor } from '@/lib/colors';
 
 interface Props {
   user: UserInfo | null;
@@ -130,7 +131,7 @@ export function KanbanDesktopView({
                       <div key={hw.id} className="card glass" onClick={() => setActiveHomework(hw)} style={{ opacity: isDone ? 0.5 : 1, borderLeft: `6px solid ${isDone ? '#10b981' : getSubjectColor(hw.subject)}`, padding: '1.25rem', cursor: 'pointer' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                           <div>
-                            <span style={{ fontSize: '0.7rem', fontWeight: 800, color: getSubjectColor(hw.subject), textTransform: 'uppercase' }}>{hw.subject}</span>
+                            <span style={{ fontSize: '0.7rem', fontWeight: 800, color: readableTextColor(getSubjectColor(hw.subject)), textTransform: 'uppercase' }}>{hw.subject}</span>
                             <h4 style={{ margin: '4px 0', textDecoration: isDone ? 'line-through' : 'none' }}>{hw.title}</h4>
                           </div>
                           {user && (
@@ -284,7 +285,7 @@ export function KanbanDesktopView({
                                   borderLeft: `6px solid ${isDone ? '#10b981' : getSubjectColor(task.subject)}`,
                                 }}
                               >
-                                <div className="timeline-card-v-subject" style={{ color: getSubjectColor(task.subject) }}>
+                                <div className="timeline-card-v-subject" style={{ color: readableTextColor(getSubjectColor(task.subject)) }}>
                                   {task.subject}
                                 </div>
                                 <div className="timeline-card-v-title" style={{ textDecoration: isDone ? 'line-through' : 'none' }}>

@@ -15,7 +15,7 @@ const GAS_WEB_APP_URL = API_URL;
 const UPLOAD_WEB_APP_URL = UPLOAD_SERVICE_URL;
 import { isAdminEmail } from '@/lib/admin';
 import { formatThaiRelativeDayLabel } from '@/lib/thaiDate';
-import { subjectBadgeStyle } from '@/lib/colors';
+import { readableTextColor, subjectBadgeStyle } from '@/lib/colors';
 import TagBadges from '@/components/TagBadges';
 import {
   IconCalendar,
@@ -821,7 +821,7 @@ export default function StudyFlow() {
                                 whileTap={{ scale: 0.98 }}
                                 transition={{ duration: 0.2 }}
                               >
-                                <div className="text-[10px] font-bold uppercase mb-1" style={{ color: subColor }}>
+                                <div className="text-[10px] font-bold uppercase mb-1" style={{ color: readableTextColor(subColor) }}>
                                   {task.subject}
                                 </div>
                                 <TagBadges tags={task.tags} className="mb-1" />
