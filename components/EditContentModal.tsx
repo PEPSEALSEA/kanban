@@ -5,6 +5,7 @@ import { uploadToTelegramDirect } from '@/lib/telegram';
 import { compressAudioIfNeeded } from '@/lib/audio-compressor';
 import { useDeviceDetection } from '@/hooks/useDeviceDetection';
 import { useData } from '@/components/DataProvider';
+import { currentTermSubjects } from '@/lib/terms';
 import AttachmentFileInput from '@/components/AttachmentFileInput';
 
 import { API_URL, UPLOAD_SERVICE_URL } from '@/lib/config';
@@ -31,6 +32,11 @@ export default function EditContentModal({
   onRefresh: () => void | Promise<void>; 
 }) {
   const { subjects } = useData();
+  const ownSubject = subjects.find(s => s.name.trim().toLowerCase() === (content.subject || '').trim().toLowerCase());
+  const termSubjects = currentTermSubjects(subjects);
+  const subjectChoices = ownSubject && !termSubjects.some(s => s.name.trim().toLowerCase() === ownSubject.name.trim().toLowerCase())
+    ? [...termSubjects, ownSubject]
+    : termSubjects;
   const parseItems = (str: string | undefined): string[] => {
     if (!str) return [];
     return str.split(',').filter(Boolean);
@@ -252,7 +258,7 @@ export default function EditContentModal({
                 onChange={e => setFormData({ ...formData, subject: e.target.value })}
                 style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid var(--admin-border)', outline: 'none' }}
               >
-                {subjects.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                {subjectChoices.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
                 <option value="Other">Other</option>
               </select>
               {formData.subject === 'Other' && (

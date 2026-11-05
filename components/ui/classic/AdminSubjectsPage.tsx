@@ -5,11 +5,18 @@ import { useData, GAS_WEB_APP_URL } from '@/components/DataProvider';
 import { authHeaders } from '@/lib/auth';
 import { useDeviceDetection } from '@/hooks/useDeviceDetection';
 import { IconSparkles, IconX } from '@/components/icons';
+import { CURRENT_TERM } from '@/lib/config';
+import { listTerms, subjectTerm } from '@/lib/terms';
 
 export default function SubjectManagement() {
   const { subjects, refreshData } = useData();
   const { isMobile } = useDeviceDetection();
   const [newSubject, setNewSubject] = useState('');
+  const [newCode, setNewCode] = useState('');
+  const [newTerm, setNewTerm] = useState(CURRENT_TERM);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTerm, setEditTerm] = useState('');
+  const [editCode, setEditCode] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -32,16 +39,46 @@ export default function SubjectManagement() {
       const res = await fetch(GAS_WEB_APP_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({ action: 'addSubject', name: newSubject.trim(), color })
+        body: JSON.stringify({ action: 'addSubject', name: newSubject.trim(), color, term: newTerm.trim() || CURRENT_TERM, code: newCode.trim() })
       });
       if (res.ok) {
         setNewSubject('');
+        setNewCode('');
         await refreshData();
       }
     } catch (err) {
       console.error(err);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const terms = useMemo(() => listTerms(subjects), [subjects]);
+  const groups = useMemo(
+    () => terms.map((term) => ({ term, items: subjects.filter((sub) => subjectTerm(sub) === term) })).filter((g) => g.items.length > 0),
+    [terms, subjects],
+  );
+
+  const startEdit = (sub: { id: string; term?: string; code?: string }) => {
+    setEditingId(sub.id);
+    setEditTerm((sub.term || '').trim() || CURRENT_TERM);
+    setEditCode((sub.code || '').trim());
+  };
+
+  const saveEdit = async () => {
+    if (!editingId) return;
+    try {
+      const res = await fetch(GAS_WEB_APP_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ action: 'updateSubject', id: editingId, term: editTerm.trim(), code: editCode.trim() })
+      });
+      if (res.ok) {
+        setEditingId(null);
+        await refreshData();
+      }
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -87,6 +124,28 @@ export default function SubjectManagement() {
                 style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid var(--admin-border)', outline: 'none' }}
               />
             </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.4rem', color: 'var(--admin-text-muted)' }}>Term</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 2/2569"
+                  value={newTerm}
+                  onChange={(e) => setNewTerm(e.target.value)}
+                  style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid var(--admin-border)', outline: 'none' }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.4rem', color: 'var(--admin-text-muted)' }}>Course code</label>
+                <input
+                  type="text"
+                  placeholder="e.g. ว30206"
+                  value={newCode}
+                  onChange={(e) => setNewCode(e.target.value)}
+                  style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid var(--admin-border)', outline: 'none' }}
+                />
+              </div>
+            </div>
             <p style={{ fontSize: '0.75rem', color: 'var(--admin-text-muted)', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
               <IconSparkles className="w-4 h-4" /> A vibrant color will be auto-generated for this subject.
             </p>
@@ -106,25 +165,47 @@ export default function SubjectManagement() {
         {/* List Section */}
         <div className="admin-card">
           <h2 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.5rem', color: 'var(--admin-text-main)' }}>Current Subjects</h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            {subjects.map((sub) => (
-              <div key={sub.id} style={{ 
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
-                padding: '0.75rem', borderRadius: '0.5rem', background: 'var(--admin-bg-soft)',
-                border: '1px solid var(--admin-border)'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                  <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: sub.color }}></div>
-                  <span style={{ fontWeight: 600, color: 'var(--admin-text-main)' }}>{sub.name}</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            {groups.map(({ term, items }) => (
+              <div key={term} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div style={{ fontSize: '0.75rem', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: term === CURRENT_TERM ? 'var(--admin-primary)' : 'var(--admin-text-muted)' }}>
+                  {term === CURRENT_TERM ? `เทอมปัจจุบัน ${term}` : `เทอมก่อนหน้า ${term}`}
                 </div>
-                <button 
-                  onClick={() => handleDeleteSubject(sub.id)}
-                  disabled={deletingId === sub.id}
-                  style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }}
-                  title="Delete Subject"
-                >
-                  {deletingId === sub.id ? '...' : <IconX className="w-4 h-4" />}
-                </button>
+                {items.map((sub) => (
+                  <div key={sub.id} style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem',
+                    padding: '0.75rem', borderRadius: '0.5rem', background: 'var(--admin-bg-soft)',
+                    border: '1px solid var(--admin-border)', opacity: term === CURRENT_TERM ? 1 : 0.75
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', minWidth: 0 }}>
+                      <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: sub.color, flexShrink: 0 }}></div>
+                      <span style={{ fontWeight: 600, color: 'var(--admin-text-main)' }}>{sub.name}</span>
+                      {editingId !== sub.id && sub.code && (
+                        <span style={{ fontSize: '0.7rem', fontWeight: 700, padding: '2px 6px', borderRadius: '6px', background: 'var(--admin-bg)', border: '1px solid var(--admin-border)', color: 'var(--admin-text-muted)' }}>{sub.code}</span>
+                      )}
+                    </div>
+                    {editingId === sub.id ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <input value={editTerm} onChange={(e) => setEditTerm(e.target.value)} placeholder="2/2569" style={{ width: '5.5rem', padding: '0.35rem', borderRadius: '0.4rem', border: '1px solid var(--admin-border)' }} />
+                        <input value={editCode} onChange={(e) => setEditCode(e.target.value)} placeholder="code" style={{ width: '5.5rem', padding: '0.35rem', borderRadius: '0.4rem', border: '1px solid var(--admin-border)' }} />
+                        <button onClick={saveEdit} style={{ background: 'var(--admin-primary)', color: 'white', border: 'none', borderRadius: '0.4rem', padding: '0.35rem 0.6rem', fontWeight: 700, cursor: 'pointer' }}>Save</button>
+                        <button onClick={() => setEditingId(null)} style={{ background: 'none', border: 'none', color: 'var(--admin-text-muted)', cursor: 'pointer' }}>Cancel</button>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <button onClick={() => startEdit(sub)} style={{ background: 'none', border: 'none', color: 'var(--admin-primary)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 }}>Edit</button>
+                        <button
+                          onClick={() => handleDeleteSubject(sub.id)}
+                          disabled={deletingId === sub.id}
+                          style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }}
+                          title="Delete Subject"
+                        >
+                          {deletingId === sub.id ? '...' : <IconX className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
             ))}
             {subjects.length === 0 && (

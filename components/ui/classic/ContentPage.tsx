@@ -14,7 +14,9 @@ import { parseAudioItems } from '@/lib/audioItems';
 import { getContentTxtUrl } from '@/lib/contentJsonUrl';
 import { parseContentDescription } from '@/lib/parseContentDescription';
 import { subjectBadgeStyle } from '@/lib/colors';
-import { API_URL } from '@/lib/config';
+import { API_URL, CURRENT_TERM } from '@/lib/config';
+import { itemInTerm, listTerms, parseTags, subjectsForTerm } from '@/lib/terms';
+import TagBadges from '@/components/TagBadges';
 import { authHeaders } from '@/lib/auth';
 import { buildZipStore, downloadBlob } from '@/lib/zipStore';
 import { IconSearch, IconBooks, IconX, IconAlert, IconChevronLeft, IconChevronRight } from '@/components/icons';
@@ -55,6 +57,7 @@ type LearningContent = {
   has_audio?: string;
   attachments: string;
   links: string;
+  tags?: string;
 };
 
 export default function LearningContentPage() {
@@ -73,6 +76,7 @@ export default function LearningContentPage() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSubject, setSelectedSubject] = useState('All');
+  const [selectedTerm, setSelectedTerm] = useState(CURRENT_TERM);
   const [mounted, setMounted] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [copiedAiLink, setCopiedAiLink] = useState(false);
@@ -232,6 +236,9 @@ export default function LearningContentPage() {
     return map;
   }, [subjects]);
 
+  const termOptions = useMemo(() => listTerms(subjects, archiveContent), [subjects, archiveContent]);
+  const subjectOptions = useMemo(() => subjectsForTerm(subjects, selectedTerm), [subjects, selectedTerm]);
+
   const searchResults = useMemo(() => {
     if (!searchTerm.trim() && selectedSubject === 'All') return [];
 
@@ -247,9 +254,11 @@ export default function LearningContentPage() {
         c.title.toLowerCase().includes(term) || 
         c.subject.toLowerCase().includes(term) || 
         c.id.toLowerCase().includes(term) ||
-        c.description.toLowerCase().includes(term);
+        c.description.toLowerCase().includes(term) ||
+        parseTags(c.tags).some((tag) => tag.toLowerCase().includes(term));
         
-      const matchesSubject = selectedSubject === 'All' || c.subject.trim() === selectedSubject.trim();
+      const matchesSubject = selectedSubject === 'All' ||
+        (c.subject.trim() === selectedSubject.trim() && itemInTerm(c, selectedTerm));
       
       return matchesSearch && matchesSubject;
     }).sort((a, b) => {
@@ -263,7 +272,7 @@ export default function LearningContentPage() {
 
       return String(a.id).localeCompare(String(b.id), undefined, { numeric: true });
     });
-  }, [archiveContent, subjectCache, searchTerm, selectedSubject]);
+  }, [archiveContent, subjectCache, searchTerm, selectedSubject, selectedTerm]);
 
   const memoizedAttachments = useMemo(() => {
     if (!activeContent) return [];
@@ -622,6 +631,7 @@ export default function LearningContentPage() {
                 <span className="text-xs font-semibold uppercase tracking-widest text-slate-400">
                   {mounted && new Date(activeContent.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}
                 </span>
+                <TagBadges tags={activeContent.tags} />
               </div>
 
               <h1 className="text-3xl md:text-4xl font-bold mb-12 tracking-tight text-slate-800 leading-tight">
@@ -744,13 +754,32 @@ export default function LearningContentPage() {
 
               <div className="bg-white/60 backdrop-blur-md border border-slate-200/80 p-4 rounded-2xl shadow-sm flex items-center gap-4 min-w-[240px]">
                 <IconBooks className="w-5 h-5 text-slate-400 shrink-0" />
+                {termOptions.length > 1 && (
+                  <select
+                    value={selectedTerm}
+                    onChange={(e) => {
+                      const nextTerm = e.target.value;
+                      setSelectedTerm(nextTerm);
+                      const stillListed = subjectsForTerm(subjects, nextTerm)
+                        .some((s) => s.name.trim() === selectedSubject.trim());
+                      if (!stillListed) setSelectedSubject('All');
+                    }}
+                    className="bg-transparent border-none outline-none text-slate-500 font-bold text-sm cursor-pointer"
+                    aria-label="Term"
+                  >
+                    {termOptions.map((t) => (
+                      <option key={t} value={t}>{t === CURRENT_TERM ? `${t} (ปัจจุบัน)` : t}</option>
+                    ))}
+                    <option value="All">All terms</option>
+                  </select>
+                )}
                 <select
                   value={selectedSubject}
                   onChange={(e) => setSelectedSubject(e.target.value)}
                   className="flex-1 bg-transparent border-none outline-none text-slate-700 font-bold text-md cursor-pointer"
                 >
                   <option value="All">All Subjects</option>
-                  {subjects.map(s => (
+                  {subjectOptions.map(s => (
                     <option key={s.id} value={s.name}>{s.name.toUpperCase()}</option>
                   ))}
                 </select>
@@ -889,6 +918,7 @@ export default function LearningContentPage() {
                             <div className="flex flex-wrap gap-2 items-center mb-1.5">
                               <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md shrink-0">{c.id}</span>
                               <span className="text-[10px] font-bold uppercase tracking-wider shrink-0" style={{ color: dynamicSubjectColors[c.subject] || dynamicSubjectColors['Other'] }}>{c.subject}</span>
+                              <TagBadges tags={c.tags} />
                             </div>
                             <div className="text-base md:text-lg font-semibold text-slate-800 leading-snug">{c.title}</div>
                             <div className="text-[11px] font-medium text-slate-400 mt-1.5">{new Date(c.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}</div>

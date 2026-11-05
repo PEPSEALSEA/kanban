@@ -1,0 +1,1 @@
+ALTER TABLE learning_content ADD COLUMN tags TEXT NOT NULL DEFAULT '';

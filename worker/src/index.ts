@@ -343,12 +343,16 @@ const SHEETS = {
   AI_CHAT_LOGS: "AiChatLogs",
 };
 
+// Current school term (ภาคเรียน/ปีการศึกษา). Keep in sync with CURRENT_TERM in lib/config.ts.
+// See docs/TERM_ROLLOVER.md for the steps to start a new term.
+const CURRENT_TERM = "2/2569";
+
 const EXPECTED_HEADERS = {
-  [SHEETS.HOMEWORK]: ["id", "subject", "title", "description", "deadline", "link_work", "link_image", "note", "created_at"],
+  [SHEETS.HOMEWORK]: ["id", "subject", "title", "description", "deadline", "link_work", "link_image", "note", "created_at", "tags"],
   [SHEETS.USERS]: ["email", "name", "picture", "created_at"],
   [SHEETS.PROGRESS]: ["email", "homework_id", "status", "image_url", "updated_at"],
-  [SHEETS.LEARNING_CONTENT]: ["id", "date", "subject", "title", "description", "audio_file_id", "audio_url", "attachments", "links", "is_private", "created_at"],
-  [SHEETS.SUBJECTS]: ["id", "name", "color", "created_at"],
+  [SHEETS.LEARNING_CONTENT]: ["id", "date", "subject", "title", "description", "audio_file_id", "audio_url", "attachments", "links", "is_private", "created_at", "tags"],
+  [SHEETS.SUBJECTS]: ["id", "name", "color", "created_at", "term", "code"],
   [SHEETS.COMMENTS]: ["homework_id", "owner_email", "commenter_email", "text", "created_at"],
   [SHEETS.URLS]: ["id", "filename", "contentType", "url", "created_at", "uploader", "fileId"],
   [SHEETS.ANALYTICS]: ["id", "event_type", "device_name", "browser", "ip_address", "email", "created_at", "page_visited", "content_id", "fingerprint", "session_id", "metadata", "visitor_id"],
@@ -378,6 +382,7 @@ const FAST_READ_DISABLED_KEY = `${CACHE_PREFIX}fastRead:disabled`;
 const FAST_READ_DISABLE_TTL_SECONDS = 8 * 60 * 60;
 const FAST_READ_LIMIT_RESET_BUFFER_SECONDS = 10 * 60;
 const LEARNING_CONTENT_HEADERS = EXPECTED_HEADERS[SHEETS.LEARNING_CONTENT];
+const LEARNING_CONTENT_END_COL = String.fromCharCode(64 + LEARNING_CONTENT_HEADERS.length);
 
 
 // --- AUTH & API HELPERS ---
@@ -1429,8 +1434,9 @@ async function askGeminiWithContext(
 // --- CORE DATA GETTERS ---
 
 async function getHomeworkList(env: Bindings) {
-  const rows = await getSheetValues(env, `${SHEETS.HOMEWORK}!A2:I`);
-  return toObjects(rows, ["id", "subject", "title", "description", "deadline", "link_work", "link_image", "note", "created_at"]);
+  const headers = EXPECTED_HEADERS[SHEETS.HOMEWORK];
+  const rows = await getSheetValues(env, `${SHEETS.HOMEWORK}!A2:${columnLetter(headers.length)}`);
+  return toObjects(rows, headers);
 }
 
 async function getUserList(env: Bindings) {
@@ -1475,11 +1481,11 @@ async function getLearningContent(
     const rowIndex = await findRowIndexById(env, SHEETS.LEARNING_CONTENT, String(id));
     if (rowIndex < 0) return [];
     const rowNum = rowIndex + 1;
-    const rows = await getSheetValues(env, `${SHEETS.LEARNING_CONTENT}!A${rowNum}:K${rowNum}`);
+    const rows = await getSheetValues(env, `${SHEETS.LEARNING_CONTENT}!A${rowNum}:${LEARNING_CONTENT_END_COL}${rowNum}`);
     return toObjects(rows, headers).filter((item: any) => String(item.id) === String(id));
   }
 
-  const rows = await getSheetValues(env, `${SHEETS.LEARNING_CONTENT}!A2:K`);
+  const rows = await getSheetValues(env, `${SHEETS.LEARNING_CONTENT}!A2:${LEARNING_CONTENT_END_COL}`);
   const data = toObjects(rows, headers);
   if (month) {
     const match = String(month).match(/^(\d{4})-(\d{1,2})$/);
@@ -1525,7 +1531,8 @@ async function ensureFastReadSchema(env: Bindings) {
         is_private TEXT NOT NULL DEFAULT '',
         created_at TEXT NOT NULL DEFAULT '',
         updated_at TEXT NOT NULL DEFAULT '',
-        content_hash TEXT NOT NULL DEFAULT ''
+        content_hash TEXT NOT NULL DEFAULT '',
+        tags TEXT NOT NULL DEFAULT ''
       )
     `),
     env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_learning_content_date ON learning_content(date)`),
@@ -1623,7 +1630,7 @@ async function syncLearningContentToFastRead(env: Bindings, options: { force?: b
     };
   }
 
-  const rows = await getSheetValues(env, `${SHEETS.LEARNING_CONTENT}!A2:K`);
+  const rows = await getSheetValues(env, `${SHEETS.LEARNING_CONTENT}!A2:${LEARNING_CONTENT_END_COL}`);
   const items = toObjects(rows, LEARNING_CONTENT_HEADERS)
     .filter((item: any) => String(item.id || "").trim());
   const hashedItems = items.map((item: any) => ({
@@ -1635,10 +1642,11 @@ async function syncLearningContentToFastRead(env: Bindings, options: { force?: b
   const upsertSql = `
     INSERT INTO learning_content (
       id, date, subject, title, description, audio_file_id, audio_url,
-      attachments, links, is_private, created_at, updated_at, content_hash
+      attachments, links, is_private, created_at, updated_at, content_hash, tags
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
+      tags = excluded.tags,
       date = excluded.date,
       subject = excluded.subject,
       title = excluded.title,
@@ -1673,7 +1681,8 @@ async function syncLearningContentToFastRead(env: Bindings, options: { force?: b
       isSheetTruthy(item.is_private) ? "1" : "",
       String(item.created_at || ""),
       now,
-      item.content_hash
+      item.content_hash,
+      String(item.tags || "")
     )));
   }
 
@@ -1824,8 +1833,9 @@ async function getBatchData(env: Bindings, email: string) {
 }
 
 async function getSubjects(env: Bindings) {
-  const rows = await getSheetValues(env, `${SHEETS.SUBJECTS}!A2:D`);
-  return toObjects(rows, ["id", "name", "color", "created_at"]);
+  const headers = EXPECTED_HEADERS[SHEETS.SUBJECTS];
+  const rows = await getSheetValues(env, `${SHEETS.SUBJECTS}!A2:${columnLetter(headers.length)}`);
+  return toObjects(rows, headers);
 }
 
 async function getAudioPermissions(env: Bindings) {
@@ -2286,10 +2296,61 @@ async function generateDailySummary(env: Bindings, targetDate?: string, flags?: 
 
 // --- POST ACTIONS ---
 
+// --- TERM TAGS ---
+// Rows carry `tags` as a comma-separated string, e.g. "1/2569,ว30205" (term tag + course-code tag).
+
+function normalizeTags(raw: unknown): string[] {
+  const list = Array.isArray(raw) ? raw : String(raw ?? "").split(/[,\n]/);
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const item of list) {
+    const tag = String(item ?? "").trim();
+    if (!tag || seen.has(tag)) continue;
+    seen.add(tag);
+    out.push(tag);
+  }
+  return out;
+}
+
+function joinTags(raw: unknown): string {
+  return normalizeTags(raw).join(",");
+}
+
+// Sheets (USER_ENTERED) would turn a bare "1/2569" into a date; a leading apostrophe keeps it text.
+function textCell(value: string): string {
+  return value ? `'${value}` : value;
+}
+
+function normalizeSubjectKey(name: unknown): string {
+  return String(name ?? "").trim().toLowerCase();
+}
+
+// Tags for a new row: explicit tags win; otherwise current term + the course code of
+// the subject registered for the current term (if any).
+async function resolveNewRowTags(env: Bindings, subjectName: unknown, explicit: unknown): Promise<string> {
+  const explicitTags = joinTags(explicit);
+  if (explicitTags) return explicitTags;
+  const tags = [CURRENT_TERM];
+  try {
+    const key = normalizeSubjectKey(subjectName);
+    if (key) {
+      const subjects = await getSubjects(env);
+      const match = subjects.find(
+        (s: any) => normalizeSubjectKey(s.name) === key && String(s.term || "").trim() === CURRENT_TERM && String(s.code || "").trim()
+      );
+      if (match) tags.push(String(match.code).trim());
+    }
+  } catch (e) {
+    console.warn("Could not resolve subject code tag", e);
+  }
+  return joinTags(tags);
+}
+
 async function addHomework(env: Bindings, data: any) {
   const id = Date.now().toString();
-  const row = [id, data.subject || "", data.title || "", data.description || "", data.deadline || "", data.link_work || "", data.link_image || "", data.note || "", new Date().toISOString()];
-  await appendSheetRow(env, `${SHEETS.HOMEWORK}!A:I`, row);
+  const tags = await resolveNewRowTags(env, data.subject, data.tags);
+  const row = [id, data.subject || "", data.title || "", data.description || "", data.deadline || "", data.link_work || "", data.link_image || "", data.note || "", new Date().toISOString(), textCell(tags)];
+  await appendSheetRow(env, `${SHEETS.HOMEWORK}!A:${columnLetter(row.length)}`, row);
   return id;
 }
 
@@ -2299,12 +2360,17 @@ async function editHomework(env: Bindings, data: any) {
   const rowNum = rowIndex + 1;
   const row = [data.id, data.subject, data.title, data.description, data.deadline, data.link_work, data.link_image, data.note];
   await updateSheetRow(env, `${SHEETS.HOMEWORK}!A${rowNum}:H${rowNum}`, row);
+  // Only touch the tags column (J) when the caller sends tags; otherwise keep what is stored.
+  if (data.tags !== undefined) {
+    await updateSheetRow(env, `${SHEETS.HOMEWORK}!J${rowNum}`, [textCell(joinTags(data.tags))]);
+  }
   return "ok";
 }
 
 async function addLearningContent(env: Bindings, data: any, assignedId?: string) {
   const id = assignedId || "LC-" + crypto.randomUUID();
-  const row = [id, data.date || new Date().toISOString().split('T')[0], data.subject || "", data.title || "", data.description || "", data.audio_file_id || "", data.audio_url || "", data.attachments || "", data.links || "", isSheetTruthy(data.is_private) ? '1' : '', new Date().toISOString()];
+  const tags = await resolveNewRowTags(env, data.subject, data.tags);
+  const row = [id, data.date || new Date().toISOString().split('T')[0], data.subject || "", data.title || "", data.description || "", data.audio_file_id || "", data.audio_url || "", data.attachments || "", data.links || "", isSheetTruthy(data.is_private) ? '1' : '', new Date().toISOString(), tags];
   // Anchor table detection to the ID column; append is atomic across parallel requests.
   await appendSheetRow(env, `${SHEETS.LEARNING_CONTENT}!A:A`, row, true);
   return id;
@@ -2317,10 +2383,16 @@ async function editLearningContent(env: Bindings, data: any) {
   const existing = await getSheetValues(env, `${SHEETS.LEARNING_CONTENT}!A${rowNum}:Z${rowNum}`);
   const prev = existing[0] || [];
   let createdAt = '';
+  let prevTags = '';
   const idAt = prev.findIndex((c: any) => String(c || '').trim().startsWith('LC-'));
   if (idAt >= 0) {
     createdAt = String(prev[idAt + 10] || prev[10] || '');
+    prevTags = String(prev[idAt + 11] || prev[11] || '');
   }
+  // Keep stored tags unless the caller sends new ones; backfill if the row has none yet.
+  const tags = data.tags !== undefined
+    ? joinTags(data.tags)
+    : (joinTags(prevTags) || await resolveNewRowTags(env, data.subject, undefined));
   const row = [
     data.id,
     data.date,
@@ -2333,6 +2405,7 @@ async function editLearningContent(env: Bindings, data: any) {
     data.links || '',
     isSheetTruthy(data.is_private) ? '1' : '',
     createdAt,
+    textCell(tags),
   ];
   const clearWidth = 26;
   const padded = Array.from({ length: clearWidth }, (_, i) => (i < row.length ? row[i] : ''));
@@ -2410,11 +2483,24 @@ async function addComment(env: Bindings, homeworkId: string, ownerEmail: string,
   return true;
 }
 
-async function addSubject(env: Bindings, name: string, color: string) {
+async function addSubject(env: Bindings, name: string, color: string, term?: string, code?: string) {
   if (!name) throw new Error("Name is required");
   const id = Date.now().toString() + Math.floor(Math.random() * 1000);
-  await appendSheetRow(env, `${SHEETS.SUBJECTS}!A:D`, [id, name, color || "#6366f1", new Date().toISOString()]);
+  const row = [id, name, color || "#6366f1", new Date().toISOString(), textCell(String(term || CURRENT_TERM).trim()), String(code || "").trim()];
+  await appendSheetRow(env, `${SHEETS.SUBJECTS}!A:${columnLetter(row.length)}`, row);
   return id;
+}
+
+async function updateSubject(env: Bindings, data: any) {
+  const rowIndex = await findRowIndexById(env, SHEETS.SUBJECTS, String(data.id || ""));
+  if (rowIndex === -1) throw new Error("Subject not found");
+  const rowNum = rowIndex + 1;
+  // term (E) and code (F) only; name/color stay as they are.
+  await updateSheetRow(env, `${SHEETS.SUBJECTS}!E${rowNum}:F${rowNum}`, [
+    textCell(String(data.term ?? "").trim()),
+    String(data.code ?? "").trim(),
+  ]);
+  return "ok";
 }
 
 async function getComments(env: Bindings, homeworkId?: string, ownerEmail?: string) {
@@ -3126,7 +3212,8 @@ app.get('/', async (c) => {
             String(hw.title || '').toLowerCase().includes(q) ||
             String(hw.subject || '').toLowerCase().includes(q) ||
             String(hw.description || '').toLowerCase().includes(q) ||
-            String(hw.id || '').toLowerCase().includes(q)
+            String(hw.id || '').toLowerCase().includes(q) ||
+            String(hw.tags || '').toLowerCase().includes(q)
           );
         }
         result = paginateItems(tasks, page, limit);
@@ -3153,7 +3240,8 @@ app.get('/', async (c) => {
             String(item.title || '').toLowerCase().includes(q) ||
             String(item.description || '').toLowerCase().includes(q) ||
             String(item.id || '').toLowerCase().includes(q) ||
-            String(item.subject || '').toLowerCase().includes(q)
+            String(item.subject || '').toLowerCase().includes(q) ||
+            String(item.tags || '').toLowerCase().includes(q)
           );
         }
         result = paginateItems(items, page, limit);
@@ -3337,7 +3425,13 @@ app.post('/', async (c) => {
       }
       case "addSubject": {
         await requireAdmin(c);
-        result = await addSubject(c.env, getVal('name'), getVal('color'));
+        result = await addSubject(c.env, getVal('name'), getVal('color'), getVal('term'), getVal('code'));
+        await clearBatchDataCache(c.env);
+        break;
+      }
+      case "updateSubject": {
+        await requireAdmin(c);
+        result = await updateSubject(c.env, body);
         await clearBatchDataCache(c.env);
         break;
       }

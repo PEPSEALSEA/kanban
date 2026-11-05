@@ -2,6 +2,8 @@
 
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { useData } from '@/components/DataProvider';
+import { CURRENT_TERM } from '@/lib/config';
+import { currentTermSubjects, subjectTerm } from '@/lib/terms';
 import CreateContentModal from '@/components/CreateContentModal';
 import EditContentModal from '@/components/EditContentModal';
 import BatchAudioTranscriptionModal from '@/components/BatchAudioTranscriptionModal';
@@ -263,7 +265,7 @@ function BatchAudioUploadModal({
     padding: '1rem',
   };
 
-  const subjectOptions = [...subjects.map((s) => s.name), 'Other'];
+  const subjectOptions = [...currentTermSubjects(subjects).map((s) => s.name), 'Other'];
 
   return (
     <div style={overlayStyle}>
@@ -591,7 +593,20 @@ export default function ContentArchiveEditor() {
     void loadContent();
   }, [loadContent]);
 
-  const filterSubjects = ['All', ...subjects.map(s => s.name), 'Other'];
+  const currentNames = currentTermSubjects(subjects).map(s => s.name);
+  const filterSubjects = ['All', ...currentNames, 'Other'];
+  const previousSubjectGroups = (() => {
+    const known = new Set(currentNames.map(n => n.trim().toLowerCase()));
+    const groups = new Map<string, string[]>();
+    for (const s of subjects) {
+      const term = subjectTerm(s);
+      const key = s.name.trim().toLowerCase();
+      if (term === CURRENT_TERM || known.has(key)) continue;
+      known.add(key);
+      groups.set(term, [...(groups.get(term) || []), s.name]);
+    }
+    return Array.from(groups.entries());
+  })();
 
   if (listLoading && items.length === 0 && !activeModal) {
     return (
@@ -651,6 +666,11 @@ export default function ContentArchiveEditor() {
               style={{ width: '100%', padding: '0.7rem', borderRadius: '0.5rem', border: '1px solid var(--admin-border)', outline: 'none' }}
             >
               {filterSubjects.map(s => <option key={s} value={s}>{s}</option>)}
+              {previousSubjectGroups.map(([term, names]) => (
+                <optgroup key={term} label={`เทอมก่อนหน้า ${term}`}>
+                  {names.map(n => <option key={`${term}-${n}`} value={n}>{n}</option>)}
+                </optgroup>
+              ))}
             </select>
           </div>
           <div style={{ width: '190px' }}>

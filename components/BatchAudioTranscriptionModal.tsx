@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useData } from './DataProvider';
+import { currentTermSubjects } from '@/lib/terms';
 import MarkdownRenderer from './MarkdownRenderer';
 import { compressAudioIfNeeded } from '@/lib/audio-compressor';
 import {
@@ -18,7 +19,8 @@ const control: React.CSSProperties = { width: '100%', padding: '0.6rem', border:
 const button: React.CSSProperties = { padding: '0.55rem 0.85rem', borderRadius: '0.5rem', border: '1px solid var(--admin-border)', color: 'var(--admin-text-main)', background: 'var(--admin-bg-soft)', cursor: 'pointer' };
 
 export default function BatchAudioTranscriptionModal({ onClose, onRefresh }: { onClose: () => void; onRefresh: () => void | Promise<void> }) {
-  const { subjects, user } = useData();
+  const { subjects: allSubjects, user } = useData();
+  const subjects = currentTermSubjects(allSubjects);
   const [jobs, setJobs] = useState<AudioJob[]>([]);
   const jobsRef = useRef<AudioJob[]>([]);
   const [model, setModel] = useState<string>(AUDIO_MODELS[0].id);

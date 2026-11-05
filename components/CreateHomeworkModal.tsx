@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { uploadToTelegramDirect } from '@/lib/telegram';
 import { useDeviceDetection } from '@/hooks/useDeviceDetection';
 import { useData } from '@/components/DataProvider';
+import { currentTermSubjects } from '@/lib/terms';
 import AttachmentFileInput from '@/components/AttachmentFileInput';
 
 import { API_URL, UPLOAD_SERVICE_URL } from '@/lib/config';
@@ -14,7 +15,8 @@ const GAS_WEB_APP_URL = API_URL;
 const UPLOAD_WEB_APP_URL = UPLOAD_SERVICE_URL;
 
 export default function CreateHomeworkModal({ onClose, onRefresh }: { onClose: () => void; onRefresh: () => void | Promise<void> }) {
-  const { subjects } = useData();
+  const { subjects: allSubjects } = useData();
+  const subjects = currentTermSubjects(allSubjects);
   const [formData, setFormData] = useState({
     subject: subjects[0]?.name || 'Other',
     title: '',

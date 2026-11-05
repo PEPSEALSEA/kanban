@@ -5,6 +5,7 @@ import { uploadToTelegramDirect } from '@/lib/telegram';
 import { compressAudioIfNeeded } from '@/lib/audio-compressor';
 import { useDeviceDetection } from '@/hooks/useDeviceDetection';
 import { useData } from '@/components/DataProvider';
+import { currentTermSubjects } from '@/lib/terms';
 import AttachmentFileInput from '@/components/AttachmentFileInput';
 
 import { UPLOAD_SERVICE_URL } from '@/lib/config';
@@ -20,7 +21,8 @@ function isHighSpeedProgress(progress: string) {
 }
 
 export default function CreateContentModal({ onClose, onRefresh }: { onClose: () => void; onRefresh: () => void | Promise<void> }) {
-  const { subjects } = useData();
+  const { subjects: allSubjects } = useData();
+  const subjects = currentTermSubjects(allSubjects);
   const [formData, setFormData] = useState({
     date: (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })(),
     subject: subjects[0]?.name || 'Other',

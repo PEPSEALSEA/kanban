@@ -37,6 +37,7 @@ type Homework = {
   link_work: string;
   link_image: string;
   note: string;
+  tags?: string;
   my_status?: 'pending' | 'in_progress' | 'done';
 };
 
@@ -52,6 +53,7 @@ type LearningContent = {
   attachments: string;
   links: string;
   is_private?: string;
+  tags?: string;
 };
 
 function isSheetTruthy(v?: string) {
@@ -71,6 +73,8 @@ type Subject = {
   id: string;
   name: string;
   color: string;
+  term?: string;
+  code?: string;
 };
 
 export type AnalyticsIpNoteRow = {

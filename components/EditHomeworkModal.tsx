@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { uploadToTelegramDirect } from '@/lib/telegram';
 import { useDeviceDetection } from '@/hooks/useDeviceDetection';
 import { useData } from '@/components/DataProvider';
+import { currentTermSubjects } from '@/lib/terms';
 import AttachmentFileInput from '@/components/AttachmentFileInput';
 
 import { API_URL, UPLOAD_SERVICE_URL } from '@/lib/config';
@@ -23,6 +24,11 @@ export default function EditHomeworkModal({
   onRefresh: () => void | Promise<void>; 
 }) {
   const { subjects } = useData();
+  const ownSubject = subjects.find(s => s.name.trim().toLowerCase() === (homework.subject || '').trim().toLowerCase());
+  const termSubjects = currentTermSubjects(subjects);
+  const subjectChoices = ownSubject && !termSubjects.some(s => s.name.trim().toLowerCase() === ownSubject.name.trim().toLowerCase())
+    ? [...termSubjects, ownSubject]
+    : termSubjects;
   const parseLinks = (links: string | undefined): string[] => {
     if (!links) return [];
     return links.split(',').filter(Boolean);
@@ -180,7 +186,7 @@ export default function EditHomeworkModal({
                 onChange={e => setFormData({ ...formData, subject: e.target.value })}
                 style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid var(--admin-border)', outline: 'none' }}
               >
-                 {subjects.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                 {subjectChoices.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
                  <option value="Other">Other</option>
               </select>
               {formData.subject === 'Other' && (
