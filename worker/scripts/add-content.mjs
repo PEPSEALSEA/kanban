@@ -11,7 +11,8 @@
 //   --term N/YYYY      Defaults to CURRENT_TERM in lib/config.ts
 //   --audio <path>     Also archive this audio (<=19 MB) and attach it. Needs CLI_ADMIN_KEY (worker/.dev.vars or env)
 //                      matching the Worker secret; goes through POST /api/cli/content. Idempotent (re-runs skip).
-//   --api <url>        Worker URL override (default WORKER_URL in .dev.vars, else the production Worker)
+//   --replace-audio    With --audio on a card that was already imported: upload the audio again and swap only its audio columns
+//   --api <url>       Worker URL override (default WORKER_URL in .dev.vars, else the production Worker)
 //
 // The row gets tags "<term>,<course code>" (code from the current-term Subjects row, if it has one).
 // Audio is not handled here: the audio archive needs the Worker's Telegram secrets, so attach the audio afterwards
@@ -148,11 +149,12 @@ if (audioPath) {
   form.append('title', title);
   form.append('description', markdown);
   form.append('is_private', flag('private') ? '1' : '');
+  if (flag('replace-audio')) form.append('replace_audio', '1');
   form.append('audio', new Blob([fs.readFileSync(audioPath)]), path.basename(audioPath));
   const r = await fetch(`${API_URL}/api/cli/content`, { method: 'POST', headers: { 'X-CLI-Key': CLI_KEY }, body: form });
   const out = await r.json().catch(() => ({}));
   if (!r.ok || !out.success) fail(`Worker import failed: ${r.status} ${out.error || ''}`);
-  console.log(`\n${out.existed ? 'Already imported (skipped)' : 'Imported with audio'}: ${out.id}`);
+  console.log(`\n${out.replacedAudio ? 'Audio replaced on existing card' : out.existed ? 'Already imported (skipped)' : 'Imported with audio'}: ${out.id}`);
   process.exit(0);
 }
 

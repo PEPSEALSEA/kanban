@@ -3002,7 +3002,9 @@ app.post('/api/cli/content', async c => {
 
     const id = `LC-CLI-${key}`;
     const existing = await getSheetValues(c.env, `${SHEETS.LEARNING_CONTENT}!A:A`);
-    if (existing.some((row: unknown[]) => String(row[0] || '') === id)) return c.json({ success: true, id, existed: true });
+    const existingIndex = existing.findIndex((row: unknown[]) => String(row[0] || '') === id);
+    const replaceAudio = field('replace_audio') === '1';
+    if (existingIndex !== -1 && !replaceAudio) return c.json({ success: true, id, existed: true });
 
     let audioFileId = '';
     let audioUrl = '';
@@ -3012,16 +3014,21 @@ app.post('/api/cli/content', async c => {
       const mime = CLI_AUDIO_MIME[filename.split('.').pop()?.toLowerCase() || ''];
       if (!mime) return c.json({ success: false, error: 'unsupported audio type' }, 400);
       if (!audio.size || audio.size > CLI_AUDIO_MAX_BYTES) return c.json({ success: false, error: 'audio empty or over 19 MB' }, 413);
-      if (!c.env.TELEGRAM_BOT_TOKEN || !c.env.TELEGRAM_CHAT_ID) return c.json({ success: false, error: 'Telegram is not configured' }, 503);
-      const tg = new FormData();
-      tg.append('chat_id', c.env.TELEGRAM_CHAT_ID);
-      tg.append('document', audio.slice(0, audio.size, mime), filename);
-      const res = await fetch(`https://api.telegram.org/bot${c.env.TELEGRAM_BOT_TOKEN}/sendDocument`, { method: 'POST', body: tg, signal: AbortSignal.timeout(120000) });
-      const data = await res.json() as { ok?: boolean; result?: { document?: { file_id?: string } } };
-      const fileId = data.result?.document?.file_id;
-      if (!res.ok || !data.ok || !fileId) return c.json({ success: false, error: 'audio archive failed' }, 502);
-      audioFileId = fileId;
-      audioUrl = `${new URL(c.req.url).origin}/api/file-download?fileId=${encodeURIComponent(fileId)}#${encodeURIComponent(filename)}#${fileId}`;
+      // Same path as the app's own "uploadAudio" action: sendAudio (real Telegram audio, previewable) and the
+      // stored "<telegram url>#<filename>#<fileId>" format that CreateContentModal/AudioPlayer expect.
+      const uploaded = await uploadToTelegram(c.env, audio.slice(0, audio.size, mime), filename, mime);
+      audioFileId = uploaded.fileId;
+      audioUrl = `${uploaded.url}#${encodeURIComponent(filename)}#${uploaded.fileId}`;
+    }
+
+    if (existingIndex !== -1) {
+      // replace_audio on an already-imported card: swap only the audio columns (F:G).
+      if (!audioFileId) return c.json({ success: false, error: 'replace_audio needs an audio file' }, 400);
+      const rowNum = existingIndex + 1;
+      await updateSheetRow(c.env, `${SHEETS.LEARNING_CONTENT}!F${rowNum}:G${rowNum}`, [audioFileId, audioUrl]);
+      await markLearningContentFastReadStale(c.env);
+      c.executionCtx.waitUntil(syncLearningContentToFastRead(c.env).catch(e => recordFastReadSyncError(c.env, 'learning_content', e)));
+      return c.json({ success: true, id, existed: true, replacedAudio: true });
     }
 
     await addLearningContent(c.env, {
