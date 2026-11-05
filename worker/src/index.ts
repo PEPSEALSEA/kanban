@@ -3472,12 +3472,11 @@ export default {
     return app.fetch(request, env, ctx);
   },
   async scheduled(controller: ScheduledController, env: Bindings, ctx: ExecutionContext) {
+    // Content is edited outside the app too (AI / scripts writing straight to the Sheet), so the
+    // D1 copy is refreshed on every tick even when nobody is using the app. The sync is hash-based:
+    // one Sheets read + one D1 read of (id, hash), and writes only the rows that changed.
     ctx.waitUntil(
       (async () => {
-        if (!(await hasRecentAppActivity(env))) {
-          console.log("fast-read sync skipped: no recent app activity", { cron: controller.cron });
-          return;
-        }
         try {
           const result = await syncLearningContentToFastRead(env);
           console.log("fast-read sync complete", { cron: controller.cron, ...result });

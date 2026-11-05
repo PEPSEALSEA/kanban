@@ -34,7 +34,7 @@ node worker/scripts/term-rollover.mjs --apply    # writes to the Google Sheet
 - Rows that already have tags are skipped, so re-running is safe.
 - Writes use `RAW` so `1/2569` stays text (Sheets would turn it into a date with `USER_ENTERED`). The Worker prefixes tag/term cells with `'` for the same reason.
 - Backups go to `worker/scripts/backups/` (git-ignored).
-- After a bulk write, the D1 fast-read copy refreshes on the next sync (hourly cron, or when any content is added/edited).
+- After a bulk write (or any direct edit of the Sheet by an AI / script), the D1 fast-read copy refreshes on the next cron tick (every 10 minutes, no app activity needed), or immediately when content is added/edited through the app, or via Admin → Dashboard → Sync Fast Cache.
 
 ## One-time setup done for 1/2569 → 2/2569
 
