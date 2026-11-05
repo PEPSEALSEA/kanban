@@ -16,6 +16,7 @@ const UPLOAD_WEB_APP_URL = UPLOAD_SERVICE_URL;
 import { isAdminEmail } from '@/lib/admin';
 import { formatThaiRelativeDayLabel } from '@/lib/thaiDate';
 import { subjectBadgeStyle } from '@/lib/colors';
+import TagBadges from '@/components/TagBadges';
 import {
   IconCalendar,
   IconCheck,
@@ -57,6 +58,7 @@ type Homework = {
   link_work: string;
   link_image: string;
   note: string;
+  tags?: string;
   my_status?: 'pending' | 'in_progress' | 'done';
 };
 
@@ -623,6 +625,7 @@ export default function StudyFlow() {
                               >
                                 {hw.subject}
                               </span>
+                              <TagBadges tags={hw.tags} />
                             </div>
                             <h4 className={`text-md font-semibold text-slate-800 leading-snug mb-3 ${isDone ? 'line-through text-slate-400' : ''}`}>
                               {hw.title}
@@ -821,6 +824,7 @@ export default function StudyFlow() {
                                 <div className="text-[10px] font-bold uppercase mb-1" style={{ color: subColor }}>
                                   {task.subject}
                                 </div>
+                                <TagBadges tags={task.tags} className="mb-1" />
                                 <div className={`text-sm font-bold leading-tight ${isDone ? 'line-through text-slate-400' : 'text-slate-800'}`}>
                                   {task.title}
                                 </div>
@@ -897,6 +901,7 @@ export default function StudyFlow() {
                       </div>
                       <div className="flex-1">
                         <div className="text-[10px] font-bold uppercase text-slate-400 mb-0.5 tracking-wider">{task.subject}</div>
+                        <TagBadges tags={task.tags} className="mb-1" />
                         <div className={`font-semibold text-sm text-slate-800 leading-tight ${isDone ? 'line-through text-slate-400' : ''}`}>{task.title}</div>
                       </div>
                       <IconChevronRight className="w-4 h-4 text-slate-300 group-hover:text-sky-500 shrink-0" />
@@ -940,6 +945,7 @@ export default function StudyFlow() {
               >
                 {activeHomework.subject}
               </span>
+              <TagBadges tags={activeHomework.tags} className="ml-2 align-middle" />
               <h2 className="text-3xl md:text-4xl font-bold mb-4 tracking-tight text-slate-800 leading-tight">{activeHomework.title}</h2>
               <div className="flex gap-6 text-xs font-semibold text-slate-400 uppercase tracking-widest">
                 <span className="flex items-center gap-2"><IconCalendar className="w-4 h-4" /> {new Date(activeHomework.deadline).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}</span>

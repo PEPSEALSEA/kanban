@@ -9,6 +9,9 @@ import { useDeviceDetection } from '@/hooks/useDeviceDetection';
 import AdminPagination from '@/components/admin/AdminPagination';
 import { fetchAdminJson, type AdminListResult, type AdminPageSize } from '@/lib/adminList';
 import { IconHourglass, IconMegaphone, IconX } from '@/components/icons';
+import TagBadges from '@/components/TagBadges';
+import { CURRENT_TERM } from '@/lib/config';
+import { listTerms } from '@/lib/terms';
 
 type SummaryPreviewMode = 'rendered' | 'raw';
 
@@ -54,6 +57,7 @@ type HomeworkRow = {
   description?: string;
   deadline?: string;
   link_image?: string;
+  tags?: string;
 };
 
 export default function KanbanEditor() {
@@ -64,6 +68,7 @@ export default function KanbanEditor() {
   const [limit, setLimit] = useState<AdminPageSize>(20);
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [termFilter, setTermFilter] = useState('All');
   const [listLoading, setListLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
   const [editingHomework, setEditingHomework] = useState<any>(null);
@@ -99,7 +104,7 @@ export default function KanbanEditor() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, limit]);
+  }, [debouncedSearch, termFilter, limit]);
 
   const loadHomework = useCallback(async () => {
     setListLoading(true);
@@ -109,6 +114,7 @@ export default function KanbanEditor() {
         page,
         limit,
         q: debouncedSearch || undefined,
+        term: termFilter !== 'All' ? termFilter : undefined,
       });
       setHomework(data.items || []);
       setTotal(data.total || 0);
@@ -119,7 +125,9 @@ export default function KanbanEditor() {
     } finally {
       setListLoading(false);
     }
-  }, [page, limit, debouncedSearch]);
+  }, [page, limit, debouncedSearch, termFilter]);
+
+  const termOptions = useMemo(() => listTerms(subjects), [subjects]);
 
   useEffect(() => {
     void loadHomework();
@@ -451,9 +459,20 @@ export default function KanbanEditor() {
       )}
 
       <div className="admin-card" style={{ marginBottom: '2rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+          <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--admin-text-muted)', textTransform: 'uppercase' }}>Term</label>
+          <select
+            value={termFilter}
+            onChange={(e) => setTermFilter(e.target.value)}
+            style={{ padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid var(--admin-border)', outline: 'none' }}
+          >
+            <option value="All">All terms</option>
+            {termOptions.map((t) => <option key={t} value={t}>{t === CURRENT_TERM ? `${t} (ปัจจุบัน)` : t}</option>)}
+          </select>
+        </div>
         <input
           type="text"
-          placeholder="Search tasks by title, subject, or description..."
+          placeholder="Search tasks by title, subject, tag or description..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           style={{
@@ -497,6 +516,7 @@ export default function KanbanEditor() {
                     }}>
                       {hw.subject}
                     </span>
+                    <TagBadges tags={hw.tags} className="ml-2" />
                     <span style={{ fontSize: '0.8rem', color: 'var(--admin-text-muted)' }}>
                       {hw.deadline ? new Date(hw.deadline).toLocaleDateString() : 'No deadline'}
                     </span>
@@ -555,6 +575,7 @@ export default function KanbanEditor() {
                       }}>
                         {hw.subject}
                       </span>
+                      <TagBadges tags={hw.tags} className="ml-2" />
                     </td>
                     <td style={{ padding: '1rem', fontWeight: 600, color: 'var(--admin-text-main)' }}>{hw.title}</td>
                     <td style={{ padding: '1rem', color: 'var(--admin-text-muted)' }}>

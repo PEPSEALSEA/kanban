@@ -3,7 +3,8 @@
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { useData } from '@/components/DataProvider';
 import { CURRENT_TERM } from '@/lib/config';
-import { currentTermSubjects, subjectTerm } from '@/lib/terms';
+import { currentTermSubjects, listTerms, subjectTerm } from '@/lib/terms';
+import TagBadges from '@/components/TagBadges';
 import CreateContentModal from '@/components/CreateContentModal';
 import EditContentModal from '@/components/EditContentModal';
 import BatchAudioTranscriptionModal from '@/components/BatchAudioTranscriptionModal';
@@ -28,6 +29,7 @@ type LearningContent = {
   attachments: string;
   links: string;
   is_private?: string;
+  tags?: string;
 };
 
 const isPrivateContent = (item: LearningContent) => item.is_private === '1' || String(item.is_private || '').toLowerCase() === 'true';
@@ -464,7 +466,7 @@ const ContentItem = React.memo(({ item, subjects, onEdit, isMobile }: { item: Le
             {item.subject}
           </span>
         </div>
-        <div style={{ fontSize: '0.7rem', color: 'var(--admin-text-muted)', marginBottom: '-0.5rem' }}>ID: {item.id}</div>
+        <div style={{ fontSize: '0.7rem', color: 'var(--admin-text-muted)', marginBottom: '-0.5rem' }}>ID: {item.id} <TagBadges tags={item.tags} className="ml-1" /></div>
         <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--admin-text-main)', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
           <span style={{ color: item.title?.trim() ? 'var(--admin-text-main)' : '#f59e0b' }}>{title}</span>
           {isPrivateContent(item) && (
@@ -520,6 +522,7 @@ const ContentItem = React.memo(({ item, subjects, onEdit, isMobile }: { item: Le
         }}>
           {item.subject}
         </span>
+        <div style={{ marginTop: '0.35rem' }}><TagBadges tags={item.tags} /></div>
       </td>
       <td style={{ verticalAlign: 'top' }}>
         <div style={{ display: 'flex', gap: '8px' }}>
@@ -552,6 +555,7 @@ export default function ContentArchiveEditor() {
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [subjectFilter, setSubjectFilter] = useState('All');
+  const [termFilter, setTermFilter] = useState('All');
   const [titleFilter, setTitleFilter] = useState<'all' | 'missing'>('all');
   const [listLoading, setListLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
@@ -565,7 +569,7 @@ export default function ContentArchiveEditor() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, subjectFilter, titleFilter, limit]);
+  }, [debouncedSearch, subjectFilter, termFilter, titleFilter, limit]);
 
   const loadContent = useCallback(async () => {
     setListLoading(true);
@@ -576,6 +580,7 @@ export default function ContentArchiveEditor() {
         limit,
         q: debouncedSearch || undefined,
         subject: subjectFilter !== 'All' ? subjectFilter : undefined,
+        term: termFilter !== 'All' ? termFilter : undefined,
         missingTitle: titleFilter === 'missing' ? '1' : undefined,
       });
       setItems(data.items || []);
@@ -587,12 +592,13 @@ export default function ContentArchiveEditor() {
     } finally {
       setListLoading(false);
     }
-  }, [page, limit, debouncedSearch, subjectFilter, titleFilter]);
+  }, [page, limit, debouncedSearch, subjectFilter, termFilter, titleFilter]);
 
   useEffect(() => {
     void loadContent();
   }, [loadContent]);
 
+  const termOptions = listTerms(subjects);
   const currentNames = currentTermSubjects(subjects).map(s => s.name);
   const filterSubjects = ['All', ...currentNames, 'Other'];
   const previousSubjectGroups = (() => {
@@ -657,6 +663,17 @@ export default function ContentArchiveEditor() {
                 style={{ width: '100%', padding: '0.7rem 0.7rem 0.7rem 2.5rem', borderRadius: '0.5rem', border: '1px solid var(--admin-border)', outline: 'none' }}
               />
             </div>
+          </div>
+          <div style={{ width: '150px' }}>
+            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--admin-text-muted)', marginBottom: '0.5rem', textTransform: 'uppercase' }}>Term</label>
+            <select
+              value={termFilter}
+              onChange={(e) => setTermFilter(e.target.value)}
+              style={{ width: '100%', padding: '0.7rem', borderRadius: '0.5rem', border: '1px solid var(--admin-border)', outline: 'none' }}
+            >
+              <option value="All">All terms</option>
+              {termOptions.map((t) => <option key={t} value={t}>{t === CURRENT_TERM ? `${t} (ปัจจุบัน)` : t}</option>)}
+            </select>
           </div>
           <div style={{ width: '200px' }}>
             <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--admin-text-muted)', marginBottom: '0.5rem', textTransform: 'uppercase' }}>Subject</label>

@@ -2346,6 +2346,24 @@ async function resolveNewRowTags(env: Bindings, subjectName: unknown, explicit: 
   return joinTags(tags);
 }
 
+const TERM_TAG_RE = /^\d{1,2}\/\d{4}$/;
+
+// When a row's subject changes, keep its term tag(s) and custom tags but swap the course-code tag
+// for the code of the new subject in that term.
+async function retagForSubject(env: Bindings, subjectName: unknown, existingTags: unknown): Promise<string> {
+  const existing = normalizeTags(existingTags);
+  const termTags = existing.filter((t) => TERM_TAG_RE.test(t));
+  const terms = termTags.length ? termTags : [CURRENT_TERM];
+  const subjects = await getSubjects(env);
+  const knownCodes = new Set(subjects.map((s: any) => String(s.code || "").trim()).filter(Boolean));
+  const others = existing.filter((t) => !TERM_TAG_RE.test(t) && !knownCodes.has(t));
+  const key = normalizeSubjectKey(subjectName);
+  const match = subjects.find(
+    (s: any) => normalizeSubjectKey(s.name) === key && String(s.term || "").trim() === terms[0] && String(s.code || "").trim()
+  );
+  return joinTags([...terms, ...(match ? [String(match.code).trim()] : []), ...others]);
+}
+
 async function addHomework(env: Bindings, data: any) {
   const id = Date.now().toString();
   const tags = await resolveNewRowTags(env, data.subject, data.tags);
@@ -2358,11 +2376,18 @@ async function editHomework(env: Bindings, data: any) {
   const rowIndex = await findRowIndexById(env, SHEETS.HOMEWORK, data.id);
   if (rowIndex === -1) throw new Error("Homework not found");
   const rowNum = rowIndex + 1;
+  const prevRow = (await getSheetValues(env, `${SHEETS.HOMEWORK}!A${rowNum}:J${rowNum}`))[0] || [];
   const row = [data.id, data.subject, data.title, data.description, data.deadline, data.link_work, data.link_image, data.note];
   await updateSheetRow(env, `${SHEETS.HOMEWORK}!A${rowNum}:H${rowNum}`, row);
-  // Only touch the tags column (J) when the caller sends tags; otherwise keep what is stored.
+  // Tags (col J): explicit tags win; a changed subject swaps the course-code tag; otherwise keep what is stored.
+  let nextTags: string | null = null;
   if (data.tags !== undefined) {
-    await updateSheetRow(env, `${SHEETS.HOMEWORK}!J${rowNum}`, [textCell(joinTags(data.tags))]);
+    nextTags = joinTags(data.tags);
+  } else if (data.subject && normalizeSubjectKey(data.subject) !== normalizeSubjectKey(prevRow[1])) {
+    nextTags = await retagForSubject(env, data.subject, prevRow[9]);
+  }
+  if (nextTags !== null) {
+    await updateSheetRow(env, `${SHEETS.HOMEWORK}!J${rowNum}`, [textCell(nextTags)]);
   }
   return "ok";
 }
@@ -2384,15 +2409,25 @@ async function editLearningContent(env: Bindings, data: any) {
   const prev = existing[0] || [];
   let createdAt = '';
   let prevTags = '';
+  let prevSubject = '';
   const idAt = prev.findIndex((c: any) => String(c || '').trim().startsWith('LC-'));
   if (idAt >= 0) {
     createdAt = String(prev[idAt + 10] || prev[10] || '');
     prevTags = String(prev[idAt + 11] || prev[11] || '');
+    prevSubject = String(prev[idAt + 2] || prev[2] || '');
   }
-  // Keep stored tags unless the caller sends new ones; backfill if the row has none yet.
-  const tags = data.tags !== undefined
-    ? joinTags(data.tags)
-    : (joinTags(prevTags) || await resolveNewRowTags(env, data.subject, undefined));
+  // Tags: explicit tags win; a changed subject swaps the course-code tag; otherwise keep what is stored
+  // (and backfill if the row has none yet).
+  let tags: string;
+  if (data.tags !== undefined) {
+    tags = joinTags(data.tags);
+  } else if (!joinTags(prevTags)) {
+    tags = await resolveNewRowTags(env, data.subject, undefined);
+  } else if (data.subject && normalizeSubjectKey(data.subject) !== normalizeSubjectKey(prevSubject)) {
+    tags = await retagForSubject(env, data.subject, prevTags);
+  } else {
+    tags = joinTags(prevTags);
+  }
   const row = [
     data.id,
     data.date,
@@ -3207,6 +3242,10 @@ app.get('/', async (c) => {
           if (dateB !== dateA) return dateB - dateA;
           return String(b.id).localeCompare(String(a.id));
         });
+        const termFilter = String(c.req.query('term') || '').trim();
+        if (termFilter && termFilter.toLowerCase() !== 'all') {
+          tasks = tasks.filter((hw: any) => normalizeTags(hw.tags).includes(termFilter));
+        }
         if (q) {
           tasks = tasks.filter((hw: any) =>
             String(hw.title || '').toLowerCase().includes(q) ||
@@ -3231,6 +3270,10 @@ app.get('/', async (c) => {
           items = items.filter((item: any) =>
             String(item.subject || '').trim().toLowerCase() === subject.toLowerCase()
           );
+        }
+        const termFilter = String(c.req.query('term') || '').trim();
+        if (termFilter && termFilter.toLowerCase() !== 'all') {
+          items = items.filter((item: any) => normalizeTags(item.tags).includes(termFilter));
         }
         if (missingTitle) {
           items = items.filter((item: any) => !String(item.title || '').trim());
