@@ -57,6 +57,14 @@ cd worker; npx wrangler deploy
 - Changing sheet columns in code but not running **Fix Sheets** / `fixSheetHeaders`
 - Skipping `npm run build` before commit/push
 
+## Audio + transcript → Learning Content (standing workflow)
+
+When the user sends audio file(s) and/or transcript text file(s) and wants them on Learning Content (e.g. "อัปเดตขึ้น learning content", or just drops both), follow **`docs/AI_CONTENT_WORKFLOW.md`** steps A–F without being told each step:
+
+A. Pair audio + transcript (they can arrive in separate messages; wait until a lesson has both) → B. compress audio over 19 MiB with `scripts/audio-compress.mjs` (whole batch in one parallel run) → C. write the lesson with the teaching template (`TEACHING_PROMPT` in `shared/audioTranscript.ts`) into `content-drafts/` → D. pick subject (current term) / date / private → E. `worker/scripts/add-content.mjs --audio …` dry-run, then `--apply` (the user's request is the authorization; ask only if something is ambiguous) → F. report title, subject, date, tags, audio, card id.
+
+Never print `CLI_ADMIN_KEY` or other secrets.
+
 ## NotebookLM import (when user asks to create a new LM notebook)
 
 **Do not** paste Worker `.txt` URLs into NotebookLM one-by-one in chat and wait. That often creates red `web_page` sources that fail to load.
